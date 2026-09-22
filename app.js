@@ -1,7 +1,7 @@
 import { supabase } from './supabase.js';
 
 const ADMIN_EMAILS = ['kolibri@wosb.ru'];
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.1.0';
 
 const TABS = ['enemies', 'friends', 'neutral', 'personal'];
 const UNLOCK_KEY = 'guild_unlocked';
@@ -41,8 +41,10 @@ let tradeFilterClan = 'all';
 let heartbeatTimer = null;
 let chatChannel   = null;
 let onlineChannel = null;
+let notifChannel  = null;
 let chatMessages  = [];
 let notifications = [];
+let chatMode      = 'guild';
 
 const $ = id => document.getElementById(id);
 const screenHome  = $('screen-home');
@@ -81,7 +83,7 @@ function colorFromString(str) {
 }
 
 /* ============================================================
-   ТЕМА (НОВОЕ)
+   ТЕМА
 ============================================================ */
 function applyTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
@@ -182,13 +184,14 @@ function currentBgKey() { return currentClan ? currentClan : 'main'; }
 function currentBgFallback() {
     if (currentClan && clansCache[currentClan]?.bg) return clansCache[currentClan].bg;
     if (currentGame && gamesCache[currentGame]?.bg) return gamesCache[currentGame].bg;
-    return 'images/bg-main.jpg';
+    return null;
 }
 function applyBg() {
     const key = currentBgKey();
     const override = getOverrides()[key];
     const url = override || currentBgFallback();
-    document.body.style.backgroundImage = url ? `url('${url}')` : '';
+    if (url) document.body.style.backgroundImage = `url('${url}')`;
+    else document.body.style.backgroundImage = '';
 }
 function compressImage(file, maxW = 1920, quality = 0.8) {
     return new Promise((resolve, reject) => {
@@ -211,18 +214,18 @@ function compressImage(file, maxW = 1920, quality = 0.8) {
         reader.readAsDataURL(file);
     });
 }
-$('bgChangeBtn').addEventListener('click', () => {
+$('bgChangeBtn')?.addEventListener('click', () => {
     if (!isAdmin) return;
     bgFileInput.value = ''; bgFileInput.click();
 });
-bgFileInput.addEventListener('change', async () => {
+bgFileInput?.addEventListener('change', async () => {
     const file = bgFileInput.files[0]; if (!file) return;
     try {
         const dataUrl = await compressImage(file);
         if (setOverride(currentBgKey(), dataUrl)) applyBg();
     } catch (err) { alert('Не удалось обработать: ' + err.message); }
 });
-$('bgResetBtn').addEventListener('click', () => {
+$('bgResetBtn')?.addEventListener('click', () => {
     if (!isAdmin) return;
     const key = currentBgKey();
     if (!getOverrides()[key]) return alert('Уже стоит стандартный фон.');
@@ -413,6 +416,8 @@ function applyAdminUI() {
     document.querySelectorAll('.add-form.admin-only').forEach(el => {
         el.style.display = isAdmin ? 'flex' : 'none';
     });
+    const clearBtn = $('chatClear');
+    if (clearBtn) clearBtn.hidden = !isAdmin;
     renderAll();
 }
 function openAdminPage() {
@@ -614,6 +619,7 @@ function openClan(id) {
 }
 $('backBtn').addEventListener('click', () => {
     currentClan = null;
+    closeChat();
     showScreen('home');
     sendHeartbeat();
     closeRealtime();
@@ -623,6 +629,7 @@ $('clanLeaveBtn').addEventListener('click', () => {
     localStorage.removeItem(UNLOCK_KEY);
     localStorage.removeItem(LAST_CLAN_KEY);
     currentClan = null;
+    closeChat();
     closeRealtime();
     showScreen('home');
     sendHeartbeat();
@@ -1416,7 +1423,6 @@ $('tm-listings')?.addEventListener('click', async e => {
         const { error } = await supabase.from('trades').update({ status: 'done' }).eq('id', id);
         if (error) return alert(error.message);
         await logAdminAction('Подтвердил сделку', `${t.name} — с ${t.accepted_by}`);
-        // уведомление принявшему
         await createNotification(t.accepted_by, 'trade', 'Сделка завершена',
             `Сделка «${t.name}» подтверждена владельцем`, null);
         renderTrades();
@@ -1521,7 +1527,6 @@ $('doAcceptTrade')?.addEventListener('click', async () => {
     localStorage.setItem(VIEWER_NICK_KEY, nick);
     sendHeartbeat();
     await logAdminAction('Принял торговую заявку', `${acceptingTrade.name} — ${nick}`);
-    // уведомление владельцу
     await createNotification(acceptingTrade.nickname, 'trade', 'Вашу заявку приняли',
         `${nick} принял заявку «${acceptingTrade.name}»`, null);
     const tn = $('tm-nickname');
@@ -1998,7 +2003,7 @@ $('tacAddBtn')?.addEventListener('click', async () => {
 });
 
 /* ============================================================
-   НАСТРОЙКИ
+   НАСТРОЙКИ + СТАТИСТИКА
 ============================================================ */
 async function loadSettings() {
     const { data, error } = await supabase.from('site_settings').select('*').eq('id', 'main').single();
@@ -2481,8 +2486,9 @@ async function handleBuildHash() {
 window.addEventListener('hashchange', () => {
     if (location.hash.startsWith('#build=')) handleBuildHash();
 });
+
 /* ============================================================
-   👤 ПРОФИЛЬ ИГРОКА (НОВОЕ)
+   👤 ПРОФИЛЬ ИГРОКА
 ============================================================ */
 async function openProfile(nickname) {
     if (!nickname) return;
@@ -2492,15 +2498,13 @@ async function openProfile(nickname) {
     $('profileModal').hidden = false;
 
     try {
-        // Считаем сколько раз ник встречается в разных таблицах
-        const [en, fr, ne, pe, tradesBuy, tradesSell, builds] = await Promise.all([
+        const [en, fr, ne, pe, tradesBuy, tradesSell] = await Promise.all([
             supabase.from('enemies').select('id', { count: 'exact', head: true }).eq('nickname', nickname),
             supabase.from('friends').select('id', { count: 'exact', head: true }).eq('nickname', nickname),
             supabase.from('neutral').select('id', { count: 'exact', head: true }).eq('nickname', nickname),
             supabase.from('personal').select('id', { count: 'exact', head: true }).eq('nickname', nickname),
             supabase.from('trades').select('id', { count: 'exact', head: true }).eq('nickname', nickname).eq('type', 'buy'),
-            supabase.from('trades').select('id', { count: 'exact', head: true }).eq('nickname', nickname).eq('type', 'sell'),
-            supabase.from('builds').select('id', { count: 'exact', head: true })  // не привязано к нику, просто пример
+            supabase.from('trades').select('id', { count: 'exact', head: true }).eq('nickname', nickname).eq('type', 'sell')
         ]);
 
         const stats = [
@@ -2512,7 +2516,6 @@ async function openProfile(nickname) {
             { label: '💰 Заявок на продажу',   value: tradesSell.count || 0 }
         ];
 
-        // Онлайн-статус
         const { data: online } = await supabase
             .from('online_users')
             .select('last_seen')
@@ -2544,7 +2547,7 @@ $('profileModal')?.addEventListener('click', e => {
 });
 
 /* ============================================================
-   🔔 УВЕДОМЛЕНИЯ (НОВОЕ)
+   🔔 УВЕДОМЛЕНИЯ
 ============================================================ */
 async function loadNotifications() {
     const nick = getViewerNick();
@@ -2565,7 +2568,6 @@ function renderNotifications() {
     if (!list) return;
     const unread = notifications.filter(n => !n.is_read).length;
 
-    // Обновляем бейджи
     [$('notifBadge'), $('notifBadge2')].forEach(badge => {
         if (!badge) return;
         if (unread > 0) {
@@ -2597,7 +2599,6 @@ function renderNotifications() {
         </div>
     `).join('');
 
-    // Клик по уведомлению — пометить прочитанным
     list.querySelectorAll('.notif-item').forEach(el => {
         el.addEventListener('click', async () => {
             const id = el.dataset.id;
@@ -2608,7 +2609,6 @@ function renderNotifications() {
                 n.is_read = true;
                 renderNotifications();
             }
-            // Если есть ссылка — переход
             if (n.link) {
                 if (n.link.startsWith('#build=')) {
                     location.hash = n.link;
@@ -2663,19 +2663,52 @@ $('notifMarkAllRead')?.addEventListener('click', async () => {
 });
 
 /* ============================================================
-   💬 ЧАТ ГИЛЬДИИ (НОВОЕ)
+   💬 ЧАТ: ГИЛЬДИЯ + ОБЩИЙ + ОЧИСТКА
 ============================================================ */
+function setChatMode(mode) {
+    chatMode = mode;
+
+    document.querySelectorAll('.chat-tab').forEach(t => {
+        t.classList.toggle('active', t.dataset.mode === mode);
+    });
+
+    const clearBtn = $('chatClear');
+    if (clearBtn) clearBtn.hidden = !isAdmin;
+
+    const input = $('chatInput');
+    if (input) {
+        input.placeholder = mode === 'general'
+            ? 'Общий чат — напишите всем игрокам...'
+            : 'Чат гильдии...';
+    }
+
+    loadChatMessages();
+    initChatRealtime();
+}
+
 async function loadChatMessages() {
-    if (!currentClan) return;
     const container = $('chatMessages');
     if (!container) return;
+
+    if (chatMode === 'guild' && !currentClan) {
+        container.innerHTML = '<p class="empty" style="text-align:center;padding:20px;">🏰 Зайдите в гильдию, чтобы писать в чат гильдии. Или переключитесь на 🌍 Общий.</p>';
+        chatMessages = [];
+        return;
+    }
+
     container.innerHTML = '<p class="empty" style="text-align:center;">Загрузка…</p>';
-    const { data, error } = await supabase
-        .from('chat_messages')
-        .select('*')
-        .eq('clan_id', currentClan)
+
+    let query = supabase.from('chat_messages').select('*');
+    if (chatMode === 'guild') {
+        query = query.eq('clan_id', currentClan);
+    } else {
+        query = query.is('clan_id', null);
+    }
+
+    const { data, error } = await query
         .order('created_at', { ascending: true })
         .limit(100);
+
     if (error) {
         container.innerHTML = `<p class="empty" style="text-align:center;">Ошибка: ${error.message}</p>`;
         return;
@@ -2688,7 +2721,7 @@ function renderChatMessages() {
     const container = $('chatMessages');
     if (!container) return;
     if (!chatMessages.length) {
-        container.innerHTML = '<p class="empty" style="text-align:center;">Сообщений пока нет</p>';
+        container.innerHTML = '<p class="empty" style="text-align:center;padding:20px;">Сообщений пока нет. Будьте первым! 👋</p>';
         return;
     }
     const myNick = getViewerNick().toLowerCase();
@@ -2696,19 +2729,20 @@ function renderChatMessages() {
         const isMine = myNick && (m.nickname || '').toLowerCase() === myNick;
         const d = new Date(m.created_at);
         const time = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+        const dateStr = d.toLocaleDateString('ru-RU');
+        const today = new Date().toLocaleDateString('ru-RU');
+        const timeLabel = dateStr === today ? time : `${dateStr} ${time}`;
         return `
             <div class="chat-message ${isMine ? 'mine' : ''}">
                 <div class="chat-message-head">
                     <span class="chat-message-author" data-nick="${escapeHtml(m.nickname)}">${escapeHtml(m.nickname)}</span>
-                    <span class="chat-message-time">${time}</span>
+                    <span class="chat-message-time">${timeLabel}</span>
                 </div>
                 <div class="chat-message-text">${escapeHtml(m.text)}</div>
             </div>
         `;
     }).join('');
-    // Автоскролл вниз
     container.scrollTop = container.scrollHeight;
-    // Клики по никам
     container.querySelectorAll('.chat-message-author').forEach(el => {
         el.addEventListener('click', () => openProfile(el.dataset.nick));
     });
@@ -2717,21 +2751,28 @@ function renderChatMessages() {
 async function sendChatMessage() {
     const input = $('chatInput');
     const text = input.value.trim();
-    if (!text || !currentClan) return;
+    if (!text) return;
+
+    if (chatMode === 'guild' && !currentClan) {
+        alert('Сначала зайдите в гильдию, либо переключитесь на 🌍 Общий чат');
+        return;
+    }
 
     let nick = getViewerNick();
     if (!nick) {
         nick = prompt('Введите ваш ник для чата:');
-        if (!nick || nick.length < 2) {
+        if (!nick || nick.trim().length < 2) {
             alert('Ник слишком короткий');
             return;
         }
+        nick = nick.trim();
         localStorage.setItem(VIEWER_NICK_KEY, nick);
+        sendHeartbeat();
     }
 
     $('chatSend').disabled = true;
     const { error } = await supabase.from('chat_messages').insert({
-        clan_id: currentClan,
+        clan_id: chatMode === 'guild' ? currentClan : null,
         nickname: nick,
         text
     });
@@ -2742,54 +2783,107 @@ async function sendChatMessage() {
         return;
     }
     input.value = '';
-    // Realtime подхватит и добавит в chatMessages через подписку
 }
 
-function openChat() {
-    if (!currentClan) return;
-    $('chatPanel').hidden = false;
-    loadChatMessages();
+async function clearChat() {
+    if (!isAdmin) return;
+
+    const label = chatMode === 'general'
+        ? 'ОБЩИЙ чат'
+        : `чат гильдии «${clansCache[currentClan]?.name || currentClan}»`;
+    if (!confirm(`Очистить ${label}?\n\nВсе сообщения будут удалены безвозвратно.`)) return;
+
+    if (chatMode === 'guild' && !currentClan) return;
+
+    let query = supabase.from('chat_messages').delete();
+    if (chatMode === 'guild') {
+        query = query.eq('clan_id', currentClan);
+    } else {
+        query = query.is('clan_id', null);
+    }
+
+    const { error } = await query;
+    if (error) {
+        alert('Ошибка: ' + error.message);
+        return;
+    }
+    await logAdminAction(`Очистил чат`, label);
+    chatMessages = [];
+    renderChatMessages();
 }
+
+function openChat(mode) {
+    const clearBtn = $('chatClear');
+    if (clearBtn) clearBtn.hidden = !isAdmin;
+
+    $('chatPanel').hidden = false;
+
+    if (mode) {
+        setChatMode(mode);
+    } else {
+        setChatMode(currentClan ? 'guild' : 'general');
+    }
+}
+
 function closeChat() {
     $('chatPanel').hidden = true;
+    if (chatChannel) { supabase.removeChannel(chatChannel); chatChannel = null; }
 }
-$('openChatBtn')?.addEventListener('click', openChat);
+
+$('openChatBtn')?.addEventListener('click', () => openChat('guild'));
+$('openGeneralChatBtn')?.addEventListener('click', () => openChat('general'));
 $('chatClose')?.addEventListener('click', closeChat);
 $('chatSend')?.addEventListener('click', sendChatMessage);
+$('chatClear')?.addEventListener('click', clearChat);
 $('chatInput')?.addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         sendChatMessage();
     }
 });
+document.querySelectorAll('.chat-tab').forEach(tab => {
+    tab.addEventListener('click', () => setChatMode(tab.dataset.mode));
+});
 
-/* ============================================================
-   🔄 REALTIME (НОВОЕ)
-============================================================ */
-function initRealtime() {
-    closeRealtime();
+function initChatRealtime() {
+    if (chatChannel) {
+        supabase.removeChannel(chatChannel);
+        chatChannel = null;
+    }
 
-    if (!currentClan) return;
+    const channelName = chatMode === 'guild'
+        ? `chat_guild_${currentClan}`
+        : `chat_general`;
 
-    // Подписка на чат этой гильдии
     chatChannel = supabase
-        .channel('chat_' + currentClan)
+        .channel(channelName)
         .on('postgres_changes', {
             event: 'INSERT',
             schema: 'public',
-            table: 'chat_messages',
-            filter: `clan_id=eq.${currentClan}`
+            table: 'chat_messages'
         }, payload => {
             const m = payload.new;
-            // Защита от дублей
+            if (chatMode === 'guild') {
+                if (m.clan_id !== currentClan) return;
+            } else {
+                if (m.clan_id !== null) return;
+            }
             if (chatMessages.some(x => x.id === m.id)) return;
             chatMessages.push(m);
             if (chatMessages.length > 200) chatMessages.shift();
             renderChatMessages();
         })
         .subscribe();
+}
 
-    // Подписка на онлайн (обновление счётчика)
+/* ============================================================
+   🔄 REALTIME
+============================================================ */
+function initRealtime() {
+    closeRealtime();
+
+    if (!currentClan) return;
+
     onlineChannel = supabase
         .channel('online')
         .on('postgres_changes', {
@@ -2801,7 +2895,6 @@ function initRealtime() {
         })
         .subscribe();
 
-    // Подписка на свои уведомления
     const nick = getViewerNick();
     if (nick) {
         notifChannel = supabase
@@ -2815,7 +2908,6 @@ function initRealtime() {
                 notifications.unshift(payload.new);
                 if (notifications.length > 50) notifications.pop();
                 renderNotifications();
-                // Мини-вспышка
                 [$('notifBell'), $('notifBell2')].forEach(b => {
                     if (!b) return;
                     b.style.transform = 'scale(1.15)';
@@ -2826,9 +2918,7 @@ function initRealtime() {
     }
 }
 
-let notifChannel = null;
 function closeRealtime() {
-    if (chatChannel) { supabase.removeChannel(chatChannel); chatChannel = null; }
     if (onlineChannel) { supabase.removeChannel(onlineChannel); onlineChannel = null; }
     if (notifChannel) { supabase.removeChannel(notifChannel); notifChannel = null; }
 }
@@ -2840,14 +2930,11 @@ function closeRealtime() {
     const verEl = document.querySelector('.footer-right');
     if (verEl) verEl.textContent = 'v' + APP_VERSION;
 
-    // Тема
     initTheme();
 
-    // Узнаём кто мы (админ или гость)
     const { data: { session } } = await supabase.auth.getSession();
     isAdmin = !!session?.user && ADMIN_EMAILS.includes((session.user.email || '').toLowerCase());
 
-    // Загружаем всё основное
     await loadGames();
     await loadClans();
     await loadSettings();
@@ -2857,7 +2944,6 @@ function closeRealtime() {
     await loadTactics();
     await loadStats();
 
-    // Торговля
     initTradeCategorySelect();
     initTradeCategoryFilters();
     updateTradeFormTotal();
@@ -2865,16 +2951,12 @@ function closeRealtime() {
     renderTradeClanFilters();
     await renderTrades();
 
-    // Уведомления
     await loadNotifications();
 
-    // UI
     applyAdminUI();
     showScreen('home');
 
-    // Онлайн heartbeat + realtime
     startHeartbeat();
 
-    // Если был открыт #build=...
     setTimeout(handleBuildHash, 800);
 })();

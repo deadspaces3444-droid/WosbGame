@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="ru" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,13 +7,787 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div id="app">
-        <h1>🚀 WosbGame v1.0 — подключено к базе</h1>
-        <p>Игр в базе: <b id="gamesCount">…</b></p>
-        <p>Гильдий: <b id="clansCount">…</b></p>
-        <p>Сообщений в чате: <b id="chatCount">…</b></p>
-        <p>Уведомлений: <b id="notifCount">…</b></p>
+
+    <!-- ══════════════ ГЛАВНАЯ ══════════════ -->
+    <div id="screen-home" class="screen">
+        <div class="top-right">
+            <span id="onlineBadge" class="online-badge" title="Пользователей онлайн">🟢 <b id="onlineCount">0</b></span>
+            <button id="themeToggle" class="icon-btn" title="Сменить тему">🌓</button>
+            <button id="notifBell" class="icon-btn" title="Уведомления">
+                🔔<span id="notifBadge" class="notif-badge" hidden>0</span>
+            </button>
+            <span id="adminInfo"></span>
+            <button id="adminPanelBtn" hidden title="Админ-панель">⚙️</button>
+            <button id="adminLoginBtn">🔐 Админ</button>
+            <button id="adminLogoutBtn" hidden>🚪 Выйти</button>
+        </div>
+
+        <div class="home-wrap">
+            <div class="hero-video">
+                <video autoplay muted loop playsinline preload="auto">
+                    <source src="videoshero.mp4" type="video/mp4">
+                </video>
+                <div class="hero-overlay"></div>
+                <div class="hero-text">
+                    <h1>⚔️ Добро пожаловать</h1>
+                    <p>Выбери свою гильдию, чтобы ознакомиться с правилами</p>
+                </div>
+            </div>
+
+            <div id="statsRow" class="stats-row"></div>
+
+            <h2 class="section-title">Гильдии</h2>
+            <div id="clanGrid" class="clan-grid"></div>
+
+            <!-- ТОРГОВЛЯ -->
+            <section id="homeTradeSection" class="home-trade-section">
+                <h2 class="section-title">🪙 Гильдейский рынок</h2>
+                <div class="trade-market">
+                    <header class="tm-topbar">
+                        <h3 class="tm-title">📣 Биржа заявок</h3>
+                        <span class="tm-subtitle">World of Sea Battle</span>
+                    </header>
+
+                    <div class="tm-counters">
+                        <div class="tm-counter buy">
+                            <div class="tm-ci">🛒</div>
+                            <div class="tm-cb">
+                                <span class="tm-cl">Золото на покупку</span>
+                                <span class="tm-cv" id="tm-counter-buy-gold">0 🪙</span>
+                                <span class="tm-cs" id="tm-counter-buy-sub">0 заявок</span>
+                            </div>
+                        </div>
+                        <div class="tm-counter sell">
+                            <div class="tm-ci">💰</div>
+                            <div class="tm-cb">
+                                <span class="tm-cl">Золото на продажу</span>
+                                <span class="tm-cv" id="tm-counter-sell-gold">0 🪙</span>
+                                <span class="tm-cs" id="tm-counter-sell-sub">0 заявок</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tm-layout">
+                        <section class="tm-panel">
+                            <h4 class="tm-panel-title">📝 Новая заявка</h4>
+                            <div class="tm-type-switch">
+                                <div class="tm-type-btn buy active" data-type="buy">🛒 Покупка</div>
+                                <div class="tm-type-btn sell" data-type="sell">💰 Продажа</div>
+                            </div>
+                            <div class="tm-fg">
+                                <label>Гильдия</label>
+                                <select id="tm-clan"></select>
+                            </div>
+                            <div class="tm-fg">
+                                <label>Категория</label>
+                                <select id="tm-category"></select>
+                            </div>
+                            <div class="tm-fg">
+                                <label>Название *</label>
+                                <input type="text" id="tm-name" maxlength="60" placeholder="Например: Дубовые доски">
+                            </div>
+                            <div class="tm-frow">
+                                <div class="tm-fg">
+                                    <label>Цена за ед. *</label>
+                                    <input type="number" id="tm-price" min="1" step="1" placeholder="0">
+                                </div>
+                                <div class="tm-fg">
+                                    <label>Количество *</label>
+                                    <input type="number" id="tm-qty" min="1" step="1" value="1">
+                                </div>
+                            </div>
+                            <div class="tm-fg">
+                                <label>Итого золота</label>
+                                <input type="text" id="tm-total" readonly value="0 🪙">
+                            </div>
+                            <div class="tm-fg">
+                                <label>Порт (необязательно)</label>
+                                <input type="text" id="tm-port" maxlength="60" placeholder="Порт-Рояль">
+                            </div>
+                            <div class="tm-fg">
+                                <label>Ваш ник *</label>
+                                <input type="text" id="tm-nickname" maxlength="32" placeholder="Капитан">
+                            </div>
+                            <div class="tm-fg">
+                                <label>Примечание</label>
+                                <textarea id="tm-note" maxlength="140" placeholder="Доп. условия..."></textarea>
+                            </div>
+                            <button id="tm-submit" class="tm-btn-gold">Опубликовать заявку</button>
+                            <p id="tm-status" class="tm-status"></p>
+                        </section>
+
+                        <section class="tm-panel">
+                            <h4 class="tm-panel-title">📋 Доска заявок</h4>
+                            <div class="tm-filters">
+                                <input type="search" id="tm-search" placeholder="🔍 Поиск по названию...">
+                                <div class="tm-filter-row" id="tm-clan-filters"></div>
+                                <div class="tm-filter-row" id="tm-type-filters">
+                                    <span class="tm-chip active" data-type="all">Все</span>
+                                    <span class="tm-chip buy" data-type="buy">🛒 Покупка</span>
+                                    <span class="tm-chip sell" data-type="sell">💰 Продажа</span>
+                                </div>
+                                <div class="tm-filter-row" id="tm-cat-filters"></div>
+                                <div class="tm-filter-row">
+                                    <label class="tm-mine-check">
+                                        <input type="checkbox" id="tm-only-mine"> Только мои заявки
+                                    </label>
+                                </div>
+                            </div>
+                            <div id="tm-listings" class="tm-listings"></div>
+                        </section>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ЗАЯВКА В ГИЛЬДИЮ -->
+            <section id="applySection" class="apply-section">
+                <h2 class="section-title">📝 Подать заявку в гильдию</h2>
+                <div class="apply-card">
+                    <p class="apply-hint">Заполни форму — совет рассмотрит заявку и свяжется с тобой.</p>
+                    <div class="apply-grid">
+                        <div class="admin-field"><label>Никнейм *</label><input type="text" id="applyNick" placeholder="Твой игровой ник" maxlength="40"></div>
+                        <div class="admin-field"><label>Возраст</label><input type="text" id="applyAge" placeholder="18" maxlength="10"></div>
+                        <div class="admin-field"><label>Опыт в игре</label><input type="text" id="applyExp" placeholder="Например: 500 часов" maxlength="100"></div>
+                        <div class="admin-field"><label>Связь (Discord / Telegram)</label><input type="text" id="applyContact" placeholder="@nickname" maxlength="80"></div>
+                    </div>
+                    <div class="admin-field">
+                        <label>Какая гильдия интересует</label>
+                        <select id="applyClan"></select>
+                    </div>
+                    <div class="admin-field">
+                        <label>Почему хотите вступить? *</label>
+                        <textarea id="applyWhy" rows="3" placeholder="Коротко о себе..." maxlength="500"></textarea>
+                    </div>
+                    <p id="applyMsg" class="error"></p>
+                    <button id="applyBtn" class="big-btn primary">📨 Отправить заявку</button>
+                </div>
+            </section>
+
+            <!-- FAQ -->
+            <section class="faq-section">
+                <h2 class="section-title">❓ Часто задаваемые вопросы</h2>
+                <div id="faqList" class="faq-list"></div>
+            </section>
+
+            <!-- ПАРТНЁРЫ -->
+            <section id="partnersSection" class="promo-section" hidden>
+                <h2 class="section-title">🤝 Партнёры и Реклама</h2>
+                <div id="partnersList" class="partners-list"></div>
+            </section>
+
+            <!-- БЛАГОДАРНОСТИ -->
+            <section class="thanks-section">
+                <h2 class="section-title">🙏 Благодарности</h2>
+                <div class="thanks-card">
+                    <p class="thanks-text">
+                        Спасибо всем участникам гильдий <b>АОВ</b> и <b>-К-</b> за активность и поддержку проекта.
+                    </p>
+                    <p class="thanks-text">
+                        Отдельная благодарность — администрации и совету гильдий за помощь в развитии сайта.
+                    </p>
+                    <p class="thanks-text thanks-final">
+                        Этот сайт — для вас. <span class="thanks-heart">❤️</span>
+                    </p>
+                    <div class="thanks-sign">Mist Time — Сергеев С.В</div>
+                </div>
+            </section>
+        </div>
     </div>
+
+    <!-- ══════════════ ОПИСАНИЕ ГИЛЬДИИ ══════════════ -->
+    <div id="screen-clan" class="screen" hidden>
+        <div class="top-right">
+            <button id="themeToggle2" class="icon-btn" title="Сменить тему">🌓</button>
+            <span id="adminInfo2"></span>
+            <button id="adminPanelBtn2" hidden>⚙️</button>
+            <button id="adminLogoutBtn2" hidden>🚪 Выйти</button>
+        </div>
+        <button id="backToHomeBtn" class="back-btn">← Назад</button>
+
+        <div class="clan-info-wrap">
+            <div class="clan-info">
+                <img id="clanInfoLogo" class="clan-info-logo" src="" alt="">
+                <h1 id="clanInfoName" class="clan-info-name"></h1>
+                <p id="clanInfoDesc" class="clan-info-desc"></p>
+                <div id="clanInfoNewsWrap" class="clan-info-news-wrap" hidden>
+                    <h3>📰 Новости</h3>
+                    <p id="clanInfoNews" class="clan-info-news"></p>
+                </div>
+                <div class="clan-info-rules-wrap">
+                    <h3>📜 Правила гильдии</h3>
+                    <p id="clanInfoRules" class="clan-info-rules"></p>
+                </div>
+                <div class="clan-info-actions">
+                    <a id="clanDownloadBtn" class="big-btn secondary"
+                       href="https://github.com/Flowseal/zapret-discord-youtube/releases/download/1.10.3/zapret-discord-youtube-1.10.3.rar"
+                       target="_blank" rel="noopener">⬇️ Скачать zapret</a>
+                    <button id="clanLoginBtn" class="big-btn primary">🔐 Войти в гильдию</button>
+                    <button id="clanViewBtn" class="big-btn primary" hidden>👁 Открыть списки</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════ ВНУТРИ ГИЛЬДИИ ══════════════ -->
+    <div id="clanView" hidden>
+        <header>
+            <button id="backBtn" class="back-btn">← Назад</button>
+            <h1>
+                <img id="clanIcon" class="clan-icon-small" src="" alt="">
+                <span id="clanTitle"></span>
+            </h1>
+            <div class="top-right">
+                <span id="adminInfo3"></span>
+                <button id="themeToggle3" class="icon-btn" title="Сменить тему">🌓</button>
+                <button id="notifBell2" class="icon-btn" title="Уведомления">
+                    🔔<span id="notifBadge2" class="notif-badge" hidden>0</span>
+                </button>
+                <button id="adminPanelBtn3" hidden>⚙️</button>
+                <a id="downloadBtn" class="icon-btn"
+                   href="https://github.com/Flowseal/zapret-discord-youtube/releases/download/1.10.3/zapret-discord-youtube-1.10.3.rar"
+                   target="_blank" rel="noopener" title="Скачать zapret">⬇️</a>
+                <button id="bgChangeBtn" class="icon-btn admin-only" hidden title="Сменить фон">🎨</button>
+                <button id="bgResetBtn"  class="icon-btn admin-only" hidden title="Сбросить фон">↺</button>
+                <button id="clanLeaveBtn" title="Заблокировать просмотр">🚪</button>
+            </div>
+        </header>
+
+        <div class="clan-layout">
+            <aside class="sidebar">
+                <button class="side-item active" data-section="lists"><span class="side-ico">📋</span><span>Списки</span></button>
+                <button class="side-item" data-section="events"><span class="side-ico">📅</span><span>События</span></button>
+                <button class="side-item" data-section="treasury"><span class="side-ico">💰</span><span>Казна</span></button>
+                <button class="side-item" data-section="pvp"><span class="side-ico">⚔️</span><span>Билды ПВП</span></button>
+                <button class="side-item" data-section="pb"><span class="side-ico">🛡</span><span>Билды ПБ</span></button>
+                <button class="side-item" data-section="contacts"><span class="side-ico">💬</span><span>Контакты</span></button>
+                <button class="side-item" id="openTacticsBtn"><span class="side-ico">📖</span><span>Тактика боя</span></button>
+                <button class="side-item" id="openChatBtn"><span class="side-ico">💭</span><span>Чат гильдии</span></button>
+                <button class="side-item admin-only" data-section="applications" hidden><span class="side-ico">📝</span><span>Заявки</span></button>
+            </aside>
+
+            <div class="clan-main">
+                <div id="section-lists" class="clan-section active">
+                    <nav class="tabs">
+                        <button class="tab active" data-tab="enemies">🔴 Враги</button>
+                        <button class="tab" data-tab="friends">🟢 Друзья</button>
+                        <button class="tab" data-tab="neutral">⚪ Нейтралитет</button>
+                        <button class="tab" data-tab="personal">🟡 Не трогать</button>
+                    </nav>
+                    <input type="text" id="searchInput" class="search-input" placeholder="🔍 Поиск по списку...">
+                    <section class="add-form admin-only" hidden>
+                        <input type="text" id="playerGuild" placeholder="Гильдия игрока" maxlength="40">
+                        <input type="text" id="nickname" placeholder="Никнейм игрока" maxlength="32">
+                        <input type="text" id="faction" placeholder="Фракция" maxlength="40">
+                        <input type="text" id="note" placeholder="Заметка" maxlength="120">
+                        <button id="addBtn">➕ Добавить</button>
+                        <span id="status"></span>
+                    </section>
+                    <p class="hint admin-only" hidden>💡 Достаточно заполнить <b>Гильдию</b> или <b>Никнейм</b>.</p>
+
+                    <section id="tab-enemies" class="tab-content active"><h2>🔴 Враги гильдии</h2><ul class="player-list" data-list="enemies"></ul></section>
+                    <section id="tab-friends" class="tab-content"><h2>🟢 Друзья — полное содействие</h2><ul class="player-list" data-list="friends"></ul></section>
+                    <section id="tab-neutral" class="tab-content"><h2>⚪ Нейтралитет</h2><ul class="player-list" data-list="neutral"></ul></section>
+                    <section id="tab-personal" class="tab-content"><h2>🟡 Не трогать</h2><ul class="player-list" data-list="personal"></ul></section>
+                </div>
+
+                <div id="section-events" class="clan-section">
+                    <h2>📅 События гильдии</h2>
+                    <section class="add-form admin-only" hidden>
+                        <input type="text" id="evTitle" placeholder="Название события" maxlength="100">
+                        <input type="datetime-local" id="evDate">
+                        <textarea id="evDesc" placeholder="Описание" rows="2"></textarea>
+                        <select id="evScope"><option value="__shared__">🌐 Общий</option></select>
+                        <button id="evAddBtn">➕ Добавить</button>
+                        <span id="evStatus"></span>
+                    </section>
+                    <p class="hint admin-only" hidden>💡 Название и дата — обязательны.</p>
+                    <div id="eventsList" class="events-list"></div>
+                </div>
+
+                <div id="section-treasury" class="clan-section">
+                    <h2>💰 Казна гильдии</h2>
+                    <div class="treasury-balance">
+                        <div class="treasury-balance-label">Текущий баланс:</div>
+                        <div id="treasuryBalance" class="treasury-balance-value">0</div>
+                    </div>
+                    <section class="add-form admin-only" hidden>
+                        <select id="trType"><option value="in">➕ Доход</option><option value="out">➖ Расход</option></select>
+                        <input type="number" id="trAmount" placeholder="Сумма" min="0" step="1">
+                        <input type="text" id="trDesc" placeholder="Описание" maxlength="200">
+                        <button id="trAddBtn">➕ Добавить</button>
+                        <span id="trStatus"></span>
+                    </section>
+                    <p class="hint admin-only" hidden>💡 Указывай сумму и описание.</p>
+                    <div id="treasuryList" class="treasury-list"></div>
+                </div>
+
+                <div id="section-pvp" class="clan-section">
+                    <h2>⚔️ Билды для ПВП</h2>
+                    <section class="add-form admin-only" hidden>
+                        <textarea id="pvpShip" placeholder="Название корабля" rows="1" maxlength="60"></textarea>
+                        <textarea id="pvpUpgrades" placeholder="Апгрейды — каждый с новой строки" rows="3"></textarea>
+                        <textarea id="pvpWeapS" placeholder="Малые пушки (до 12 фунтов)" rows="2"></textarea>
+                        <textarea id="pvpWeapM" placeholder="Средние пушки (до 24 фунтов)" rows="2"></textarea>
+                        <textarea id="pvpWeapL" placeholder="Большие пушки (до 48 фунтов)" rows="2"></textarea>
+                        <input type="text" id="pvpCons1" placeholder="Расходник 1" maxlength="40">
+                        <input type="text" id="pvpCons2" placeholder="Расходник 2" maxlength="40">
+                        <input type="text" id="pvpCons3" placeholder="Расходник 3" maxlength="40">
+                        <textarea id="pvpCargo" placeholder="Наполнение трюма" rows="1" maxlength="200"></textarea>
+                        <textarea id="pvpSpecs" placeholder="Специалисты — Имя | Бонус +5 | Бонус -3" rows="3"></textarea>
+                        <select id="pvpScope"><option value="__shared__">🌐 Общий</option></select>
+                        <button id="pvpAddBtn">➕ Добавить</button>
+                        <span id="pvpStatus"></span>
+                    </section>
+                    <div id="pvpList" class="builds-list"></div>
+                </div>
+
+                <div id="section-pb" class="clan-section">
+                    <h2>🛡 Билды для ПБ</h2>
+                    <section class="add-form admin-only" hidden>
+                        <textarea id="pbRank" placeholder="Ранг (1-6)" rows="1" maxlength="10"></textarea>
+                        <textarea id="pbShip" placeholder="Название корабля" rows="1" maxlength="60"></textarea>
+                        <textarea id="pbUpgrades" placeholder="Апгрейды — каждый с новой строки" rows="3"></textarea>
+                        <textarea id="pbWeapS" placeholder="Малые пушки (до 12 фунтов)" rows="2"></textarea>
+                        <textarea id="pbWeapM" placeholder="Средние пушки (до 24 фунтов)" rows="2"></textarea>
+                        <textarea id="pbWeapL" placeholder="Большие пушки (до 48 фунтов)" rows="2"></textarea>
+                        <input type="text" id="pbCons1" placeholder="Расходник 1" maxlength="40">
+                        <input type="text" id="pbCons2" placeholder="Расходник 2" maxlength="40">
+                        <input type="text" id="pbCons3" placeholder="Расходник 3" maxlength="40">
+                        <textarea id="pbCargo" placeholder="Наполнение трюма" rows="1" maxlength="200"></textarea>
+                        <textarea id="pbSpecs" placeholder="Специалисты — Имя | Бонус +5 | Бонус -3" rows="3"></textarea>
+                        <select id="pbScope"><option value="__shared__">🌐 Общий</option></select>
+                        <button id="pbAddBtn">➕ Добавить</button>
+                        <span id="pbStatus"></span>
+                    </section>
+                    <div id="pbList" class="builds-list"></div>
+                </div>
+
+                <div id="section-contacts" class="clan-section">
+                    <h2>💬 Контакты гильдий</h2>
+                    <div id="contactsList" class="contacts-list"></div>
+                </div>
+
+                <div id="section-applications" class="clan-section">
+                    <h2>📝 Заявки в гильдию</h2>
+                    <p class="hint">Все заявки, отправленные через форму на главной</p>
+                    <div id="applicationsList" class="applications-list"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════ АДМИН-ПАНЕЛЬ ══════════════ -->
+    <div id="screen-admin" class="screen admin-screen" hidden>
+        <aside class="admin-sidebar">
+            <div class="admin-sidebar-brand">
+                <span class="admin-sidebar-logo">⚙️</span>
+                <span class="admin-sidebar-title">Админ-панель</span>
+            </div>
+
+            <nav class="admin-nav">
+                <button class="admin-nav-item active" data-apanel="clans">
+                    <span class="admin-nav-ico">🏰</span><span>Гильдии</span>
+                </button>
+                <button class="admin-nav-item" data-apanel="games">
+                    <span class="admin-nav-ico">🎮</span><span>Игры</span>
+                </button>
+                <button class="admin-nav-item" data-apanel="partners">
+                    <span class="admin-nav-ico">🤝</span><span>Партнёры</span>
+                </button>
+                <button class="admin-nav-item" data-apanel="faq">
+                    <span class="admin-nav-ico">❓</span><span>FAQ</span>
+                </button>
+                <button class="admin-nav-item" data-apanel="tactics">
+                    <span class="admin-nav-ico">📖</span><span>Тактика</span>
+                </button>
+                <button class="admin-nav-item" data-apanel="settings">
+                    <span class="admin-nav-ico">⚙️</span><span>Настройки</span>
+                </button>
+            </nav>
+
+            <div class="admin-sidebar-footer">
+                <button id="adminBackHome" class="admin-back-btn">← На главную</button>
+            </div>
+        </aside>
+
+        <main class="admin-content">
+            <!-- ГИЛЬДИИ -->
+            <section class="admin-section active" data-apanel="clans">
+                <h2 class="admin-section-title">🏰 Управление гильдиями</h2>
+                <div class="admin-card">
+                    <div class="admin-field">
+                        <label>Гильдия</label>
+                        <select id="adminClanSelect"></select>
+                    </div>
+                    <div class="admin-field">
+                        <label>Игра</label>
+                        <select id="adminClanGame"></select>
+                    </div>
+                    <div class="admin-field"><label>Текущий пароль</label><input type="text" id="adminCurrentPass" readonly></div>
+                    <div class="admin-field"><label>Новый пароль</label><input type="text" id="adminNewPass" placeholder="Оставь пустым, чтобы не менять"></div>
+                    <div class="admin-field"><label>Discord-ссылка</label><input type="text" id="adminDiscord" placeholder="https://discord.gg/xxxxx" maxlength="200"></div>
+                    <div class="admin-field"><label>Новости</label><textarea id="adminNews" rows="5"></textarea></div>
+                    <div class="admin-field"><label>Правила</label><textarea id="adminRules" rows="8"></textarea></div>
+                    <p id="adminPanelMsg" class="error"></p>
+                    <div class="modal-actions">
+                        <button id="saveAdminSettings">💾 Сохранить</button>
+                        <button id="openAddClan" class="secondary">➕ Новая гильдия</button>
+                        <button id="deleteClanBtn" class="danger">🗑 Удалить гильдию</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ИГРЫ -->
+            <section class="admin-section" data-apanel="games">
+                <h2 class="admin-section-title">🎮 Управление играми</h2>
+                <p class="hint">Игры, для которых ведутся кланы на сайте</p>
+                <div class="add-form" style="border-style:solid">
+                    <input type="text" id="gameId" placeholder="ID (латиница, напр. wosb)" maxlength="30">
+                    <input type="text" id="gameName" placeholder="Название игры *" maxlength="80">
+                    <input type="text" id="gameImage" placeholder="Логотип (images/wosb.png)" maxlength="200">
+                    <input type="text" id="gameBg" placeholder="Фон (images/bg-wosb.jpg)" maxlength="200">
+                    <button id="gameAddBtn">➕ Добавить</button>
+                    <span id="gameStatus"></span>
+                </div>
+                <div id="gamesAdminList" class="partners-admin-list"></div>
+            </section>
+
+            <!-- ПАРТНЁРЫ -->
+            <section class="admin-section" data-apanel="partners">
+                <h2 class="admin-section-title">🤝 Партнёры и Реклама</h2>
+                <p class="hint">Для <b>YouTube-ссылок</b> логотип подтягивается автоматически.</p>
+
+                <div class="admin-card">
+                    <div class="admin-field">
+                        <label>Название *</label>
+                        <input type="text" id="partnerName" maxlength="80">
+                    </div>
+                    <div class="admin-field">
+                        <label>Ссылка *</label>
+                        <input type="text" id="partnerUrl" placeholder="https://..." maxlength="300">
+                    </div>
+                    <div class="admin-field">
+                        <label>Описание</label>
+                        <textarea id="partnerDesc" rows="2" maxlength="300"></textarea>
+                    </div>
+                    <div class="admin-field">
+                        <label>Логотип</label>
+                        <div class="logo-upload">
+                            <input type="file" id="partnerLogoFile" accept="image/*" hidden>
+                            <button type="button" id="partnerLogoPick" class="logo-pick-btn">📷 Свой логотип</button>
+                            <div id="partnerLogoPreview" class="logo-preview" hidden>
+                                <img id="partnerLogoImg" src="" alt="">
+                                <button type="button" id="partnerLogoClear" class="logo-clear">✕</button>
+                            </div>
+                            <span id="partnerLogoName" class="logo-name"></span>
+                        </div>
+                    </div>
+                    <p id="partnerStatus" class="error"></p>
+                    <div class="modal-actions">
+                        <button id="partnerAddBtn">➕ Добавить партнёра</button>
+                    </div>
+                </div>
+
+                <div id="partnersAdminList" class="partners-admin-list"></div>
+            </section>
+
+            <!-- FAQ -->
+            <section class="admin-section" data-apanel="faq">
+                <h2 class="admin-section-title">❓ FAQ</h2>
+                <p class="hint">Вопросы и ответы на главной</p>
+
+                <div class="admin-card">
+                    <div class="admin-field"><label>Вопрос</label><input type="text" id="faqQ" maxlength="200"></div>
+                    <div class="admin-field"><label>Ответ</label><textarea id="faqA" rows="3"></textarea></div>
+                    <div class="modal-actions"><button id="faqAddBtn">➕ Добавить вопрос</button></div>
+                </div>
+
+                <div id="faqAdminList" class="faq-admin-list"></div>
+            </section>
+
+            <!-- ТАКТИКА -->
+            <section class="admin-section" data-apanel="tactics">
+                <h2 class="admin-section-title">📖 Тактика боя</h2>
+                <p class="hint">Редактирование разделов тактики. Поддерживается HTML.</p>
+                <div class="admin-card">
+                    <div class="admin-field">
+                        <label>ID (латиница)</label>
+                        <input type="text" id="tacId" placeholder="nagib" maxlength="30">
+                    </div>
+                    <div class="admin-field">
+                        <label>Заголовок *</label>
+                        <input type="text" id="tacTitle" placeholder="Накачка орудий" maxlength="120">
+                    </div>
+                    <div class="admin-field">
+                        <label>Иконка (эмодзи)</label>
+                        <input type="text" id="tacIcon" placeholder="💪" maxlength="4">
+                    </div>
+                    <div class="admin-field">
+                        <label>Порядок</label>
+                        <input type="number" id="tacOrder" min="0" step="1" value="10">
+                    </div>
+                    <div class="admin-field">
+                        <label>Содержимое * (HTML)</label>
+                        <textarea id="tacContent" rows="8"></textarea>
+                    </div>
+                    <p id="tacStatus" class="error"></p>
+                    <div class="modal-actions">
+                        <button id="tacAddBtn">➕ Добавить раздел</button>
+                    </div>
+                </div>
+                <div id="tacticsAdminList" class="partners-admin-list"></div>
+            </section>
+
+            <!-- НАСТРОЙКИ -->
+            <section class="admin-section" data-apanel="settings">
+                <h2 class="admin-section-title">⚙️ Настройки сайта</h2>
+                <div class="admin-card">
+                    <h3 style="font-size:15px;color:#ffd479;margin-bottom:6px;">📨 Discord-оповещения</h3>
+                    <p class="hint" style="margin:0 0 8px;">
+                        Вебхук для уведомлений о новых заявках и событиях.
+                    </p>
+                    <div class="admin-field">
+                        <label>🌐 Общий вебхук</label>
+                        <input type="text" id="adminWebhook" placeholder="https://discord.com/api/webhooks/..." maxlength="400">
+                    </div>
+                    <p id="adminSiteMsg" class="error"></p>
+                    <div class="modal-actions">
+                        <button id="saveSiteSettings">💾 Сохранить</button>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- ══════════════ МОДАЛКИ ══════════════ -->
+
+    <!-- Вход в гильдию -->
+    <div id="clanPassModal" class="modal" hidden>
+        <div class="modal-content">
+            <h2>🔐 Вход в гильдию</h2>
+            <p id="clanPassName" class="auth-clan-name"></p>
+            <input type="text" id="clanNickname" placeholder="Ваш игровой ник" maxlength="32" autocomplete="nickname">
+            <input type="password" id="clanPassword" placeholder="Пароль гильдии" autocomplete="current-password">
+            <p id="clanPassError" class="error"></p>
+            <div class="modal-actions">
+                <button id="doClanLogin">Войти</button>
+                <button id="cancelClanLogin" class="secondary">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Принять сделку -->
+    <div id="acceptTradeModal" class="modal" hidden>
+        <div class="modal-content">
+            <h2>🤝 Принять заявку</h2>
+            <p id="acceptTradeName" class="auth-clan-name"></p>
+            <p id="acceptTradeInfo" class="accept-trade-info"></p>
+            <input type="text" id="acceptTradeNickname" placeholder="Ваш игровой ник" maxlength="32" autocomplete="nickname">
+            <p id="acceptTradeError" class="error"></p>
+            <div class="modal-actions">
+                <button id="doAcceptTrade">Принять</button>
+                <button id="cancelAcceptTrade" class="secondary">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Вход админа -->
+    <div id="adminAuthModal" class="modal" hidden>
+        <div class="modal-content">
+            <h2>🔐 Вход администратора</h2>
+            <input type="email" id="adminEmail" placeholder="Email" autocomplete="username">
+            <input type="password" id="adminPassword" placeholder="Пароль" autocomplete="current-password">
+            <p id="adminAuthError" class="error"></p>
+            <div class="modal-actions">
+                <button id="doAdminLogin">Войти</button>
+                <button id="cancelAdminLogin" class="secondary">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Редактирование тактики -->
+    <div id="tacticsEditModal" class="modal" hidden>
+        <div class="modal-content admin-panel-wide">
+            <h2>✏️ Редактировать раздел тактики</h2>
+            <input type="hidden" id="tacEditId">
+            <div class="admin-field"><label>Заголовок</label><input type="text" id="tacEditTitle" maxlength="120"></div>
+            <div class="admin-field"><label>Иконка</label><input type="text" id="tacEditIcon" maxlength="4"></div>
+            <div class="admin-field"><label>Порядок</label><input type="number" id="tacEditOrder" min="0" step="1"></div>
+            <div class="admin-field"><label>Содержимое (HTML)</label><textarea id="tacEditContent" rows="12"></textarea></div>
+            <p id="tacEditMsg" class="error"></p>
+            <div class="modal-actions">
+                <button id="saveTacEdit">💾 Сохранить</button>
+                <button id="cancelTacEdit" class="secondary">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Тактика боя (просмотр) -->
+    <div id="tacticsModal" class="tactics-modal" hidden>
+        <div class="tactics-content">
+            <header class="tactics-header">
+                <h2>⚓ Тактика боя — World of Sea Battle</h2>
+                <button id="closeTactics" class="tactics-close" title="Закрыть">✕</button>
+            </header>
+            <div class="tactics-body" id="tacticsBody"></div>
+            <footer class="tactics-footer">
+                <span>💡 Нажми <span class="kbd">Esc</span> или кликни вне окна, чтобы закрыть</span>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Новая гильдия -->
+    <div id="addClanModal" class="modal" hidden>
+        <div class="modal-content admin-panel-wide">
+            <h2>➕ Новая гильдия</h2>
+            <div class="admin-field">
+                <label>Игра</label>
+                <select id="newClanGame"></select>
+            </div>
+            <div class="admin-field"><label>ID (латиница)</label><input type="text" id="newClanId" placeholder="clan3" maxlength="20"></div>
+            <div class="admin-field"><label>Название</label><input type="text" id="newClanName" maxlength="60"></div>
+            <div class="admin-field"><label>Описание</label><textarea id="newClanDesc" rows="3"></textarea></div>
+            <div class="admin-field"><label>Правила</label><textarea id="newClanRules" rows="5"></textarea></div>
+            <div class="admin-field"><label>Пароль</label><input type="text" id="newClanPass"></div>
+            <div class="admin-field"><label>Discord</label><input type="text" id="newClanDiscord" placeholder="https://discord.gg/xxxxx"></div>
+            <div class="admin-field"><label>Логотип</label><input type="text" id="newClanImage" placeholder="images/clan3.png"></div>
+            <div class="admin-field"><label>Фон</label><input type="text" id="newClanBg" placeholder="images/bg-clan3.jpg"></div>
+            <p id="addClanMsg" class="error"></p>
+            <div class="modal-actions">
+                <button id="saveNewClan">💾 Создать</button>
+                <button id="cancelAddClan" class="secondary">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Редактирование игры -->
+    <div id="gameEditModal" class="modal" hidden>
+        <div class="modal-content">
+            <h2>✏️ Редактировать игру</h2>
+            <input type="hidden" id="gameEditId">
+            <div class="admin-field"><label>Название</label><input type="text" id="gameEditName" maxlength="80"></div>
+            <div class="admin-field"><label>Логотип</label><input type="text" id="gameEditImage" maxlength="200"></div>
+            <div class="admin-field"><label>Фон</label><input type="text" id="gameEditBg" maxlength="200"></div>
+            <p id="gameEditMsg" class="error"></p>
+            <div class="modal-actions">
+                <button id="saveGameEdit">💾 Сохранить</button>
+                <button id="cancelGameEdit" class="secondary">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Редактирование записи -->
+    <div id="editModal" class="modal" hidden>
+        <div class="modal-content">
+            <h2>✏️ Редактировать запись</h2>
+            <input type="text" id="editPlayerGuild" placeholder="Гильдия игрока" maxlength="40">
+            <input type="text" id="editNickname" placeholder="Никнейм" maxlength="32">
+            <input type="text" id="editFaction" placeholder="Фракция" maxlength="40">
+            <input type="text" id="editNote" placeholder="Заметка" maxlength="120">
+            <p id="editError" class="error"></p>
+            <div class="modal-actions">
+                <button id="saveEdit">💾 Сохранить</button>
+                <button id="cancelEdit" class="secondary">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Редактирование билда -->
+    <div id="buildEditModal" class="modal" hidden>
+        <div class="modal-content admin-panel-wide">
+            <h2 id="buildEditTitle">✏️ Редактировать билд</h2>
+            <div class="admin-field" id="buildEditRankField" hidden><label>Ранг</label><textarea id="buildEditRank" rows="1" maxlength="10"></textarea></div>
+            <div class="admin-field"><label>Название корабля</label><textarea id="buildEditShip" rows="1" maxlength="60"></textarea></div>
+            <div class="admin-field"><label>Апгрейды</label><textarea id="buildEditUpgrades" rows="3"></textarea></div>
+            <div class="admin-field"><label>Малые пушки</label><textarea id="buildEditWeapS" rows="2"></textarea></div>
+            <div class="admin-field"><label>Средние пушки</label><textarea id="buildEditWeapM" rows="2"></textarea></div>
+            <div class="admin-field"><label>Большие пушки</label><textarea id="buildEditWeapL" rows="2"></textarea></div>
+            <div class="admin-field"><label>Расходник 1</label><textarea id="buildEditCons1" rows="1" maxlength="40"></textarea></div>
+            <div class="admin-field"><label>Расходник 2</label><textarea id="buildEditCons2" rows="1" maxlength="40"></textarea></div>
+            <div class="admin-field"><label>Расходник 3</label><textarea id="buildEditCons3" rows="1" maxlength="40"></textarea></div>
+            <div class="admin-field"><label>Трюм</label><textarea id="buildEditCargo" rows="2"></textarea></div>
+            <div class="admin-field"><label>Специалисты</label><textarea id="buildEditSpecs" rows="4"></textarea></div>
+            <div class="admin-field"><label>Привязать к</label><select id="buildEditScope"></select></div>
+            <p id="buildEditError" class="error"></p>
+            <div class="modal-actions">
+                <button id="saveBuildEdit">💾 Сохранить</button>
+                <button id="cancelBuildEdit" class="secondary">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Дублирование билда -->
+    <div id="buildDupModal" class="modal" hidden>
+        <div class="modal-content">
+            <h2>📋 Дублировать билд</h2>
+            <p id="buildDupName" class="auth-clan-name"></p>
+            <div class="admin-field"><label>Куда скопировать</label><select id="buildDupScope"></select></div>
+            <p id="buildDupMsg" class="error"></p>
+            <div class="modal-actions">
+                <button id="doBuildDup">📋 Создать копию</button>
+                <button id="cancelBuildDup" class="secondary">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Перемещение -->
+    <div id="moveModal" class="modal" hidden>
+        <div class="modal-content">
+            <h2>↔ Переместить в…</h2>
+            <div class="move-grid">
+                <button data-target="enemies">🔴 Враги</button>
+                <button data-target="friends">🟢 Друзья</button>
+                <button data-target="neutral">⚪ Нейтралитет</button>
+                <button data-target="personal">🟡 Не трогать</button>
+            </div>
+            <div class="modal-actions">
+                <button id="cancelMove" class="secondary">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Профиль игрока (НОВОЕ) -->
+    <div id="profileModal" class="modal" hidden>
+        <div class="modal-content">
+            <h2>👤 Профиль игрока</h2>
+            <p id="profileNickname" class="auth-clan-name"></p>
+            <div id="profileStats" class="profile-stats"></div>
+            <div class="modal-actions">
+                <button id="closeProfile" class="secondary">Закрыть</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Уведомления (НОВОЕ) -->
+    <div id="notifPanel" class="notif-panel" hidden>
+        <div class="notif-header">
+            <h3>🔔 Уведомления</h3>
+            <button id="notifMarkAllRead" class="notif-action">Прочитать все</button>
+        </div>
+        <div id="notifList" class="notif-list"></div>
+    </div>
+
+    <!-- Чат гильдии (НОВОЕ) -->
+    <div id="chatPanel" class="chat-panel" hidden>
+        <div class="chat-header">
+            <h3>💭 Чат гильдии</h3>
+            <button id="chatClose" class="chat-close">✕</button>
+        </div>
+        <div id="chatMessages" class="chat-messages"></div>
+        <div class="chat-input-row">
+            <input type="text" id="chatInput" placeholder="Написать сообщение..." maxlength="500">
+            <button id="chatSend">➤</button>
+        </div>
+    </div>
+
+    <!-- Скрытые input'ы -->
+    <input type="file" id="bgFileInput" accept="image/*" hidden>
+
+    <!-- Футер -->
+    <footer class="site-footer">
+        <span class="footer-left">Mist Time — Сергеев С.В</span>
+        <span class="footer-right">v1.0.0</span>
+    </footer>
 
     <script type="module" src="app.js"></script>
 </body>

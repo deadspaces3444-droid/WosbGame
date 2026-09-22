@@ -1,9 +1,9 @@
 import { supabase } from './supabase.js';
 
-console.log('🚀 app.js загружается, версия 1.4.0');
+console.log('🚀 app.js v1.5.0');
 
 const ADMIN_EMAILS = ['kolibri@wosb.ru'];
-const APP_VERSION = '1.4.0';
+const APP_VERSION = '1.5.0';
 
 const TABS = ['enemies', 'friends', 'neutral', 'personal'];
 const UNLOCK_KEY = 'guild_unlocked';
@@ -16,7 +16,6 @@ const SHARED = '__shared__';
 const HEARTBEAT_MS = 30000;
 const ONLINE_WINDOW_MS = 90000;
 
-// VK
 const VK_GROUP_ID = -69908462;
 const VK_API_VERSION = '5.131';
 const VK_POSTS_COUNT = 5;
@@ -52,38 +51,25 @@ let notifChannel  = null;
 let chatMessages  = [];
 let notifications = [];
 let chatMode      = 'guild';
+let vkNewsLoaded  = false;
 
-/* ============================================================
-   ХЕЛПЕРЫ ДЛЯ БЕЗОПАСНОЙ РАБОТЫ С DOM
-============================================================ */
-const $ = id => {
-    const el = document.getElementById(id);
-    if (!el) console.warn('⚠️ Элемент не найден: #' + id);
-    return el;
-};
-
-// Безопасное добавление обработчика
+const $ = id => document.getElementById(id);
 function on(id, event, handler) {
     const el = document.getElementById(id);
-    if (!el) {
-        console.warn('⚠️ Не могу повесить обработчик — нет элемента #' + id);
-        return false;
-    }
+    if (!el) return false;
     el.addEventListener(event, handler);
     return true;
 }
-
-// Безопасное обращение к value
 function val(id) {
     const el = document.getElementById(id);
     return el ? el.value : '';
 }
 
-const screenHome  = document.getElementById('screen-home');
-const screenClan  = document.getElementById('screen-clan');
-const screenAdmin = document.getElementById('screen-admin');
-const clanView    = document.getElementById('clanView');
-const bgFileInput = document.getElementById('bgFileInput');
+const screenHome  = $('screen-home');
+const screenClan  = $('screen-clan');
+const screenAdmin = $('screen-admin');
+const clanView    = $('clanView');
+const bgFileInput = $('bgFileInput');
 
 /* ============================================================
    УТИЛИТЫ
@@ -101,7 +87,7 @@ function flashStatusEl(el, text, color) {
     el._t = setTimeout(() => el.textContent = '', 2000);
 }
 function flashStatus(text, color) {
-    const el = document.getElementById('status');
+    const el = $('status');
     if (!el) return;
     el.textContent = text; el.style.color = color;
     clearTimeout(flashStatus._t);
@@ -112,77 +98,6 @@ function colorFromString(str) {
     for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
     const hue = Math.abs(h) % 360;
     return `linear-gradient(135deg, hsl(${hue}, 55%, 45%), hsl(${hue}, 55%, 30%))`;
-}
-
-/* ============================================================
-   ТАКТИКА БОЯ — ОТКРЫТИЕ/ЗАКРЫТИЕ МОДАЛКИ
-============================================================ */
-function openTacticsModal() {
-    console.log('📖 Открытие тактики...');
-    const modal = document.getElementById('tacticsModal');
-    if (!modal) {
-        console.error('❌ #tacticsModal не найден в HTML!');
-        alert('Ошибка: окно тактики не найдено. Обновите страницу (Ctrl+F5).');
-        return;
-    }
-    modal.hidden = false;
-    document.body.style.overflow = 'hidden';
-    console.log('✅ Тактика открыта. Разделов в кэше:', tacticsCache.length);
-}
-function closeTacticsModal() {
-    const modal = document.getElementById('tacticsModal');
-    if (!modal) return;
-    modal.hidden = true;
-    document.body.style.overflow = '';
-}
-on('openTacticsBtn', 'click', openTacticsModal);
-on('closeTactics', 'click', closeTacticsModal);
-on('tacticsModal', 'click', e => {
-    if (e.target.id === 'tacticsModal') closeTacticsModal();
-});
-document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') {
-        const m = document.getElementById('tacticsModal');
-        if (m && !m.hidden) closeTacticsModal();
-    }
-});
-
-async function loadTactics() {
-    console.log('📥 Загрузка тактики из БД...');
-    try {
-        const { data, error } = await supabase.from('tactics').select('*').order('sort_order');
-        if (error) {
-            console.warn('⚠️ Ошибка загрузки тактики:', error.message);
-            tacticsCache = [];
-        } else {
-            tacticsCache = data || [];
-            console.log('✅ Тактика загружена. Разделов:', tacticsCache.length);
-        }
-        renderTacticsModal();
-        renderTacticsAdmin();
-    } catch (err) {
-        console.error('❌ Исключение при загрузке тактики:', err);
-        tacticsCache = [];
-    }
-}
-
-function renderTacticsModal() {
-    const body = document.getElementById('tacticsBody');
-    if (!body) return;
-    body.innerHTML = '';
-    if (!tacticsCache.length) {
-        body.innerHTML = '<p class="empty" style="text-align:center;padding:20px;">Разделы тактики пока не добавлены.<br>Загляните позже!</p>';
-        return;
-    }
-    tacticsCache.forEach(t => {
-        const section = document.createElement('section');
-        section.className = 'tactics-section';
-        section.innerHTML = `
-            <h3>${escapeHtml(t.icon || '📖')} ${escapeHtml(t.title || '')}</h3>
-            <div class="tactics-text">${t.content || ''}</div>
-        `;
-        body.appendChild(section);
-    });
 }
 
 /* ============================================================
@@ -200,9 +115,7 @@ function initTheme() {
     const saved = localStorage.getItem(THEME_KEY) || 'dark';
     applyTheme(saved);
 }
-['themeToggle','themeToggle2','themeToggle3'].forEach(id => {
-    on(id, 'click', toggleTheme);
-});
+['themeToggle','themeToggle2','themeToggle3'].forEach(id => on(id, 'click', toggleTheme));
 
 /* ============================================================
    ЛОГИ
@@ -213,13 +126,13 @@ async function logAdminAction(action, target = null, details = null) {
             admin_nickname: localStorage.getItem(VIEWER_NICK_KEY) || 'админ',
             action, target, details
         });
-    } catch (e) { /* молча */ }
+    } catch (e) { }
 }
 async function logView(nickname, clanId, page) {
     if (!nickname) return;
     try {
         await supabase.from('view_history').insert({ nickname, clan_id: clanId, page });
-    } catch (e) { /* опционально */ }
+    } catch (e) { }
 }
 
 /* ============================================================
@@ -250,7 +163,7 @@ async function sendHeartbeat() {
             await supabase.from('online_users')
                 .insert({ nickname, clan_id: clanId, last_seen: nowIso });
         }
-    } catch (e) { /* молча */ }
+    } catch (e) { }
     updateOnlineCount();
 }
 async function updateOnlineCount() {
@@ -260,7 +173,7 @@ async function updateOnlineCount() {
         .select('*', { count: 'exact', head: true })
         .gte('last_seen', threshold);
     if (error) return;
-    const el = document.getElementById('onlineCount');
+    const el = $('onlineCount');
     if (el) el.textContent = count || 0;
 }
 function startHeartbeat() {
@@ -284,25 +197,17 @@ function setOverride(key, dataUrl) {
     catch { alert('Фон слишком большой.'); return false; }
 }
 function currentBgKey() { return currentClan ? currentClan : 'main'; }
-
 function currentBgFallback() {
-    if (currentClan && clansCache[currentClan]?.bg) {
-        return clansCache[currentClan].bg;
-    }
+    if (currentClan && clansCache[currentClan]?.bg) return clansCache[currentClan].bg;
     return null;
 }
-
 function applyBg() {
     const key = currentBgKey();
     const override = getOverrides()[key];
     const url = override || currentBgFallback();
-    if (url) {
-        document.body.style.backgroundImage = `url('${url}')`;
-    } else {
-        document.body.style.backgroundImage = '';
-    }
+    if (url) document.body.style.backgroundImage = `url('${url}')`;
+    else document.body.style.backgroundImage = '';
 }
-
 function compressImage(file, maxW = 1920, quality = 0.8) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -407,7 +312,6 @@ document.querySelectorAll('.admin-nav-item').forEach(btn => {
         btn.classList.add('active');
         const section = document.querySelector(`.admin-section[data-apanel="${panel}"]`);
         if (section) section.classList.add('active');
-
         if (panel === 'clans')    renderAdminClanSelect();
         if (panel === 'games')    renderGamesAdmin();
         if (panel === 'partners') renderPartnersAdmin();
@@ -416,44 +320,88 @@ document.querySelectorAll('.admin-nav-item').forEach(btn => {
         if (panel === 'settings') renderSiteFields();
     });
 });
-on('adminBackHome', 'click', () => {
-    currentClan = null;
-    showScreen('home');
+on('adminBackHome', 'click', () => { currentClan = null; showScreen('home'); });
+
+/* ============================================================
+   ТАКТИКА
+============================================================ */
+async function loadTactics() {
+    try {
+        const { data, error } = await supabase.from('tactics').select('*').order('sort_order');
+        if (error) { console.warn('Tactics load error:', error.message); tacticsCache = []; }
+        else tacticsCache = data || [];
+    } catch (e) { tacticsCache = []; }
+    renderTacticsModal();
+    renderTacticsAdmin();
+}
+function renderTacticsModal() {
+    const body = $('tacticsBody');
+    if (!body) return;
+    body.innerHTML = '';
+    if (!tacticsCache.length) {
+        body.innerHTML = '<p class="empty" style="text-align:center;padding:20px;">Разделы тактики пока не добавлены.</p>';
+        return;
+    }
+    tacticsCache.forEach(t => {
+        const section = document.createElement('section');
+        section.className = 'tactics-section';
+        section.innerHTML = `
+            <h3>${escapeHtml(t.icon || '📖')} ${escapeHtml(t.title || '')}</h3>
+            <div class="tactics-text">${t.content || ''}</div>
+        `;
+        body.appendChild(section);
+    });
+}
+function openTacticsModal() {
+    const modal = $('tacticsModal');
+    if (!modal) return;
+    modal.hidden = false;
+    document.body.style.overflow = 'hidden';
+}
+function closeTacticsModal() {
+    const modal = $('tacticsModal');
+    if (!modal) return;
+    modal.hidden = true;
+    document.body.style.overflow = '';
+}
+on('openTacticsBtn', 'click', openTacticsModal);
+on('closeTactics', 'click', closeTacticsModal);
+on('tacticsModal', 'click', e => {
+    if (e.target.id === 'tacticsModal') closeTacticsModal();
+});
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+        const m = $('tacticsModal');
+        if (m && !m.hidden) closeTacticsModal();
+    }
 });
 
 /* ============================================================
    АДМИН: ВХОД
 ============================================================ */
 function openAdminAuth() {
-    const m = document.getElementById('adminAuthModal');
-    if (!m) return;
-    m.hidden = false;
-    document.getElementById('adminAuthError').textContent = '';
-    document.getElementById('adminEmail').value = '';
-    document.getElementById('adminPassword').value = '';
-    document.getElementById('adminEmail').focus();
+    $('adminAuthModal').hidden = false;
+    $('adminAuthError').textContent = '';
+    $('adminEmail').value = ''; $('adminPassword').value = '';
+    $('adminEmail').focus();
 }
-function closeAdminAuth() {
-    const m = document.getElementById('adminAuthModal');
-    if (m) m.hidden = true;
-}
+function closeAdminAuth() { $('adminAuthModal').hidden = true; }
 on('adminLoginBtn', 'click', openAdminAuth);
 on('cancelAdminLogin', 'click', closeAdminAuth);
 on('doAdminLogin', 'click', async () => {
     const email = val('adminEmail').trim();
     const password = val('adminPassword');
-    const err = document.getElementById('adminAuthError');
-    err.textContent = '';
+    const err = $('adminAuthError'); err.textContent = '';
     if (!email || !password) { err.textContent = 'Заполни email и пароль'; return; }
-    document.getElementById('doAdminLogin').disabled = true;
+    $('doAdminLogin').disabled = true;
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    document.getElementById('doAdminLogin').disabled = false;
+    $('doAdminLogin').disabled = false;
     if (error) { err.textContent = error.message; return; }
     await logAdminAction('Вход в админ-панель');
     closeAdminAuth();
 });
 on('adminPassword', 'keydown', e => {
-    if (e.key === 'Enter') document.getElementById('doAdminLogin').click();
+    if (e.key === 'Enter') $('doAdminLogin').click();
 });
 async function adminLogout() { await supabase.auth.signOut(); }
 on('adminLogoutBtn', 'click', adminLogout);
@@ -467,7 +415,7 @@ supabase.auth.onAuthStateChange(async (_e, session) => {
 
 function applyAdminUI() {
     const setHidden = (id, hidden) => {
-        const el = document.getElementById(id);
+        const el = $(id);
         if (el) el.hidden = hidden;
     };
     setHidden('adminLoginBtn', isAdmin);
@@ -478,8 +426,7 @@ function applyAdminUI() {
     setHidden('adminPanelBtn3', !isAdmin);
     const label = isAdmin ? '👑 Админ' : '';
     ['adminInfo','adminInfo2','adminInfo3'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.textContent = label;
+        const el = $(id); if (el) el.textContent = label;
     });
     document.querySelectorAll('.admin-only').forEach(el => {
         el.hidden = !isAdmin;
@@ -488,7 +435,7 @@ function applyAdminUI() {
     document.querySelectorAll('.add-form.admin-only').forEach(el => {
         el.style.display = isAdmin ? 'flex' : 'none';
     });
-    const clearBtn = document.getElementById('chatClear');
+    const clearBtn = $('chatClear');
     if (clearBtn) clearBtn.hidden = !isAdmin;
     renderAll();
 }
@@ -529,7 +476,7 @@ function getClansForGame(gameId) {
     return Object.values(clansCache).filter(c => (c.game_id || 'wosb') === gameId);
 }
 function renderHomeCards() {
-    const grid = document.getElementById('clanGrid');
+    const grid = $('clanGrid');
     if (!grid) return;
     grid.innerHTML = '';
     const list = currentGame ? getClansForGame(currentGame) : Object.values(clansCache);
@@ -560,7 +507,7 @@ function handleClanClick(id) { isUnlocked() ? openClan(id) : openClanInfo(id); }
 function renderScopeSelects() {
     const clans = Object.values(clansCache);
     ['pvpScope', 'pbScope', 'buildEditScope', 'buildDupScope', 'evScope'].forEach(id => {
-        const sel = document.getElementById(id);
+        const sel = $(id);
         if (!sel) return;
         const current = sel.value;
         sel.innerHTML = '';
@@ -589,19 +536,19 @@ function openClanInfo(id) {
     const clan = clansCache[id];
     if (!clan) return;
     pendingClanId = id;
-    const setSrc = (elId, src) => { const el = document.getElementById(elId); if (el) el.src = src; };
-    const setText = (elId, txt) => { const el = document.getElementById(elId); if (el) el.textContent = txt; };
+    const setSrc = (elId, src) => { const el = $(elId); if (el) el.src = src; };
+    const setText = (elId, txt) => { const el = $(elId); if (el) el.textContent = txt; };
     setSrc('clanInfoLogo', clan.image || '');
     setText('clanInfoName', clan.name);
     setText('clanInfoDesc', clan.description || '');
     setText('clanInfoRules', clan.rules || 'Правила не заданы.');
-    const newsWrap = document.getElementById('clanInfoNewsWrap');
+    const newsWrap = $('clanInfoNewsWrap');
     if (clan.news && clan.news.trim()) {
         if (newsWrap) newsWrap.hidden = false;
         setText('clanInfoNews', clan.news);
     } else { if (newsWrap) newsWrap.hidden = true; }
-    const loginBtn = document.getElementById('clanLoginBtn');
-    const viewBtn = document.getElementById('clanViewBtn');
+    const loginBtn = $('clanLoginBtn');
+    const viewBtn = $('clanViewBtn');
     if (loginBtn) loginBtn.hidden = isUnlocked();
     if (viewBtn) viewBtn.hidden = !isUnlocked();
     showScreen('clan');
@@ -616,55 +563,41 @@ on('clanLoginBtn', 'click', () => {
     if (!pendingClanId) return;
     const clan = clansCache[pendingClanId];
     if (!clan) return;
-    const nameEl = document.getElementById('clanPassName');
+    const nameEl = $('clanPassName');
     if (nameEl) nameEl.textContent = clan.name;
-    document.getElementById('clanNickname').value = localStorage.getItem(VIEWER_NICK_KEY) || '';
-    document.getElementById('clanPassword').value = '';
-    document.getElementById('clanPassError').textContent = '';
-    document.getElementById('clanPassModal').hidden = false;
-    (document.getElementById('clanNickname').value ? document.getElementById('clanPassword') : document.getElementById('clanNickname')).focus();
+    $('clanNickname').value = localStorage.getItem(VIEWER_NICK_KEY) || '';
+    $('clanPassword').value = '';
+    $('clanPassError').textContent = '';
+    $('clanPassModal').hidden = false;
+    ($('clanNickname').value ? $('clanPassword') : $('clanNickname')).focus();
 });
-on('cancelClanLogin', 'click', () => {
-    document.getElementById('clanPassModal').hidden = true;
-});
+on('cancelClanLogin', 'click', () => { $('clanPassModal').hidden = true; });
 
 on('doClanLogin', 'click', async () => {
     const nick = val('clanNickname').trim();
     const entered = val('clanPassword');
     const clan = clansCache[pendingClanId];
     if (!clan) return;
-    if (!nick) { document.getElementById('clanPassError').textContent = 'Введите ваш ник'; return; }
-    if (nick.length < 2) { document.getElementById('clanPassError').textContent = 'Ник слишком короткий'; return; }
-    if (!entered) { document.getElementById('clanPassError').textContent = 'Введите пароль'; return; }
-
+    if (!nick) { $('clanPassError').textContent = 'Введите ваш ник'; return; }
+    if (nick.length < 2) { $('clanPassError').textContent = 'Ник слишком короткий'; return; }
+    if (!entered) { $('clanPassError').textContent = 'Введите пароль'; return; }
     const { data: ok, error: rpcErr } = await supabase.rpc('verify_clan_password', {
         clan_id: pendingClanId,
         entered_password: entered
     });
-    if (rpcErr || !ok) {
-        document.getElementById('clanPassError').textContent = 'Неверный пароль';
-        return;
-    }
-
+    if (rpcErr || !ok) { $('clanPassError').textContent = 'Неверный пароль'; return; }
     localStorage.setItem(VIEWER_NICK_KEY, nick);
     localStorage.setItem(UNLOCK_KEY, '1');
-    document.getElementById('clanPassModal').hidden = true;
-
+    $('clanPassModal').hidden = true;
     await logView(nick, pendingClanId, 'вход в гильдию');
     sendHeartbeat();
-
-    const tn = document.getElementById('tm-nickname');
+    const tn = $('tm-nickname');
     if (tn && !tn.value) tn.value = nick;
-
     const cid = pendingClanId; pendingClanId = null;
     openClan(cid);
 });
-on('clanNickname', 'keydown', e => {
-    if (e.key === 'Enter') document.getElementById('clanPassword').focus();
-});
-on('clanPassword', 'keydown', e => {
-    if (e.key === 'Enter') document.getElementById('doClanLogin').click();
-});
+on('clanNickname', 'keydown', e => { if (e.key === 'Enter') $('clanPassword').focus(); });
+on('clanPassword', 'keydown', e => { if (e.key === 'Enter') $('doClanLogin').click(); });
 
 /* ============================================================
    ОТКРЫТИЕ ГИЛЬДИИ
@@ -675,9 +608,9 @@ function openClan(id) {
     if (!isUnlocked()) { openClanInfo(id); return; }
     currentClan = id;
     localStorage.setItem(LAST_CLAN_KEY, id);
-    const titleEl = document.getElementById('clanTitle');
+    const titleEl = $('clanTitle');
     if (titleEl) titleEl.textContent = clan.name;
-    const iconEl = document.getElementById('clanIcon');
+    const iconEl = $('clanIcon');
     if (iconEl) { iconEl.src = clan.image || ''; iconEl.alt = clan.name; }
     showScreen('lists');
     document.querySelectorAll('.side-item').forEach(b => b.classList.toggle('active', b.dataset.section === 'lists'));
@@ -724,7 +657,7 @@ document.querySelectorAll('.tab').forEach(btn => {
         document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
         btn.classList.add('active');
         currentTab = btn.dataset.tab;
-        const tabContent = document.getElementById('tab-' + currentTab);
+        const tabContent = $('tab-' + currentTab);
         if (tabContent) tabContent.classList.add('active');
         applySearchFilter();
     });
@@ -735,7 +668,7 @@ document.querySelectorAll('.tab').forEach(btn => {
 ============================================================ */
 on('searchInput', 'input', applySearchFilter);
 function applySearchFilter() {
-    const input = document.getElementById('searchInput');
+    const input = $('searchInput');
     if (!input) return;
     const q = input.value.toLowerCase().trim();
     document.querySelectorAll('.tab-content.active .player-list li').forEach(li => {
@@ -804,7 +737,7 @@ function parseSpecialists(text) {
 }
 async function renderBuilds(type) {
     if (!currentClan) return;
-    const container = document.getElementById(type === 'pvp' ? 'pvpList' : 'pbList');
+    const container = $(type === 'pvp' ? 'pvpList' : 'pbList');
     if (!container) return;
     container.innerHTML = '<div class="empty">Загрузка…</div>';
     const { data, error } = await supabase.from('builds').select('*')
@@ -851,7 +784,6 @@ function createBuildCard(item) {
     const cons = [item.consumable1, item.consumable2, item.consumable3].filter(Boolean);
     const cargo = item.cargo ? parseLines(item.cargo) : [];
     const specs = parseSpecialists(item.specialists);
-
     const scopeBadge = item.is_shared
         ? `<span class="build-scope shared">🌐 Общий</span>`
         : `<span class="build-scope clan">🏰 ${escapeHtml(clansCache[item.clan]?.name || item.clan || '?')}</span>`;
@@ -865,48 +797,18 @@ function createBuildCard(item) {
             <button class="delete" title="Удалить">🗑</button>
         ` : ''}
     </div>`;
-
     card.innerHTML = `
         <div class="build-header">
             <h3 class="build-ship">${escapeHtml(item.ship_name)}</h3>
             ${rankBadge}${scopeBadge}${actions}
         </div>
-        ${upgrades.length ? `<div class="build-section">
-            <div class="build-section-label">🔧 Апгрейды</div>
-            <div class="build-chips">${upgrades.map(u => `<span class="chip chip-upgrade">${escapeHtml(u)}</span>`).join('')}</div>
-        </div>` : ''}
-        ${weapS.length ? `<div class="build-section">
-            <div class="build-section-label">🟢 Малые пушки (до 12ф)</div>
-            <div class="build-chips">${weapS.map(w => `<span class="chip chip-weap-small">${escapeHtml(w)}</span>`).join('')}</div>
-        </div>` : ''}
-        ${weapM.length ? `<div class="build-section">
-            <div class="build-section-label">🟡 Средние пушки (до 24ф)</div>
-            <div class="build-chips">${weapM.map(w => `<span class="chip chip-weap-medium">${escapeHtml(w)}</span>`).join('')}</div>
-        </div>` : ''}
-        ${weapL.length ? `<div class="build-section">
-            <div class="build-section-label">🔴 Большие пушки (до 48ф)</div>
-            <div class="build-chips">${weapL.map(w => `<span class="chip chip-weap-large">${escapeHtml(w)}</span>`).join('')}</div>
-        </div>` : ''}
-        ${cons.length ? `<div class="build-section">
-            <div class="build-section-label">⚗️ Расходники</div>
-            <div class="build-chips">${cons.map(c => `<span class="chip chip-cons">${escapeHtml(c)}</span>`).join('')}</div>
-        </div>` : ''}
-        ${cargo.length ? `<div class="build-section">
-            <div class="build-section-label">📦 Трюм</div>
-            <div class="build-chips">${cargo.map(c => `<span class="chip chip-cargo">${escapeHtml(c)}</span>`).join('')}</div>
-        </div>` : ''}
-        ${specs.length ? `<div class="build-section">
-            <div class="build-section-label">👤 Специалисты</div>
-            <div class="spec-list">${specs.map(s => `
-                <div class="spec-item">
-                    <div class="spec-name">${escapeHtml(s.name)}</div>
-                    ${s.bonuses.length ? `<div class="spec-bonuses">${s.bonuses.map(b => {
-                        const cls = b.value === null ? 'neutral' : (b.value > 0 ? 'plus' : 'minus');
-                        const val = b.value === null ? '' : ` ${b.value > 0 ? '+' : ''}${b.value}`;
-                        return `<span class="spec-bonus ${cls}">${escapeHtml(b.stat)}${val}</span>`;
-                    }).join('')}</div>` : ''}
-                </div>`).join('')}</div>
-        </div>` : ''}
+        ${upgrades.length ? `<div class="build-section"><div class="build-section-label">🔧 Апгрейды</div><div class="build-chips">${upgrades.map(u => `<span class="chip chip-upgrade">${escapeHtml(u)}</span>`).join('')}</div></div>` : ''}
+        ${weapS.length ? `<div class="build-section"><div class="build-section-label">🟢 Малые пушки (до 12ф)</div><div class="build-chips">${weapS.map(w => `<span class="chip chip-weap-small">${escapeHtml(w)}</span>`).join('')}</div></div>` : ''}
+        ${weapM.length ? `<div class="build-section"><div class="build-section-label">🟡 Средние пушки (до 24ф)</div><div class="build-chips">${weapM.map(w => `<span class="chip chip-weap-medium">${escapeHtml(w)}</span>`).join('')}</div></div>` : ''}
+        ${weapL.length ? `<div class="build-section"><div class="build-section-label">🔴 Большие пушки (до 48ф)</div><div class="build-chips">${weapL.map(w => `<span class="chip chip-weap-large">${escapeHtml(w)}</span>`).join('')}</div></div>` : ''}
+        ${cons.length ? `<div class="build-section"><div class="build-section-label">⚗️ Расходники</div><div class="build-chips">${cons.map(c => `<span class="chip chip-cons">${escapeHtml(c)}</span>`).join('')}</div></div>` : ''}
+        ${cargo.length ? `<div class="build-section"><div class="build-section-label">📦 Трюм</div><div class="build-chips">${cargo.map(c => `<span class="chip chip-cargo">${escapeHtml(c)}</span>`).join('')}</div></div>` : ''}
+        ${specs.length ? `<div class="build-section"><div class="build-section-label">👤 Специалисты</div><div class="spec-list">${specs.map(s => `<div class="spec-item"><div class="spec-name">${escapeHtml(s.name)}</div>${s.bonuses.length ? `<div class="spec-bonuses">${s.bonuses.map(b => { const cls = b.value === null ? 'neutral' : (b.value > 0 ? 'plus' : 'minus'); const val = b.value === null ? '' : ` ${b.value > 0 ? '+' : ''}${b.value}`; return `<span class="spec-bonus ${cls}">${escapeHtml(b.stat)}${val}</span>`; }).join('')}</div>` : ''}</div>`).join('')}</div></div>` : ''}
     `;
     card.querySelector('.share').addEventListener('click', () => {
         const url = `${location.origin}${location.pathname}#build=${item.id}`;
@@ -929,7 +831,7 @@ function createBuildCard(item) {
 async function addBuild(type) {
     if (!isAdmin || !currentClan) return;
     const isPvp = type === 'pvp';
-    const scopeEl = document.getElementById(isPvp ? 'pvpScope' : 'pbScope');
+    const scopeEl = $(isPvp ? 'pvpScope' : 'pbScope');
     const scopeVal = scopeEl ? scopeEl.value : SHARED;
     const isShared = scopeVal === SHARED;
     const clanValue = isShared ? null : scopeVal;
@@ -944,11 +846,9 @@ async function addBuild(type) {
     const c3 = val(`${type}Cons3`).trim();
     const cargo = val(`${type}Cargo`);
     const specs = val(`${type}Specs`);
-    const statusEl = document.getElementById(`${type}Status`);
-
+    const statusEl = $(`${type}Status`);
     if (!ship) { flashStatusEl(statusEl, 'Введите название корабля', '#ff7a7a'); return; }
     if (!isPvp && !rank) { flashStatusEl(statusEl, 'Укажите ранг', '#ff7a7a'); return; }
-
     const { error } = await supabase.from('builds').insert({
         clan: clanValue, is_shared: isShared, type,
         rank: rank || null, ship_name: ship,
@@ -963,7 +863,7 @@ async function addBuild(type) {
     await logAdminAction(`Добавил билд ${type.toUpperCase()}`, ship);
     ['Rank','Ship','Upgrades','WeapS','WeapM','WeapL','Cons1','Cons2','Cons3','Cargo','Specs']
         .forEach(suffix => {
-            const el = document.getElementById(`${type}${suffix}`);
+            const el = $(`${type}${suffix}`);
             if (el) el.value = '';
         });
     flashStatusEl(statusEl, '✔ Добавлено', '#6ee7a7');
@@ -977,35 +877,30 @@ on('pbAddBtn', 'click', () => addBuild('pb'));
 ============================================================ */
 function openBuildEdit(item) {
     editingBuild = { id: item.id, type: item.type };
-    const titleEl = document.getElementById('buildEditTitle');
+    const titleEl = $('buildEditTitle');
     if (titleEl) titleEl.textContent = item.type === 'pvp'
         ? '✏️ Редактировать ПВП-билд' : '✏️ Редактировать ПБ-билд';
-    const rankField = document.getElementById('buildEditRankField');
-    if (item.type === 'pb') {
-        if (rankField) rankField.hidden = false;
-        document.getElementById('buildEditRank').value = item.rank || '';
-    } else {
-        if (rankField) rankField.hidden = true;
-        document.getElementById('buildEditRank').value = '';
-    }
-    document.getElementById('buildEditShip').value = item.ship_name || '';
-    document.getElementById('buildEditUpgrades').value = item.upgrades || '';
-    document.getElementById('buildEditWeapS').value = item.weapons_small || '';
-    document.getElementById('buildEditWeapM').value = item.weapons_medium || '';
-    document.getElementById('buildEditWeapL').value = item.weapons_large || '';
-    document.getElementById('buildEditCons1').value = item.consumable1 || '';
-    document.getElementById('buildEditCons2').value = item.consumable2 || '';
-    document.getElementById('buildEditCons3').value = item.consumable3 || '';
-    document.getElementById('buildEditCargo').value = item.cargo || '';
-    document.getElementById('buildEditSpecs').value = item.specialists || '';
+    const rankField = $('buildEditRankField');
+    if (item.type === 'pb') { if (rankField) rankField.hidden = false; $('buildEditRank').value = item.rank || ''; }
+    else { if (rankField) rankField.hidden = true; $('buildEditRank').value = ''; }
+    $('buildEditShip').value = item.ship_name || '';
+    $('buildEditUpgrades').value = item.upgrades || '';
+    $('buildEditWeapS').value = item.weapons_small || '';
+    $('buildEditWeapM').value = item.weapons_medium || '';
+    $('buildEditWeapL').value = item.weapons_large || '';
+    $('buildEditCons1').value = item.consumable1 || '';
+    $('buildEditCons2').value = item.consumable2 || '';
+    $('buildEditCons3').value = item.consumable3 || '';
+    $('buildEditCargo').value = item.cargo || '';
+    $('buildEditSpecs').value = item.specialists || '';
     renderScopeSelects();
-    document.getElementById('buildEditScope').value = item.is_shared ? SHARED : (item.clan || SHARED);
-    document.getElementById('buildEditError').textContent = '';
-    document.getElementById('buildEditModal').hidden = false;
-    document.getElementById('buildEditShip').focus();
+    $('buildEditScope').value = item.is_shared ? SHARED : (item.clan || SHARED);
+    $('buildEditError').textContent = '';
+    $('buildEditModal').hidden = false;
+    $('buildEditShip').focus();
 }
 on('cancelBuildEdit', 'click', () => {
-    document.getElementById('buildEditModal').hidden = true; editingBuild = null;
+    $('buildEditModal').hidden = true; editingBuild = null;
 });
 on('saveBuildEdit', 'click', async () => {
     if (!editingBuild) return;
@@ -1014,8 +909,8 @@ on('saveBuildEdit', 'click', async () => {
     const clanValue = isShared ? null : scopeVal;
     const rank = val('buildEditRank').trim();
     const ship = val('buildEditShip').trim();
-    if (!ship) { document.getElementById('buildEditError').textContent = 'Введите название корабля'; return; }
-    if (editingBuild.type === 'pb' && !rank) { document.getElementById('buildEditError').textContent = 'Укажите ранг'; return; }
+    if (!ship) { $('buildEditError').textContent = 'Введите название корабля'; return; }
+    if (editingBuild.type === 'pb' && !rank) { $('buildEditError').textContent = 'Укажите ранг'; return; }
     const { error } = await supabase.from('builds').update({
         clan: clanValue, is_shared: isShared,
         rank: editingBuild.type === 'pb' ? rank : null,
@@ -1030,10 +925,10 @@ on('saveBuildEdit', 'click', async () => {
         cargo: val('buildEditCargo') || null,
         specialists: val('buildEditSpecs') || null
     }).eq('id', editingBuild.id);
-    if (error) { document.getElementById('buildEditError').textContent = 'Ошибка: ' + error.message; return; }
+    if (error) { $('buildEditError').textContent = 'Ошибка: ' + error.message; return; }
     await logAdminAction(`Изменил билд ${editingBuild.type.toUpperCase()}`, ship);
     const type = editingBuild.type;
-    document.getElementById('buildEditModal').hidden = true;
+    $('buildEditModal').hidden = true;
     editingBuild = null;
     renderBuilds(type);
 });
@@ -1043,21 +938,21 @@ on('saveBuildEdit', 'click', async () => {
 ============================================================ */
 function openBuildDup(item) {
     duplicatingBuild = item;
-    document.getElementById('buildDupName').textContent = item.ship_name;
+    $('buildDupName').textContent = item.ship_name;
     renderScopeSelects();
-    document.getElementById('buildDupScope').value = SHARED;
-    document.getElementById('buildDupMsg').textContent = '';
-    document.getElementById('buildDupModal').hidden = false;
+    $('buildDupScope').value = SHARED;
+    $('buildDupMsg').textContent = '';
+    $('buildDupModal').hidden = false;
 }
 on('cancelBuildDup', 'click', () => {
-    document.getElementById('buildDupModal').hidden = true; duplicatingBuild = null;
+    $('buildDupModal').hidden = true; duplicatingBuild = null;
 });
 on('doBuildDup', 'click', async () => {
     if (!duplicatingBuild) return;
     const scopeVal = val('buildDupScope');
     const isShared = scopeVal === SHARED;
     const clanValue = isShared ? null : scopeVal;
-    const msg = document.getElementById('buildDupMsg');
+    const msg = $('buildDupMsg');
     msg.style.color = '';
     const item = duplicatingBuild;
     const { error } = await supabase.from('builds').insert({
@@ -1077,7 +972,7 @@ on('doBuildDup', 'click', async () => {
     msg.textContent = '✔ Копия создана';
     msg.style.color = '#6ee7a7';
     setTimeout(() => {
-        document.getElementById('buildDupModal').hidden = true;
+        $('buildDupModal').hidden = true;
         duplicatingBuild = null;
         renderBuilds(item.type);
     }, 700);
@@ -1095,7 +990,7 @@ async function deleteBuild(id, type) {
 ============================================================ */
 async function renderEvents() {
     if (!currentClan) return;
-    const container = document.getElementById('eventsList');
+    const container = $('eventsList');
     if (!container) return;
     container.innerHTML = '<div class="empty">Загрузка…</div>';
     const { data, error } = await supabase.from('events').select('*')
@@ -1149,7 +1044,7 @@ on('evAddBtn', 'click', async () => {
     const scopeVal = val('evScope');
     const isShared = scopeVal === SHARED;
     const clanVal = isShared ? null : scopeVal;
-    const statusEl = document.getElementById('evStatus');
+    const statusEl = $('evStatus');
     if (!title) { flashStatusEl(statusEl, 'Введите название', '#ff7a7a'); return; }
     if (!dateStr) { flashStatusEl(statusEl, 'Укажите дату', '#ff7a7a'); return; }
     const { error } = await supabase.from('events').insert({
@@ -1160,7 +1055,7 @@ on('evAddBtn', 'click', async () => {
     if (error) { flashStatusEl(statusEl, 'Ошибка: ' + error.message, '#ff7a7a'); return; }
     await logAdminAction('Добавил событие', title);
     ['evTitle','evDate','evDesc'].forEach(id => {
-        const el = document.getElementById(id);
+        const el = $(id);
         if (el) el.value = '';
     });
     flashStatusEl(statusEl, '✔ Добавлено', '#6ee7a7');
@@ -1172,7 +1067,7 @@ on('evAddBtn', 'click', async () => {
 ============================================================ */
 async function renderTreasury() {
     if (!currentClan) return;
-    const container = document.getElementById('treasuryList');
+    const container = $('treasuryList');
     if (!container) return;
     container.innerHTML = '<div class="empty">Загрузка…</div>';
     const { data, error } = await supabase.from('treasury').select('*')
@@ -1185,7 +1080,7 @@ async function renderTreasury() {
         const amt = Number(t.amount) || 0;
         balance += t.type === 'in' ? amt : -amt;
     });
-    const balEl = document.getElementById('treasuryBalance');
+    const balEl = $('treasuryBalance');
     if (balEl) {
         balEl.textContent = balance.toLocaleString('ru-RU');
         balEl.classList.toggle('negative', balance < 0);
@@ -1225,7 +1120,7 @@ on('trAddBtn', 'click', async () => {
     const type = val('trType');
     const amount = Number(val('trAmount'));
     const desc = val('trDesc').trim();
-    const statusEl = document.getElementById('trStatus');
+    const statusEl = $('trStatus');
     if (!amount || amount <= 0) { flashStatusEl(statusEl, 'Введите сумму > 0', '#ff7a7a'); return; }
     if (!desc) { flashStatusEl(statusEl, 'Добавьте описание', '#ff7a7a'); return; }
     const { error } = await supabase.from('treasury').insert({
@@ -1233,8 +1128,8 @@ on('trAddBtn', 'click', async () => {
     });
     if (error) { flashStatusEl(statusEl, 'Ошибка: ' + error.message, '#ff7a7a'); return; }
     await logAdminAction(`Казна: ${type === 'in' ? 'доход' : 'расход'}`, `${amount}`, desc);
-    document.getElementById('trAmount').value = '';
-    document.getElementById('trDesc').value = '';
+    $('trAmount').value = '';
+    $('trDesc').value = '';
     flashStatusEl(statusEl, '✔ Добавлено', '#6ee7a7');
     renderTreasury();
 });
@@ -1270,23 +1165,18 @@ function tradeTimeAgo(iso) {
     return `${Math.floor(s / 86400)} дн назад`;
 }
 function initTradeCategorySelect() {
-    const sel = document.getElementById('tm-category');
+    const sel = $('tm-category');
     if (!sel) return;
-    sel.innerHTML = TRADE_CATEGORIES.map(c =>
-        `<option value="${c.id}">${c.icon} ${c.name}</option>`
-    ).join('');
+    sel.innerHTML = TRADE_CATEGORIES.map(c => `<option value="${c.id}">${c.icon} ${c.name}</option>`).join('');
 }
 function initTradeCategoryFilters() {
-    const wrap = document.getElementById('tm-cat-filters');
+    const wrap = $('tm-cat-filters');
     if (!wrap) return;
-    wrap.innerHTML =
-        `<span class="tm-chip active" data-cat="all">Все категории</span>` +
-        TRADE_CATEGORIES.map(c =>
-            `<span class="tm-chip" data-cat="${c.id}">${c.icon} ${c.name}</span>`
-        ).join('');
+    wrap.innerHTML = `<span class="tm-chip active" data-cat="all">Все категории</span>` +
+        TRADE_CATEGORIES.map(c => `<span class="tm-chip" data-cat="${c.id}">${c.icon} ${c.name}</span>`).join('');
 }
 function renderTradeClanSelect() {
-    const sel = document.getElementById('tm-clan');
+    const sel = $('tm-clan');
     if (!sel) return;
     const cur = sel.value;
     sel.innerHTML = '';
@@ -1298,13 +1188,10 @@ function renderTradeClanSelect() {
     if (cur && clansCache[cur]) sel.value = cur;
 }
 function renderTradeClanFilters() {
-    const wrap = document.getElementById('tm-clan-filters');
+    const wrap = $('tm-clan-filters');
     if (!wrap) return;
-    wrap.innerHTML =
-        `<span class="tm-chip active" data-clan="all">Все гильдии</span>` +
-        Object.values(clansCache).map(c =>
-            `<span class="tm-chip" data-clan="${c.id}">🏰 ${escapeHtml(c.name)}</span>`
-        ).join('');
+    wrap.innerHTML = `<span class="tm-chip active" data-clan="all">Все гильдии</span>` +
+        Object.values(clansCache).map(c => `<span class="tm-chip" data-clan="${c.id}">🏰 ${escapeHtml(c.name)}</span>`).join('');
     if (tradeFilterClan !== 'all' && !clansCache[tradeFilterClan]) tradeFilterClan = 'all';
     wrap.querySelectorAll('.tm-chip').forEach(chip => {
         if (chip.dataset.clan === tradeFilterClan) chip.classList.add('active');
@@ -1312,7 +1199,7 @@ function renderTradeClanFilters() {
     });
 }
 async function renderTrades() {
-    const container = document.getElementById('tm-listings');
+    const container = $('tm-listings');
     if (!container) return;
     container.innerHTML = '<div class="empty">Загрузка…</div>';
     const { data, error } = await supabase.from('trades').select('*')
@@ -1330,18 +1217,18 @@ function renderTradeCounters() {
         if (t.type === 'buy') { buyGold += total; buyN++; }
         else { sellGold += total; sellN++; }
     });
-    const elBuy = document.getElementById('tm-counter-buy-gold');
-    const elSell = document.getElementById('tm-counter-sell-gold');
-    const elBuySub = document.getElementById('tm-counter-buy-sub');
-    const elSellSub = document.getElementById('tm-counter-sell-sub');
+    const elBuy = $('tm-counter-buy-gold');
+    const elSell = $('tm-counter-sell-gold');
+    const elBuySub = $('tm-counter-buy-sub');
+    const elSellSub = $('tm-counter-sell-sub');
     if (elBuy) elBuy.textContent = tradeFmtGold(buyGold);
     if (elSell) elSell.textContent = tradeFmtGold(sellGold);
     if (elBuySub) elBuySub.textContent = buyN + ' ' + tradePlural(buyN, 'заявка', 'заявки', 'заявок');
     if (elSellSub) elSellSub.textContent = sellN + ' ' + tradePlural(sellN, 'заявка', 'заявки', 'заявок');
 }
 function tradeVisibleListings() {
-    const searchInput = document.getElementById('tm-search');
-    const onlyMineInput = document.getElementById('tm-only-mine');
+    const searchInput = $('tm-search');
+    const onlyMineInput = $('tm-only-mine');
     const q = (searchInput?.value || '').trim().toLowerCase();
     const onlyMine = onlyMineInput?.checked;
     const myNick = getViewerNick().toLowerCase();
@@ -1355,7 +1242,7 @@ function tradeVisibleListings() {
     });
 }
 function renderTradeListings() {
-    const container = document.getElementById('tm-listings');
+    const container = $('tm-listings');
     if (!container) return;
     const items = tradeVisibleListings();
     if (!items.length) {
@@ -1374,36 +1261,25 @@ function renderTradeListings() {
         const canDelete     = isAdmin || (isMine && !isAccepted && !isDone);
         const typeLabel     = t.type === 'buy' ? '🛒 Куплю' : '💰 Продам';
         const clanName      = clansCache[t.clan]?.name || t.clan;
-
         let statusBadge = '';
         if (isDone)          statusBadge = `<span class="tm-badge done">✅ Завершено</span>`;
         else if (isAccepted) statusBadge = `<span class="tm-badge progress">⏳ В работе</span>`;
         else                 statusBadge = `<span class="tm-badge free">🔵 Свободна</span>`;
-
         let actionsHtml = '';
         if (!isDone && !isAccepted && !isMine) {
-            actionsHtml = `<div class="tm-listing-actions">
-                <button class="tm-accept" data-id="${t.id}">🤝 Принять</button>
-            </div>`;
+            actionsHtml = `<div class="tm-listing-actions"><button class="tm-accept" data-id="${t.id}">🤝 Принять</button></div>`;
         } else if (!isDone && isAccepted && isMine) {
             actionsHtml = `<div class="tm-listing-actions">
                 <button class="tm-confirm" data-id="${t.id}">✅ Подтвердить сделку</button>
                 <button class="tm-cancel" data-id="${t.id}">✖ Отменить принятие</button>
             </div>`;
         }
-
         let acceptedNote = '';
         if (isAccepted) {
-            acceptedNote = `<div class="tm-accepted-note">
-                🤝 Принял: <b>${escapeHtml(t.accepted_by)}</b>
-                ${iAmAccepter ? ' — ждём подтверждения от владельца' : ''}
-            </div>`;
+            acceptedNote = `<div class="tm-accepted-note">🤝 Принял: <b>${escapeHtml(t.accepted_by)}</b>${iAmAccepter ? ' — ждём подтверждения от владельца' : ''}</div>`;
         } else if (isDone) {
-            acceptedNote = `<div class="tm-accepted-note">
-                ✅ Сделка завершена${t.accepted_by ? ` — с <b>${escapeHtml(t.accepted_by)}</b>` : ''}
-            </div>`;
+            acceptedNote = `<div class="tm-accepted-note">✅ Сделка завершена${t.accepted_by ? ` — с <b>${escapeHtml(t.accepted_by)}</b>` : ''}</div>`;
         }
-
         const el = document.createElement('article');
         el.className = 'tm-listing ' + t.type + (isMine ? ' mine' : '') + (isDone ? ' done' : '');
         el.dataset.id = t.id;
@@ -1443,11 +1319,11 @@ function renderTradeListings() {
 function updateTradeFormTotal() {
     const p = parseInt(val('tm-price')) || 0;
     const q = parseInt(val('tm-qty')) || 0;
-    const el = document.getElementById('tm-total');
+    const el = $('tm-total');
     if (el) el.value = tradeFmtGold(p * q);
 }
 function setTradeStatus(msg, type = '') {
-    const el = document.getElementById('tm-status');
+    const el = $('tm-status');
     if (!el) return;
     el.textContent = msg;
     el.className = 'tm-status ' + type;
@@ -1520,8 +1396,7 @@ on('tm-listings', 'click', async e => {
         const { error } = await supabase.from('trades').update({ status: 'done' }).eq('id', id);
         if (error) return alert(error.message);
         await logAdminAction('Подтвердил сделку', `${t.name} — с ${t.accepted_by}`);
-        await createNotification(t.accepted_by, 'trade', 'Сделка завершена',
-            `Сделка «${t.name}» подтверждена владельцем`, null);
+        await createNotification(t.accepted_by, 'trade', 'Сделка завершена', `Сделка «${t.name}» подтверждена владельцем`, null);
         renderTrades();
         return;
     }
@@ -1531,9 +1406,7 @@ on('tm-listings', 'click', async e => {
         const t = tradesCache.find(x => String(x.id) === String(id));
         if (!t) return;
         if (!confirm('Отменить принятие? Заявка снова станет свободной.')) return;
-        const { error } = await supabase.from('trades').update({
-            accepted_by: null, accepted_at: null
-        }).eq('id', id);
+        const { error } = await supabase.from('trades').update({ accepted_by: null, accepted_at: null }).eq('id', id);
         if (error) return alert(error.message);
         await logAdminAction('Отменил принятие сделки', t.name);
         renderTrades();
@@ -1550,33 +1423,25 @@ on('tm-submit', 'click', async () => {
     const port = val('tm-port').trim();
     const nickname = val('tm-nickname').trim();
     const note = val('tm-note').trim();
-
     if (!name) return setTradeStatus('Укажите название.', 'error');
     if (!price || price <= 0) return setTradeStatus('Укажите корректную цену.', 'error');
     if (!qty || qty <= 0) return setTradeStatus('Укажите корректное количество.', 'error');
     if (!nickname) return setTradeStatus('Укажите ваш ник.', 'error');
     if (nickname.length < 2) return setTradeStatus('Ник слишком короткий.', 'error');
-
     const { error } = await supabase.from('trades').insert({
         clan, type: tradeFormType, category, name, price, qty,
         port: port || null, nickname, note: note || null, status: 'active'
     });
     if (error) return setTradeStatus('Ошибка: ' + error.message, 'error');
-
-    await logAdminAction(
-        `Новая торговая заявка (${tradeFormType === 'buy' ? 'куплю' : 'продам'})`,
-        `${nickname} — ${name} — ${price}×${qty}`
-    );
+    await logAdminAction(`Новая торговая заявка (${tradeFormType === 'buy' ? 'куплю' : 'продам'})`, `${nickname} — ${name} — ${price}×${qty}`);
     localStorage.setItem(VIEWER_NICK_KEY, nickname);
     sendHeartbeat();
-
-    document.getElementById('tm-name').value = '';
-    document.getElementById('tm-price').value = '';
-    document.getElementById('tm-qty').value = 1;
-    document.getElementById('tm-port').value = '';
-    document.getElementById('tm-note').value = '';
+    $('tm-name').value = '';
+    $('tm-price').value = '';
+    $('tm-qty').value = 1;
+    $('tm-port').value = '';
+    $('tm-note').value = '';
     updateTradeFormTotal();
-
     setTradeStatus('✅ Заявка опубликована!', 'success');
     renderTrades();
 });
@@ -1586,17 +1451,16 @@ on('tm-submit', 'click', async () => {
 ============================================================ */
 function openAcceptTradeModal(t) {
     acceptingTrade = t;
-    document.getElementById('acceptTradeName').textContent = t.name;
-    document.getElementById('acceptTradeInfo').textContent =
-        `${t.type === 'buy' ? 'Покупка' : 'Продажа'} · ${Number(t.price).toLocaleString('ru-RU')} 🪙/шт · ${t.qty} шт`;
+    $('acceptTradeName').textContent = t.name;
+    $('acceptTradeInfo').textContent = `${t.type === 'buy' ? 'Покупка' : 'Продажа'} · ${Number(t.price).toLocaleString('ru-RU')} 🪙/шт · ${t.qty} шт`;
     const savedNick = getViewerNick();
-    document.getElementById('acceptTradeNickname').value = savedNick || '';
-    document.getElementById('acceptTradeError').textContent = '';
-    document.getElementById('acceptTradeModal').hidden = false;
-    (savedNick ? document.getElementById('doAcceptTrade') : document.getElementById('acceptTradeNickname')).focus();
+    $('acceptTradeNickname').value = savedNick || '';
+    $('acceptTradeError').textContent = '';
+    $('acceptTradeModal').hidden = false;
+    (savedNick ? $('doAcceptTrade') : $('acceptTradeNickname')).focus();
 }
 function closeAcceptTradeModal() {
-    document.getElementById('acceptTradeModal').hidden = true;
+    $('acceptTradeModal').hidden = true;
     acceptingTrade = null;
 }
 on('cancelAcceptTrade', 'click', closeAcceptTradeModal);
@@ -1606,27 +1470,23 @@ on('acceptTradeModal', 'click', e => {
 on('doAcceptTrade', 'click', async () => {
     if (!acceptingTrade) return;
     const nick = val('acceptTradeNickname').trim();
-    const err = document.getElementById('acceptTradeError');
+    const err = $('acceptTradeError');
     err.textContent = '';
     if (!nick) { err.textContent = 'Укажите ваш ник'; return; }
     if (nick.length < 2) { err.textContent = 'Ник слишком короткий'; return; }
-    if (nick.toLowerCase() === (acceptingTrade.nickname || '').toLowerCase()) {
-        err.textContent = 'Нельзя принять собственную заявку';
-        return;
-    }
-    document.getElementById('doAcceptTrade').disabled = true;
+    if (nick.toLowerCase() === (acceptingTrade.nickname || '').toLowerCase()) { err.textContent = 'Нельзя принять собственную заявку'; return; }
+    $('doAcceptTrade').disabled = true;
     const { error } = await supabase.from('trades').update({
         accepted_by: nick,
         accepted_at: new Date().toISOString()
     }).eq('id', acceptingTrade.id);
-    document.getElementById('doAcceptTrade').disabled = false;
+    $('doAcceptTrade').disabled = false;
     if (error) { err.textContent = 'Ошибка: ' + error.message; return; }
     localStorage.setItem(VIEWER_NICK_KEY, nick);
     sendHeartbeat();
     await logAdminAction('Принял торговую заявку', `${acceptingTrade.name} — ${nick}`);
-    await createNotification(acceptingTrade.nickname, 'trade', 'Вашу заявку приняли',
-        `${nick} принял заявку «${acceptingTrade.name}»`, null);
-    const tn = document.getElementById('tm-nickname');
+    await createNotification(acceptingTrade.nickname, 'trade', 'Вашу заявку приняли', `${nick} принял заявку «${acceptingTrade.name}»`, null);
+    const tn = $('tm-nickname');
     if (tn) tn.value = nick;
     closeAcceptTradeModal();
     renderTrades();
@@ -1636,7 +1496,7 @@ on('doAcceptTrade', 'click', async () => {
    ЗАЯВКИ
 ============================================================ */
 async function renderApplications() {
-    const container = document.getElementById('applicationsList');
+    const container = $('applicationsList');
     if (!container || !isAdmin) return;
     container.innerHTML = '<div class="empty">Загрузка…</div>';
     const { data, error } = await supabase.from('applications').select('*')
@@ -1646,13 +1506,10 @@ async function renderApplications() {
     container.innerHTML = '';
     data.forEach(app => {
         const d = new Date(app.created_at);
-        const dateStr = d.toLocaleDateString('ru-RU') + ' ' +
-                        String(d.getHours()).padStart(2,'0') + ':' +
-                        String(d.getMinutes()).padStart(2,'0');
+        const dateStr = d.toLocaleDateString('ru-RU') + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
         const card = document.createElement('div');
         card.className = 'application-card ' + (app.status || 'new');
-        const targetClanName = app.target_clan && clansCache[app.target_clan]
-            ? clansCache[app.target_clan].name : (app.target_clan || '—');
+        const targetClanName = app.target_clan && clansCache[app.target_clan] ? clansCache[app.target_clan].name : (app.target_clan || '—');
         card.innerHTML = `
             <div class="application-head">
                 <div class="application-nick">👤 ${escapeHtml(app.nickname)}</div>
@@ -1695,7 +1552,7 @@ async function updateAppStatus(id, status) {
    ФОРМА ЗАЯВКИ
 ============================================================ */
 function renderApplyClanSelect() {
-    const sel = document.getElementById('applyClan');
+    const sel = $('applyClan');
     if (!sel) return;
     sel.innerHTML = '<option value="">— Не выбрано —</option>';
     const list = currentGame ? getClansForGame(currentGame) : Object.values(clansCache);
@@ -1707,7 +1564,7 @@ function renderApplyClanSelect() {
 on('applyBtn', 'click', async () => {
     const nick = val('applyNick').trim();
     const why = val('applyWhy').trim();
-    const msg = document.getElementById('applyMsg');
+    const msg = $('applyMsg');
     msg.style.color = '';
     if (!nick) { msg.textContent = 'Введите никнейм'; msg.style.color = '#ff7a7a'; return; }
     if (!why) { msg.textContent = 'Расскажите, почему хотите вступить'; msg.style.color = '#ff7a7a'; return; }
@@ -1719,17 +1576,17 @@ on('applyBtn', 'click', async () => {
         contact: val('applyContact').trim() || null,
         target_clan: val('applyClan') || null
     };
-    document.getElementById('applyBtn').disabled = true;
+    $('applyBtn').disabled = true;
     const { error } = await supabase.from('applications').insert(payload);
-    document.getElementById('applyBtn').disabled = false;
+    $('applyBtn').disabled = false;
     if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
     msg.textContent = '✔ Заявка отправлена! С вами свяжутся.';
     msg.style.color = '#6ee7a7';
     ['applyNick','applyAge','applyExp','applyContact','applyWhy'].forEach(id => {
-        const el = document.getElementById(id);
+        const el = $(id);
         if (el) el.value = '';
     });
-    document.getElementById('applyClan').value = '';
+    $('applyClan').value = '';
 });
 
 /* ============================================================
@@ -1743,7 +1600,7 @@ async function loadFaq() {
     renderFaqAdmin();
 }
 function renderFaq() {
-    const container = document.getElementById('faqList');
+    const container = $('faqList');
     if (!container) return;
     container.innerHTML = '';
     if (!faqCache.length) { container.innerHTML = '<div class="empty">Пока нет вопросов</div>'; return; }
@@ -1756,7 +1613,7 @@ function renderFaq() {
     });
 }
 function renderFaqAdmin() {
-    const container = document.getElementById('faqAdminList');
+    const container = $('faqAdminList');
     if (!container) return;
     container.innerHTML = '';
     if (!faqCache.length) { container.innerHTML = '<div class="empty">Пока нет</div>'; return; }
@@ -1784,8 +1641,7 @@ on('faqAddBtn', 'click', async () => {
     });
     if (error) return alert(error.message);
     await logAdminAction('Добавил вопрос FAQ', q);
-    document.getElementById('faqQ').value = '';
-    document.getElementById('faqA').value = '';
+    $('faqQ').value = ''; $('faqA').value = '';
     loadFaq();
 });
 
@@ -1828,8 +1684,8 @@ function getPartnerLogo(p) {
     return null;
 }
 function renderPartnersHome() {
-    const section = document.getElementById('partnersSection');
-    const list = document.getElementById('partnersList');
+    const section = $('partnersSection');
+    const list = $('partnersList');
     if (!section || !list) return;
     list.innerHTML = '';
     if (!partnersCache.length) { section.hidden = true; return; }
@@ -1890,7 +1746,7 @@ function makePartnerLetter(name) {
     return span;
 }
 function renderPartnersAdmin() {
-    const container = document.getElementById('partnersAdminList');
+    const container = $('partnersAdminList');
     if (!container) return;
     container.innerHTML = '';
     if (!partnersCache.length) {
@@ -1959,28 +1815,28 @@ function compressLogo(file, maxSize = 128, quality = 0.85) {
         reader.readAsDataURL(file);
     });
 }
-on('partnerLogoPick', 'click', () => document.getElementById('partnerLogoFile').click());
+on('partnerLogoPick', 'click', () => $('partnerLogoFile').click());
 on('partnerLogoFile', 'change', async e => {
     const file = e.target.files[0];
     if (!file) return;
     try {
         partnerLogoData = await compressLogo(file);
-        document.getElementById('partnerLogoImg').src = partnerLogoData;
-        document.getElementById('partnerLogoPreview').hidden = false;
-        document.getElementById('partnerLogoName').textContent = file.name;
+        $('partnerLogoImg').src = partnerLogoData;
+        $('partnerLogoPreview').hidden = false;
+        $('partnerLogoName').textContent = file.name;
     } catch (err) { alert('Не удалось загрузить картинку: ' + err.message); }
 });
 on('partnerLogoClear', 'click', () => {
     partnerLogoData = null;
-    document.getElementById('partnerLogoFile').value = '';
-    document.getElementById('partnerLogoPreview').hidden = true;
-    document.getElementById('partnerLogoName').textContent = '';
+    $('partnerLogoFile').value = '';
+    $('partnerLogoPreview').hidden = true;
+    $('partnerLogoName').textContent = '';
 });
 on('partnerAddBtn', 'click', async () => {
     const name = val('partnerName').trim();
     const url = val('partnerUrl').trim();
     const desc = val('partnerDesc').trim();
-    const statusEl = document.getElementById('partnerStatus');
+    const statusEl = $('partnerStatus');
     if (!name) { flashStatusEl(statusEl, 'Укажи название', '#ff7a7a'); return; }
     if (!url) { flashStatusEl(statusEl, 'Укажи ссылку', '#ff7a7a'); return; }
     if (!/^https?:\/\//i.test(url)) { flashStatusEl(statusEl, 'Ссылка должна начинаться с http:// или https://', '#ff7a7a'); return; }
@@ -1993,13 +1849,13 @@ on('partnerAddBtn', 'click', async () => {
     if (error) { flashStatusEl(statusEl, 'Ошибка: ' + error.message, '#ff7a7a'); return; }
     await logAdminAction('Добавил партнёра', name);
     ['partnerName','partnerUrl','partnerDesc'].forEach(id => {
-        const el = document.getElementById(id);
+        const el = $(id);
         if (el) el.value = '';
     });
     partnerLogoData = null;
-    document.getElementById('partnerLogoFile').value = '';
-    document.getElementById('partnerLogoPreview').hidden = true;
-    document.getElementById('partnerLogoName').textContent = '';
+    $('partnerLogoFile').value = '';
+    $('partnerLogoPreview').hidden = true;
+    $('partnerLogoName').textContent = '';
     flashStatusEl(statusEl, '✔ Добавлено', '#6ee7a7');
     await loadPartners();
 });
@@ -2008,7 +1864,7 @@ on('partnerAddBtn', 'click', async () => {
    АДМИН: ТАКТИКА
 ============================================================ */
 function renderTacticsAdmin() {
-    const container = document.getElementById('tacticsAdminList');
+    const container = $('tacticsAdminList');
     if (!container) return;
     container.innerHTML = '';
     if (!tacticsCache.length) {
@@ -2048,17 +1904,17 @@ async function moveTactic(id, dir) {
 }
 function openTacticEdit(t) {
     editingTactic = t;
-    document.getElementById('tacEditId').value = t.id;
-    document.getElementById('tacEditTitle').value = t.title || '';
-    document.getElementById('tacEditIcon').value = t.icon || '';
-    document.getElementById('tacEditOrder').value = t.sort_order ?? 0;
-    document.getElementById('tacEditContent').value = t.content || '';
-    document.getElementById('tacEditMsg').textContent = '';
-    document.getElementById('tacticsEditModal').hidden = false;
-    document.getElementById('tacEditTitle').focus();
+    $('tacEditId').value = t.id;
+    $('tacEditTitle').value = t.title || '';
+    $('tacEditIcon').value = t.icon || '';
+    $('tacEditOrder').value = t.sort_order ?? 0;
+    $('tacEditContent').value = t.content || '';
+    $('tacEditMsg').textContent = '';
+    $('tacticsEditModal').hidden = false;
+    $('tacEditTitle').focus();
 }
 on('cancelTacEdit', 'click', () => {
-    document.getElementById('tacticsEditModal').hidden = true; editingTactic = null;
+    $('tacticsEditModal').hidden = true; editingTactic = null;
 });
 on('saveTacEdit', 'click', async () => {
     if (!editingTactic) return;
@@ -2066,7 +1922,7 @@ on('saveTacEdit', 'click', async () => {
     const icon = val('tacEditIcon').trim();
     const content = val('tacEditContent');
     const order = parseInt(val('tacEditOrder')) || 0;
-    const msg = document.getElementById('tacEditMsg');
+    const msg = $('tacEditMsg');
     if (!title) { msg.textContent = 'Укажи заголовок'; msg.style.color = '#ff7a7a'; return; }
     if (!content.trim()) { msg.textContent = 'Укажи содержимое'; msg.style.color = '#ff7a7a'; return; }
     const { error } = await supabase.from('tactics').update({
@@ -2075,7 +1931,7 @@ on('saveTacEdit', 'click', async () => {
     }).eq('id', editingTactic.id);
     if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
     await logAdminAction('Изменил раздел тактики', title);
-    document.getElementById('tacticsEditModal').hidden = true;
+    $('tacticsEditModal').hidden = true;
     editingTactic = null;
     await loadTactics();
 });
@@ -2091,7 +1947,7 @@ on('tacAddBtn', 'click', async () => {
     const icon = val('tacIcon').trim();
     const content = val('tacContent');
     const order = parseInt(val('tacOrder')) || 0;
-    const statusEl = document.getElementById('tacStatus');
+    const statusEl = $('tacStatus');
     if (!id) { flashStatusEl(statusEl, 'Укажи ID', '#ff7a7a'); return; }
     if (!title) { flashStatusEl(statusEl, 'Укажи заголовок', '#ff7a7a'); return; }
     if (!content.trim()) { flashStatusEl(statusEl, 'Укажи содержимое', '#ff7a7a'); return; }
@@ -2101,10 +1957,10 @@ on('tacAddBtn', 'click', async () => {
     if (error) { flashStatusEl(statusEl, 'Ошибка: ' + error.message, '#ff7a7a'); return; }
     await logAdminAction('Добавил раздел тактики', title);
     ['tacId','tacTitle','tacIcon','tacContent'].forEach(i => {
-        const el = document.getElementById(i);
+        const el = $(i);
         if (el) el.value = '';
     });
-    document.getElementById('tacOrder').value = 10;
+    $('tacOrder').value = 10;
     flashStatusEl(statusEl, '✔ Добавлено', '#6ee7a7');
     await loadTactics();
 });
@@ -2118,7 +1974,7 @@ async function loadSettings() {
     settingsCache = data;
 }
 async function loadStats() {
-    const row = document.getElementById('statsRow');
+    const row = $('statsRow');
     if (!row) return;
     row.innerHTML = '';
     try {
@@ -2145,18 +2001,17 @@ async function loadStats() {
         stats.forEach(s => {
             const el = document.createElement('div');
             el.className = 'stat-card';
-            el.innerHTML = `<div class="stat-value">${s.ico} ${s.value}</div>
-                <div class="stat-label">${s.label}</div>`;
+            el.innerHTML = `<div class="stat-value">${s.ico} ${s.value}</div><div class="stat-label">${s.label}</div>`;
             row.appendChild(el);
         });
-    } catch (err) { /* молча */ }
+    } catch (err) { }
 }
 
 /* ============================================================
    КОНТАКТЫ
 ============================================================ */
 function renderContacts() {
-    const container = document.getElementById('contactsList');
+    const container = $('contactsList');
     if (!container) return;
     container.innerHTML = '';
     const clans = Object.values(clansCache);
@@ -2183,7 +2038,7 @@ function renderContacts() {
    АДМИН: ИГРЫ
 ============================================================ */
 function renderGamesAdmin() {
-    const container = document.getElementById('gamesAdminList');
+    const container = $('gamesAdminList');
     if (!container) return;
     container.innerHTML = '';
     const list = Object.values(gamesCache);
@@ -2217,7 +2072,7 @@ on('gameAddBtn', 'click', async () => {
     const name = val('gameName').trim();
     const image = val('gameImage').trim();
     const bg = val('gameBg').trim();
-    const statusEl = document.getElementById('gameStatus');
+    const statusEl = $('gameStatus');
     if (!id) { flashStatusEl(statusEl, 'Укажи ID (латиница)', '#ff7a7a'); return; }
     if (!name) { flashStatusEl(statusEl, 'Укажи название', '#ff7a7a'); return; }
     if (gamesCache[id]) { flashStatusEl(statusEl, 'ID уже существует', '#ff7a7a'); return; }
@@ -2230,7 +2085,7 @@ on('gameAddBtn', 'click', async () => {
     if (error) { flashStatusEl(statusEl, 'Ошибка: ' + error.message, '#ff7a7a'); return; }
     await logAdminAction('Создал игру', name);
     ['gameId','gameName','gameImage','gameBg'].forEach(i => {
-        const el = document.getElementById(i);
+        const el = $(i);
         if (el) el.value = '';
     });
     flashStatusEl(statusEl, '✔ Добавлено', '#6ee7a7');
@@ -2238,30 +2093,30 @@ on('gameAddBtn', 'click', async () => {
 });
 function openGameEdit(g) {
     editingGame = g;
-    document.getElementById('gameEditId').value = g.id;
-    document.getElementById('gameEditName').value = g.name;
-    document.getElementById('gameEditImage').value = g.image || '';
-    document.getElementById('gameEditBg').value = g.bg || '';
-    document.getElementById('gameEditMsg').textContent = '';
-    document.getElementById('gameEditModal').hidden = false;
-    document.getElementById('gameEditName').focus();
+    $('gameEditId').value = g.id;
+    $('gameEditName').value = g.name;
+    $('gameEditImage').value = g.image || '';
+    $('gameEditBg').value = g.bg || '';
+    $('gameEditMsg').textContent = '';
+    $('gameEditModal').hidden = false;
+    $('gameEditName').focus();
 }
 on('cancelGameEdit', 'click', () => {
-    document.getElementById('gameEditModal').hidden = true; editingGame = null;
+    $('gameEditModal').hidden = true; editingGame = null;
 });
 on('saveGameEdit', 'click', async () => {
     if (!editingGame) return;
     const name = val('gameEditName').trim();
     const image = val('gameEditImage').trim();
     const bg = val('gameEditBg').trim();
-    const msg = document.getElementById('gameEditMsg');
+    const msg = $('gameEditMsg');
     if (!name) { msg.textContent = 'Укажи название'; msg.style.color = '#ff7a7a'; return; }
     const { error } = await supabase.from('games').update({
         name, image: image || null, bg: bg || null
     }).eq('id', editingGame.id);
     if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
     await logAdminAction('Изменил игру', name);
-    document.getElementById('gameEditModal').hidden = true;
+    $('gameEditModal').hidden = true;
     editingGame = null;
     await loadGames();
 });
@@ -2286,7 +2141,7 @@ async function deleteGame(id, name) {
    АДМИН: ГИЛЬДИИ
 ============================================================ */
 function renderAdminClanSelect() {
-    const sel = document.getElementById('adminClanSelect');
+    const sel = $('adminClanSelect');
     if (!sel) return;
     const cur = sel.value;
     sel.innerHTML = '';
@@ -2298,7 +2153,7 @@ function renderAdminClanSelect() {
     updateAdminFields();
 }
 function renderGameSelectForClanAdmin() {
-    const sel = document.getElementById('adminClanGame');
+    const sel = $('adminClanGame');
     if (!sel) return;
     const cur = sel.value;
     sel.innerHTML = '';
@@ -2309,7 +2164,7 @@ function renderGameSelectForClanAdmin() {
     if (cur && gamesCache[cur]) sel.value = cur;
 }
 function renderNewClanGameSelect() {
-    const sel = document.getElementById('newClanGame');
+    const sel = $('newClanGame');
     if (!sel) return;
     const cur = sel.value;
     sel.innerHTML = '';
@@ -2325,13 +2180,13 @@ function updateAdminFields() {
     const cid = val('adminClanSelect');
     const clan = clansCache[cid];
     renderGameSelectForClanAdmin();
-    if (clan) document.getElementById('adminClanGame').value = clan.game_id || 'wosb';
-    document.getElementById('adminCurrentPass').value = clan?.password || '—';
-    document.getElementById('adminNewPass').value = '';
-    document.getElementById('adminDiscord').value = clan?.discord || '';
-    document.getElementById('adminNews').value = clan?.news || '';
-    document.getElementById('adminRules').value = clan?.rules || '';
-    document.getElementById('adminPanelMsg').textContent = '';
+    if (clan) $('adminClanGame').value = clan.game_id || 'wosb';
+    $('adminCurrentPass').value = clan?.password || '—';
+    $('adminNewPass').value = '';
+    $('adminDiscord').value = clan?.discord || '';
+    $('adminNews').value = clan?.news || '';
+    $('adminRules').value = clan?.rules || '';
+    $('adminPanelMsg').textContent = '';
 }
 on('saveAdminSettings', 'click', async () => {
     const cid = val('adminClanSelect');
@@ -2340,7 +2195,7 @@ on('saveAdminSettings', 'click', async () => {
     const newNews = val('adminNews');
     const newRules = val('adminRules');
     const newGame = val('adminClanGame');
-    const msg = document.getElementById('adminPanelMsg');
+    const msg = $('adminPanelMsg');
     if (!cid) return;
     const clan = clansCache[cid]; if (!clan) return;
     const payload = {
@@ -2356,11 +2211,11 @@ on('saveAdminSettings', 'click', async () => {
     await logAdminAction('Изменил настройки гильдии', clan.name);
     Object.assign(clansCache[cid], payload);
     msg.textContent = '✔ Сохранено'; msg.style.color = '#6ee7a7';
-    document.getElementById('adminNewPass').value = '';
+    $('adminNewPass').value = '';
     if (pendingClanId === cid) {
-        document.getElementById('clanInfoRules').textContent = newRules || 'Правила не заданы.';
-        const nw = document.getElementById('clanInfoNewsWrap');
-        if (newNews?.trim()) { nw.hidden = false; document.getElementById('clanInfoNews').textContent = newNews; }
+        $('clanInfoRules').textContent = newRules || 'Правила не заданы.';
+        const nw = $('clanInfoNewsWrap');
+        if (newNews?.trim()) { nw.hidden = false; $('clanInfoNews').textContent = newNews; }
         else nw.hidden = true;
     }
     renderHomeCards();
@@ -2371,20 +2226,14 @@ on('deleteClanBtn', 'click', async () => {
     if (!cid) return alert('Выберите гильдию');
     const clan = clansCache[cid];
     if (!clan) return alert('Гильдия не найдена');
-    const confirmText = `Удалить гильдию «${clan.name}»?\n\n⚠️ Вместе с ней удалятся ВСЕ записи.`;
-    if (!confirm(confirmText)) return;
+    if (!confirm(`Удалить гильдию «${clan.name}»?\n\n⚠️ Вместе с ней удалятся ВСЕ записи.`)) return;
     const typed = prompt(`Для подтверждения введи название гильдии:\n«${clan.name}»`);
-    if (typed !== clan.name) {
-        alert('Название не совпадает. Удаление отменено.');
-        return;
-    }
-    const btn = document.getElementById('deleteClanBtn');
+    if (typed !== clan.name) { alert('Название не совпадает. Удаление отменено.'); return; }
+    const btn = $('deleteClanBtn');
     btn.disabled = true;
     btn.textContent = '⏳ Удаление…';
     try {
-        for (const t of TABS) {
-            await supabase.from(t).delete().eq('clan', cid);
-        }
+        for (const t of TABS) { await supabase.from(t).delete().eq('clan', cid); }
         await supabase.from('events').delete().eq('clan', cid).eq('is_shared', false);
         await supabase.from('treasury').delete().eq('clan', cid);
         await supabase.from('trades').delete().eq('clan', cid);
@@ -2405,11 +2254,11 @@ on('deleteClanBtn', 'click', async () => {
         renderTradeClanSelect();
         renderTradeClanFilters();
         applyBg();
-        document.getElementById('adminPanelMsg').textContent = `✔ Гильдия «${clan.name}» удалена`;
-        document.getElementById('adminPanelMsg').style.color = '#6ee7a7';
+        $('adminPanelMsg').textContent = `✔ Гильдия «${clan.name}» удалена`;
+        $('adminPanelMsg').style.color = '#6ee7a7';
     } catch (err) {
-        document.getElementById('adminPanelMsg').textContent = 'Ошибка: ' + err.message;
-        document.getElementById('adminPanelMsg').style.color = '#ff7a7a';
+        $('adminPanelMsg').textContent = 'Ошибка: ' + err.message;
+        $('adminPanelMsg').style.color = '#ff7a7a';
     } finally {
         btn.disabled = false;
         btn.textContent = '🗑 Удалить гильдию';
@@ -2417,11 +2266,11 @@ on('deleteClanBtn', 'click', async () => {
 });
 function renderSiteFields() {
     const s = settingsCache || {};
-    document.getElementById('adminWebhook').value = s.discord_webhook || '';
-    document.getElementById('adminSiteMsg').textContent = '';
+    $('adminWebhook').value = s.discord_webhook || '';
+    $('adminSiteMsg').textContent = '';
 }
 on('saveSiteSettings', 'click', async () => {
-    const msg = document.getElementById('adminSiteMsg');
+    const msg = $('adminSiteMsg');
     msg.style.color = '';
     const payload = {
         discord_webhook: val('adminWebhook').trim() || null,
@@ -2440,19 +2289,19 @@ on('saveSiteSettings', 'click', async () => {
 ============================================================ */
 on('openAddClan', 'click', () => {
     ['newClanId','newClanName','newClanDesc','newClanRules','newClanPass','newClanDiscord','newClanImage','newClanBg']
-        .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+        .forEach(id => { const el = $(id); if (el) el.value = ''; });
     renderNewClanGameSelect();
-    document.getElementById('addClanMsg').textContent = '';
-    document.getElementById('addClanModal').hidden = false;
-    document.getElementById('newClanId').focus();
+    $('addClanMsg').textContent = '';
+    $('addClanModal').hidden = false;
+    $('newClanId').focus();
 });
-on('cancelAddClan', 'click', () => { document.getElementById('addClanModal').hidden = true; });
+on('cancelAddClan', 'click', () => { $('addClanModal').hidden = true; });
 on('saveNewClan', 'click', async () => {
     const id = val('newClanId').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
     const name = val('newClanName').trim();
     const pass = val('newClanPass').trim();
     const game = val('newClanGame');
-    const msg = document.getElementById('addClanMsg');
+    const msg = $('addClanMsg');
     if (!id || !name || !pass) { msg.textContent = 'ID, название и пароль обязательны'; msg.style.color = '#ff7a7a'; return; }
     if (!game) { msg.textContent = 'Выберите игру'; msg.style.color = '#ff7a7a'; return; }
     if (clansCache[id]) { msg.textContent = 'ID уже занят'; msg.style.color = '#ff7a7a'; return; }
@@ -2472,7 +2321,7 @@ on('saveNewClan', 'click', async () => {
     renderHomeCards(); renderAdminClanSelect(); renderScopeSelects(); renderContacts();
     renderTradeClanSelect(); renderTradeClanFilters(); renderApplyClanSelect();
     msg.textContent = '✔ Гильдия создана'; msg.style.color = '#6ee7a7';
-    setTimeout(() => { document.getElementById('addClanModal').hidden = true; }, 800);
+    setTimeout(() => { $('addClanModal').hidden = true; }, 800);
 });
 
 /* ============================================================
@@ -2480,37 +2329,33 @@ on('saveNewClan', 'click', async () => {
 ============================================================ */
 function openEditModal(tab, item) {
     editingItem = { tab, id: item.id };
-    document.getElementById('editPlayerGuild').value = item.player_guild || '';
-    document.getElementById('editNickname').value = item.nickname || '';
-    document.getElementById('editFaction').value = item.faction || '';
-    document.getElementById('editNote').value = item.note || '';
-    document.getElementById('editError').textContent = '';
-    document.getElementById('editModal').hidden = false;
-    document.getElementById('editPlayerGuild').focus();
+    $('editPlayerGuild').value = item.player_guild || '';
+    $('editNickname').value = item.nickname || '';
+    $('editFaction').value = item.faction || '';
+    $('editNote').value = item.note || '';
+    $('editError').textContent = '';
+    $('editModal').hidden = false;
+    $('editPlayerGuild').focus();
 }
-on('cancelEdit', 'click', () => {
-    document.getElementById('editModal').hidden = true; editingItem = null;
-});
+on('cancelEdit', 'click', () => { $('editModal').hidden = true; editingItem = null; });
 on('saveEdit', 'click', async () => {
     if (!editingItem) return;
     const pg = val('editPlayerGuild').trim();
     const nick = val('editNickname').trim();
-    if (!pg && !nick) { document.getElementById('editError').textContent = 'Заполни Гильдию или Никнейм'; return; }
+    if (!pg && !nick) { $('editError').textContent = 'Заполни Гильдию или Никнейм'; return; }
     const { tab, id } = editingItem;
     const { error } = await supabase.from(tab).update({
         nickname: nick || null, player_guild: pg || null,
         faction: val('editFaction').trim() || null,
         note: val('editNote').trim() || null
     }).eq('id', id);
-    if (error) { document.getElementById('editError').textContent = 'Ошибка: ' + error.message; return; }
+    if (error) { $('editError').textContent = 'Ошибка: ' + error.message; return; }
     await logAdminAction(`Изменил запись (${tab})`, nick || pg);
-    document.getElementById('editModal').hidden = true; editingItem = null;
+    $('editModal').hidden = true; editingItem = null;
     loadList(tab);
 });
 ['editPlayerGuild','editNickname','editFaction','editNote'].forEach(id => {
-    on(id, 'keydown', e => {
-        if (e.key === 'Enter') document.getElementById('saveEdit').click();
-    });
+    on(id, 'keydown', e => { if (e.key === 'Enter') $('saveEdit').click(); });
 });
 
 /* ============================================================
@@ -2530,17 +2375,15 @@ on('addBtn', 'click', async () => {
     if (error) { flashStatus('Ошибка: ' + error.message, '#ff7a7a'); return; }
     await logAdminAction(`Добавил запись (${currentTab})`, nick || pg);
     ['playerGuild','nickname','faction','note'].forEach(id => {
-        const el = document.getElementById(id);
+        const el = $(id);
         if (el) el.value = '';
     });
-    document.getElementById('playerGuild').focus();
+    $('playerGuild').focus();
     flashStatus('✔ Добавлено', '#6ee7a7');
     loadList(currentTab);
 });
 ['playerGuild','nickname','faction','note'].forEach(id => {
-    on(id, 'keydown', e => {
-        if (e.key === 'Enter') document.getElementById('addBtn').click();
-    });
+    on(id, 'keydown', e => { if (e.key === 'Enter') $('addBtn').click(); });
 });
 
 /* ============================================================
@@ -2555,17 +2398,15 @@ async function deleteItem(tab, id) {
 }
 function openMoveModal(fromTab, id) {
     movingItem = { fromTab, id };
-    document.getElementById('moveModal').hidden = false;
+    $('moveModal').hidden = false;
 }
-on('cancelMove', 'click', () => {
-    document.getElementById('moveModal').hidden = true; movingItem = null;
-});
+on('cancelMove', 'click', () => { $('moveModal').hidden = true; movingItem = null; });
 document.querySelectorAll('#moveModal [data-target]').forEach(btn => {
     btn.addEventListener('click', async () => {
         if (!movingItem || !currentClan) return;
         const { fromTab, id } = movingItem;
         const toTab = btn.dataset.target;
-        document.getElementById('moveModal').hidden = true; movingItem = null;
+        $('moveModal').hidden = true; movingItem = null;
         if (toTab === fromTab) return;
         const { data, error } = await supabase.from(fromTab).select('*').eq('id', id).single();
         if (error) return alert(error.message);
@@ -2600,20 +2441,17 @@ async function handleBuildHash() {
         });
     }, 600);
 }
-window.addEventListener('hashchange', () => {
-    if (location.hash.startsWith('#build=')) handleBuildHash();
-});
+window.addEventListener('hashchange', () => { if (location.hash.startsWith('#build=')) handleBuildHash(); });
 
 /* ============================================================
    👤 ПРОФИЛЬ ИГРОКА
 ============================================================ */
 async function openProfile(nickname) {
     if (!nickname) return;
-    document.getElementById('profileNickname').textContent = nickname;
-    const statsEl = document.getElementById('profileStats');
+    $('profileNickname').textContent = nickname;
+    const statsEl = $('profileStats');
     statsEl.innerHTML = '<div class="empty">Загрузка…</div>';
-    document.getElementById('profileModal').hidden = false;
-
+    $('profileModal').hidden = false;
     try {
         const [en, fr, ne, pe, tradesBuy, tradesSell] = await Promise.all([
             supabase.from('enemies').select('id', { count: 'exact', head: true }).eq('nickname', nickname),
@@ -2623,7 +2461,6 @@ async function openProfile(nickname) {
             supabase.from('trades').select('id', { count: 'exact', head: true }).eq('nickname', nickname).eq('type', 'buy'),
             supabase.from('trades').select('id', { count: 'exact', head: true }).eq('nickname', nickname).eq('type', 'sell')
         ]);
-
         const stats = [
             { label: '🔴 В списках врагов',    value: en.count || 0 },
             { label: '🟢 В списках друзей',    value: fr.count || 0 },
@@ -2632,13 +2469,7 @@ async function openProfile(nickname) {
             { label: '🛒 Заявок на покупку',   value: tradesBuy.count || 0 },
             { label: '💰 Заявок на продажу',   value: tradesSell.count || 0 }
         ];
-
-        const { data: online } = await supabase
-            .from('online_users')
-            .select('last_seen')
-            .eq('nickname', nickname)
-            .maybeSingle();
-
+        const { data: online } = await supabase.from('online_users').select('last_seen').eq('nickname', nickname).maybeSingle();
         let onlineLabel = '⚫ Офлайн';
         if (online?.last_seen) {
             const diff = Date.now() - new Date(online.last_seen).getTime();
@@ -2647,7 +2478,6 @@ async function openProfile(nickname) {
             else if (diff < 86400000) onlineLabel = `🔵 Был ${Math.floor(diff/3600000)} ч назад`;
         }
         stats.unshift({ label: '📡 Статус', value: onlineLabel });
-
         statsEl.innerHTML = stats.map(s => `
             <div class="profile-stat-row">
                 <span class="profile-stat-label">${s.label}</span>
@@ -2658,10 +2488,8 @@ async function openProfile(nickname) {
         statsEl.innerHTML = `<div class="empty">Ошибка: ${err.message}</div>`;
     }
 }
-on('closeProfile', 'click', () => { document.getElementById('profileModal').hidden = true; });
-on('profileModal', 'click', e => {
-    if (e.target.id === 'profileModal') document.getElementById('profileModal').hidden = true;
-});
+on('closeProfile', 'click', () => { $('profileModal').hidden = true; });
+on('profileModal', 'click', e => { if (e.target.id === 'profileModal') $('profileModal').hidden = true; });
 
 /* ============================================================
    🔔 УВЕДОМЛЕНИЯ
@@ -2669,43 +2497,27 @@ on('profileModal', 'click', e => {
 async function loadNotifications() {
     const nick = getViewerNick();
     if (!nick) { notifications = []; renderNotifications(); return; }
-    const { data, error } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('user_nickname', nick)
-        .order('created_at', { ascending: false })
-        .limit(50);
+    const { data, error } = await supabase.from('notifications').select('*')
+        .eq('user_nickname', nick).order('created_at', { ascending: false }).limit(50);
     if (error) { console.warn('Notif error:', error.message); return; }
     notifications = data || [];
     renderNotifications();
 }
-
 function renderNotifications() {
-    const list = document.getElementById('notifList');
+    const list = $('notifList');
     if (!list) return;
     const unread = notifications.filter(n => !n.is_read).length;
-
     ['notifBadge', 'notifBadge2'].forEach(id => {
-        const badge = document.getElementById(id);
+        const badge = $(id);
         if (!badge) return;
-        if (unread > 0) {
-            badge.textContent = unread > 99 ? '99+' : unread;
-            badge.hidden = false;
-        } else {
-            badge.hidden = true;
-        }
+        if (unread > 0) { badge.textContent = unread > 99 ? '99+' : unread; badge.hidden = false; }
+        else badge.hidden = true;
     });
-
     if (!notifications.length) {
         list.innerHTML = '<p class="empty" style="padding:20px;text-align:center;">Уведомлений пока нет</p>';
         return;
     }
-
-    const icons = {
-        event: '📅', trade: '🪙', application: '📝',
-        chat: '💬', system: '⚙️'
-    };
-
+    const icons = { event: '📅', trade: '🪙', application: '📝', chat: '💬', system: '⚙️' };
     list.innerHTML = notifications.map(n => `
         <div class="notif-item ${n.is_read ? '' : 'unread'}" data-id="${n.id}">
             <div class="notif-item-icon">${icons[n.type] || '🔔'}</div>
@@ -2716,7 +2528,6 @@ function renderNotifications() {
             </div>
         </div>
     `).join('');
-
     list.querySelectorAll('.notif-item').forEach(el => {
         el.addEventListener('click', async () => {
             const id = el.dataset.id;
@@ -2728,47 +2539,36 @@ function renderNotifications() {
                 renderNotifications();
             }
             if (n.link) {
-                if (n.link.startsWith('#build=')) {
-                    location.hash = n.link;
-                } else if (n.link.startsWith('clan:')) {
+                if (n.link.startsWith('#build=')) location.hash = n.link;
+                else if (n.link.startsWith('clan:')) {
                     const cid = n.link.split(':')[1];
                     if (clansCache[cid]) openClan(cid);
                 }
             }
-            document.getElementById('notifPanel').hidden = true;
+            $('notifPanel').hidden = true;
         });
     });
 }
-
 async function createNotification(userNickname, type, title, body, link) {
     if (!userNickname) return;
     try {
         await supabase.from('notifications').insert({
-            user_nickname: userNickname,
-            type, title, body: body || null, link: link || null
+            user_nickname: userNickname, type, title, body: body || null, link: link || null
         });
-    } catch (e) { /* молча */ }
+    } catch (e) { }
 }
-
-function openNotifPanel() {
-    document.getElementById('notifPanel').hidden = false;
-    loadNotifications();
-}
-function closeNotifPanel() {
-    document.getElementById('notifPanel').hidden = true;
-}
+function openNotifPanel() { $('notifPanel').hidden = false; loadNotifications(); }
+function closeNotifPanel() { $('notifPanel').hidden = true; }
 on('notifBell', 'click', e => {
     e.stopPropagation();
-    const p = document.getElementById('notifPanel');
-    p.hidden ? openNotifPanel() : closeNotifPanel();
+    $('notifPanel').hidden ? openNotifPanel() : closeNotifPanel();
 });
 on('notifBell2', 'click', e => {
     e.stopPropagation();
-    const p = document.getElementById('notifPanel');
-    p.hidden ? openNotifPanel() : closeNotifPanel();
+    $('notifPanel').hidden ? openNotifPanel() : closeNotifPanel();
 });
 document.addEventListener('click', e => {
-    const panel = document.getElementById('notifPanel');
+    const panel = $('notifPanel');
     if (!panel || panel.hidden) return;
     if (e.target.closest('#notifPanel')) return;
     if (e.target.closest('#notifBell') || e.target.closest('#notifBell2')) return;
@@ -2777,8 +2577,7 @@ document.addEventListener('click', e => {
 on('notifMarkAllRead', 'click', async () => {
     const nick = getViewerNick();
     if (!nick) return;
-    await supabase.from('notifications').update({ is_read: true })
-        .eq('user_nickname', nick).eq('is_read', false);
+    await supabase.from('notifications').update({ is_read: true }).eq('user_nickname', nick).eq('is_read', false);
     loadNotifications();
 });
 
@@ -2787,54 +2586,33 @@ on('notifMarkAllRead', 'click', async () => {
 ============================================================ */
 function setChatMode(mode) {
     chatMode = mode;
-    document.querySelectorAll('.chat-tab').forEach(t => {
-        t.classList.toggle('active', t.dataset.mode === mode);
-    });
-    const clearBtn = document.getElementById('chatClear');
+    document.querySelectorAll('.chat-tab').forEach(t => t.classList.toggle('active', t.dataset.mode === mode));
+    const clearBtn = $('chatClear');
     if (clearBtn) clearBtn.hidden = !isAdmin;
-    const input = document.getElementById('chatInput');
-    if (input) {
-        input.placeholder = mode === 'general'
-            ? 'Общий чат — напишите всем игрокам...'
-            : 'Чат гильдии...';
-    }
+    const input = $('chatInput');
+    if (input) input.placeholder = mode === 'general' ? 'Общий чат — напишите всем игрокам...' : 'Чат гильдии...';
     loadChatMessages();
     initChatRealtime();
 }
-
 async function loadChatMessages() {
-    const container = document.getElementById('chatMessages');
+    const container = $('chatMessages');
     if (!container) return;
-
     if (chatMode === 'guild' && !currentClan) {
         container.innerHTML = '<p class="empty" style="text-align:center;padding:20px;">🏰 Зайдите в гильдию, чтобы писать в чат гильдии. Или переключитесь на 🌍 Общий.</p>';
         chatMessages = [];
         return;
     }
-
     container.innerHTML = '<p class="empty" style="text-align:center;">Загрузка…</p>';
-
     let query = supabase.from('chat_messages').select('*');
-    if (chatMode === 'guild') {
-        query = query.eq('clan_id', currentClan);
-    } else {
-        query = query.is('clan_id', null);
-    }
-
-    const { data, error } = await query
-        .order('created_at', { ascending: true })
-        .limit(100);
-
-    if (error) {
-        container.innerHTML = `<p class="empty" style="text-align:center;">Ошибка: ${error.message}</p>`;
-        return;
-    }
+    if (chatMode === 'guild') query = query.eq('clan_id', currentClan);
+    else query = query.is('clan_id', null);
+    const { data, error } = await query.order('created_at', { ascending: true }).limit(100);
+    if (error) { container.innerHTML = `<p class="empty" style="text-align:center;">Ошибка: ${error.message}</p>`; return; }
     chatMessages = data || [];
     renderChatMessages();
 }
-
 function renderChatMessages() {
-    const container = document.getElementById('chatMessages');
+    const container = $('chatMessages');
     if (!container) return;
     if (!chatMessages.length) {
         container.innerHTML = '<p class="empty" style="text-align:center;padding:20px;">Сообщений пока нет. Будьте первым! 👋</p>';
@@ -2863,121 +2641,72 @@ function renderChatMessages() {
         el.addEventListener('click', () => openProfile(el.dataset.nick));
     });
 }
-
 async function sendChatMessage() {
-    const input = document.getElementById('chatInput');
+    const input = $('chatInput');
     const text = input.value.trim();
     if (!text) return;
-
-    if (chatMode === 'guild' && !currentClan) {
-        alert('Сначала зайдите в гильдию, либо переключитесь на 🌍 Общий чат');
-        return;
-    }
-
+    if (chatMode === 'guild' && !currentClan) { alert('Сначала зайдите в гильдию, либо переключитесь на 🌍 Общий чат'); return; }
     let nick = getViewerNick();
     if (!nick) {
         nick = prompt('Введите ваш ник для чата:');
-        if (!nick || nick.trim().length < 2) {
-            alert('Ник слишком короткий');
-            return;
-        }
+        if (!nick || nick.trim().length < 2) { alert('Ник слишком короткий'); return; }
         nick = nick.trim();
         localStorage.setItem(VIEWER_NICK_KEY, nick);
         sendHeartbeat();
     }
-
-    document.getElementById('chatSend').disabled = true;
+    $('chatSend').disabled = true;
     const { error } = await supabase.from('chat_messages').insert({
-        clan_id: chatMode === 'guild' ? currentClan : null,
-        nickname: nick,
-        text
+        clan_id: chatMode === 'guild' ? currentClan : null, nickname: nick, text
     });
-    document.getElementById('chatSend').disabled = false;
-
-    if (error) {
-        alert('Ошибка: ' + error.message);
-        return;
-    }
+    $('chatSend').disabled = false;
+    if (error) { alert('Ошибка: ' + error.message); return; }
     input.value = '';
 }
-
 async function clearChat() {
     if (!isAdmin) return;
-    const label = chatMode === 'general'
-        ? 'ОБЩИЙ чат'
-        : `чат гильдии «${clansCache[currentClan]?.name || currentClan}»`;
+    const label = chatMode === 'general' ? 'ОБЩИЙ чат' : `чат гильдии «${clansCache[currentClan]?.name || currentClan}»`;
     if (!confirm(`Очистить ${label}?\n\nВсе сообщения будут удалены безвозвратно.`)) return;
     if (chatMode === 'guild' && !currentClan) return;
-
     let query = supabase.from('chat_messages').delete();
-    if (chatMode === 'guild') {
-        query = query.eq('clan_id', currentClan);
-    } else {
-        query = query.is('clan_id', null);
-    }
-
+    if (chatMode === 'guild') query = query.eq('clan_id', currentClan);
+    else query = query.is('clan_id', null);
     const { error } = await query;
-    if (error) {
-        alert('Ошибка: ' + error.message);
-        return;
-    }
+    if (error) { alert('Ошибка: ' + error.message); return; }
     await logAdminAction(`Очистил чат`, label);
     chatMessages = [];
     renderChatMessages();
 }
-
 function openChat(mode) {
-    const clearBtn = document.getElementById('chatClear');
+    const clearBtn = $('chatClear');
     if (clearBtn) clearBtn.hidden = !isAdmin;
-    document.getElementById('chatPanel').hidden = false;
-    if (mode) {
-        setChatMode(mode);
-    } else {
-        setChatMode(currentClan ? 'guild' : 'general');
-    }
+    $('chatPanel').hidden = false;
+    if (mode) setChatMode(mode);
+    else setChatMode(currentClan ? 'guild' : 'general');
 }
-
 function closeChat() {
-    document.getElementById('chatPanel').hidden = true;
+    $('chatPanel').hidden = true;
     if (chatChannel) { supabase.removeChannel(chatChannel); chatChannel = null; }
 }
-
 on('openChatBtn', 'click', () => openChat('guild'));
 on('openGeneralChatBtn', 'click', () => openChat('general'));
 on('chatClose', 'click', closeChat);
 on('chatSend', 'click', sendChatMessage);
 on('chatClear', 'click', clearChat);
 on('chatInput', 'keydown', e => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendChatMessage();
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(); }
 });
 document.querySelectorAll('.chat-tab').forEach(tab => {
     tab.addEventListener('click', () => setChatMode(tab.dataset.mode));
 });
-
 function initChatRealtime() {
-    if (chatChannel) {
-        supabase.removeChannel(chatChannel);
-        chatChannel = null;
-    }
-    const channelName = chatMode === 'guild'
-        ? `chat_guild_${currentClan}`
-        : `chat_general`;
+    if (chatChannel) { supabase.removeChannel(chatChannel); chatChannel = null; }
+    const channelName = chatMode === 'guild' ? `chat_guild_${currentClan}` : `chat_general`;
     chatChannel = supabase
         .channel(channelName)
-        .on('postgres_changes', {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'chat_messages'
-        }, payload => {
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, payload => {
             const m = payload.new;
-            if (chatMode === 'guild') {
-                if (m.clan_id !== currentClan) return;
-            } else {
-                if (m.clan_id !== null) return;
-            }
+            if (chatMode === 'guild') { if (m.clan_id !== currentClan) return; }
+            else { if (m.clan_id !== null) return; }
             if (chatMessages.some(x => x.id === m.id)) return;
             chatMessages.push(m);
             if (chatMessages.length > 200) chatMessages.shift();
@@ -2992,33 +2721,23 @@ function initChatRealtime() {
 function initRealtime() {
     closeRealtime();
     if (!currentClan) return;
-
     onlineChannel = supabase
         .channel('online')
-        .on('postgres_changes', {
-            event: '*',
-            schema: 'public',
-            table: 'online_users'
-        }, () => {
-            updateOnlineCount();
-        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'online_users' }, () => { updateOnlineCount(); })
         .subscribe();
-
     const nick = getViewerNick();
     if (nick) {
         notifChannel = supabase
             .channel('notif_' + nick)
             .on('postgres_changes', {
-                event: 'INSERT',
-                schema: 'public',
-                table: 'notifications',
+                event: 'INSERT', schema: 'public', table: 'notifications',
                 filter: `user_nickname=eq.${nick}`
             }, payload => {
                 notifications.unshift(payload.new);
                 if (notifications.length > 50) notifications.pop();
                 renderNotifications();
                 ['notifBell', 'notifBell2'].forEach(id => {
-                    const b = document.getElementById(id);
+                    const b = $(id);
                     if (!b) return;
                     b.style.transform = 'scale(1.15)';
                     setTimeout(() => b.style.transform = '', 300);
@@ -3027,34 +2746,45 @@ function initRealtime() {
             .subscribe();
     }
 }
-
 function closeRealtime() {
     if (onlineChannel) { supabase.removeChannel(onlineChannel); onlineChannel = null; }
     if (notifChannel) { supabase.removeChannel(notifChannel); notifChannel = null; }
 }
 
 /* ============================================================
-   📰 НОВОСТИ ВК
+   📰 НОВОСТИ ВК — МОДАЛЬНОЕ ОКНО
 ============================================================ */
+function openVkNewsModal() {
+    const modal = $('vkNewsModal');
+    if (!modal) return;
+    modal.hidden = false;
+    document.body.style.overflow = 'hidden';
+    if (!vkNewsLoaded) {
+        loadVkNews();
+        vkNewsLoaded = true;
+    }
+}
+function closeVkNewsModal() {
+    const modal = $('vkNewsModal');
+    if (!modal) return;
+    modal.hidden = true;
+    document.body.style.overflow = '';
+}
 function loadVkNews() {
-    const container = document.getElementById('vkNewsList');
+    const container = $('vkNewsList');
     if (!container) return;
     container.innerHTML = '<div class="vk-news-loading">Загрузка новостей…</div>';
     const callbackName = 'vkNewsCallback_' + Date.now();
-
     window[callbackName] = function(data) {
         delete window[callbackName];
-        const script = document.getElementById(callbackName);
+        const script = $(callbackName);
         if (script) script.remove();
-
         if (data.error) {
             console.warn('VK API error:', data.error);
             container.innerHTML = `
                 <div class="vk-news-error">
-                    Не удалось загрузить новости.
-                    <a href="https://vk.com/worldofseabattle" target="_blank" rel="noopener" class="vk-news-link">
-                        Открыть сообщество ВКонтакте →
-                    </a>
+                    Не удалось загрузить новости.<br>
+                    Попробуйте позже или откройте сообщество напрямую.
                 </div>`;
             return;
         }
@@ -3066,40 +2796,26 @@ function loadVkNews() {
         container.innerHTML = '';
         posts.forEach(post => container.appendChild(createVkNewsCard(post)));
     };
-
     const script = document.createElement('script');
     script.id = callbackName;
     script.src = `https://api.vk.com/method/wall.get?owner_id=${VK_GROUP_ID}&count=${VK_POSTS_COUNT}&v=${VK_API_VERSION}&callback=${callbackName}`;
     script.onerror = function() {
         delete window[callbackName];
         script.remove();
-        container.innerHTML = `
-            <div class="vk-news-error">
-                Ошибка сети.
-                <a href="https://vk.com/worldofseabattle" target="_blank" rel="noopener" class="vk-news-link">
-                    Открыть сообщество →
-                </a>
-            </div>`;
+        container.innerHTML = '<div class="vk-news-error">Ошибка сети. Не удалось загрузить новости.</div>';
     };
     document.body.appendChild(script);
 }
-
 function createVkNewsCard(post) {
     const card = document.createElement('article');
     card.className = 'vk-news-item';
-
     const date = new Date(post.date * 1000);
-    const dateStr = date.toLocaleDateString('ru-RU', {
-        day: 'numeric', month: 'long', year: 'numeric'
-    });
-
+    const dateStr = date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
     let text = post.text || '';
-    const maxLen = 500;
+    const maxLen = 1000;
     const isLong = text.length > maxLen;
     const displayText = isLong ? text.substring(0, maxLen) + '…' : text;
-
     const postLink = `https://vk.com/wall${VK_GROUP_ID}_${post.id}`;
-
     let photosHtml = '';
     const photos = [];
     if (post.attachments) {
@@ -3114,12 +2830,10 @@ function createVkNewsCard(post) {
     }
     if (photos.length) {
         photosHtml = `<div class="vk-news-attachments">
-            ${photos.slice(0, 1).map(url => `<img class="vk-news-photo" src="${escapeHtml(url)}" alt="" loading="lazy">`).join('')}
+            ${photos.slice(0, 2).map(url => `<img class="vk-news-photo" src="${escapeHtml(url)}" alt="" loading="lazy">`).join('')}
         </div>`;
     }
-
     const likes = post.likes?.count || 0;
-
     card.innerHTML = `
         <div class="vk-news-header">
             <span class="vk-news-date">📅 ${dateStr}</span>
@@ -3135,22 +2849,27 @@ function createVkNewsCard(post) {
     `;
     return card;
 }
+on('openVkNewsBtn', 'click', openVkNewsModal);
+on('closeVkNews', 'click', closeVkNewsModal);
+on('vkNewsModal', 'click', e => {
+    if (e.target.id === 'vkNewsModal') closeVkNewsModal();
+});
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+        const m = $('vkNewsModal');
+        if (m && !m.hidden) closeVkNewsModal();
+    }
+});
 
 /* ============================================================
    🚀 СТАРТ
 ============================================================ */
 (async () => {
-    console.log('🚀 Инициализация приложения...');
     const verEl = document.querySelector('.footer-right');
     if (verEl) verEl.textContent = 'v' + APP_VERSION;
-
     initTheme();
-
     const { data: { session } } = await supabase.auth.getSession();
     isAdmin = !!session?.user && ADMIN_EMAILS.includes((session.user.email || '').toLowerCase());
-    console.log('👤 Пользователь:', isAdmin ? 'админ' : 'гость');
-
-    console.log('📥 Загрузка данных...');
     await loadGames();
     await loadClans();
     await loadSettings();
@@ -3159,25 +2878,15 @@ function createVkNewsCard(post) {
     await loadFaq();
     await loadTactics();
     await loadStats();
-
     initTradeCategorySelect();
     initTradeCategoryFilters();
     updateTradeFormTotal();
     renderTradeClanSelect();
     renderTradeClanFilters();
     await renderTrades();
-
     await loadNotifications();
-
-    // Загружаем новости ВК
-    loadVkNews();
-
     applyAdminUI();
     showScreen('home');
-
     startHeartbeat();
-
     setTimeout(handleBuildHash, 800);
-
-    console.log('✅ Приложение готово!');
 })();

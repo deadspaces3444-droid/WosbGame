@@ -1,7 +1,9 @@
 import { supabase } from './supabase.js';
 
+console.log('🚀 app.js загружается, версия 1.4.0');
+
 const ADMIN_EMAILS = ['kolibri@wosb.ru'];
-const APP_VERSION = '1.3.0';
+const APP_VERSION = '1.4.0';
 
 const TABS = ['enemies', 'friends', 'neutral', 'personal'];
 const UNLOCK_KEY = 'guild_unlocked';
@@ -51,12 +53,37 @@ let chatMessages  = [];
 let notifications = [];
 let chatMode      = 'guild';
 
-const $ = id => document.getElementById(id);
-const screenHome  = $('screen-home');
-const screenClan  = $('screen-clan');
-const screenAdmin = $('screen-admin');
-const clanView    = $('clanView');
-const bgFileInput = $('bgFileInput');
+/* ============================================================
+   ХЕЛПЕРЫ ДЛЯ БЕЗОПАСНОЙ РАБОТЫ С DOM
+============================================================ */
+const $ = id => {
+    const el = document.getElementById(id);
+    if (!el) console.warn('⚠️ Элемент не найден: #' + id);
+    return el;
+};
+
+// Безопасное добавление обработчика
+function on(id, event, handler) {
+    const el = document.getElementById(id);
+    if (!el) {
+        console.warn('⚠️ Не могу повесить обработчик — нет элемента #' + id);
+        return false;
+    }
+    el.addEventListener(event, handler);
+    return true;
+}
+
+// Безопасное обращение к value
+function val(id) {
+    const el = document.getElementById(id);
+    return el ? el.value : '';
+}
+
+const screenHome  = document.getElementById('screen-home');
+const screenClan  = document.getElementById('screen-clan');
+const screenAdmin = document.getElementById('screen-admin');
+const clanView    = document.getElementById('clanView');
+const bgFileInput = document.getElementById('bgFileInput');
 
 /* ============================================================
    УТИЛИТЫ
@@ -74,7 +101,7 @@ function flashStatusEl(el, text, color) {
     el._t = setTimeout(() => el.textContent = '', 2000);
 }
 function flashStatus(text, color) {
-    const el = $('status');
+    const el = document.getElementById('status');
     if (!el) return;
     el.textContent = text; el.style.color = color;
     clearTimeout(flashStatus._t);
@@ -85,6 +112,77 @@ function colorFromString(str) {
     for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
     const hue = Math.abs(h) % 360;
     return `linear-gradient(135deg, hsl(${hue}, 55%, 45%), hsl(${hue}, 55%, 30%))`;
+}
+
+/* ============================================================
+   ТАКТИКА БОЯ — ОТКРЫТИЕ/ЗАКРЫТИЕ МОДАЛКИ
+============================================================ */
+function openTacticsModal() {
+    console.log('📖 Открытие тактики...');
+    const modal = document.getElementById('tacticsModal');
+    if (!modal) {
+        console.error('❌ #tacticsModal не найден в HTML!');
+        alert('Ошибка: окно тактики не найдено. Обновите страницу (Ctrl+F5).');
+        return;
+    }
+    modal.hidden = false;
+    document.body.style.overflow = 'hidden';
+    console.log('✅ Тактика открыта. Разделов в кэше:', tacticsCache.length);
+}
+function closeTacticsModal() {
+    const modal = document.getElementById('tacticsModal');
+    if (!modal) return;
+    modal.hidden = true;
+    document.body.style.overflow = '';
+}
+on('openTacticsBtn', 'click', openTacticsModal);
+on('closeTactics', 'click', closeTacticsModal);
+on('tacticsModal', 'click', e => {
+    if (e.target.id === 'tacticsModal') closeTacticsModal();
+});
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+        const m = document.getElementById('tacticsModal');
+        if (m && !m.hidden) closeTacticsModal();
+    }
+});
+
+async function loadTactics() {
+    console.log('📥 Загрузка тактики из БД...');
+    try {
+        const { data, error } = await supabase.from('tactics').select('*').order('sort_order');
+        if (error) {
+            console.warn('⚠️ Ошибка загрузки тактики:', error.message);
+            tacticsCache = [];
+        } else {
+            tacticsCache = data || [];
+            console.log('✅ Тактика загружена. Разделов:', tacticsCache.length);
+        }
+        renderTacticsModal();
+        renderTacticsAdmin();
+    } catch (err) {
+        console.error('❌ Исключение при загрузке тактики:', err);
+        tacticsCache = [];
+    }
+}
+
+function renderTacticsModal() {
+    const body = document.getElementById('tacticsBody');
+    if (!body) return;
+    body.innerHTML = '';
+    if (!tacticsCache.length) {
+        body.innerHTML = '<p class="empty" style="text-align:center;padding:20px;">Разделы тактики пока не добавлены.<br>Загляните позже!</p>';
+        return;
+    }
+    tacticsCache.forEach(t => {
+        const section = document.createElement('section');
+        section.className = 'tactics-section';
+        section.innerHTML = `
+            <h3>${escapeHtml(t.icon || '📖')} ${escapeHtml(t.title || '')}</h3>
+            <div class="tactics-text">${t.content || ''}</div>
+        `;
+        body.appendChild(section);
+    });
 }
 
 /* ============================================================
@@ -103,7 +201,7 @@ function initTheme() {
     applyTheme(saved);
 }
 ['themeToggle','themeToggle2','themeToggle3'].forEach(id => {
-    $(id)?.addEventListener('click', toggleTheme);
+    on(id, 'click', toggleTheme);
 });
 
 /* ============================================================
@@ -162,7 +260,7 @@ async function updateOnlineCount() {
         .select('*', { count: 'exact', head: true })
         .gte('last_seen', threshold);
     if (error) return;
-    const el = $('onlineCount');
+    const el = document.getElementById('onlineCount');
     if (el) el.textContent = count || 0;
 }
 function startHeartbeat() {
@@ -226,7 +324,7 @@ function compressImage(file, maxW = 1920, quality = 0.8) {
         reader.readAsDataURL(file);
     });
 }
-$('bgChangeBtn')?.addEventListener('click', () => {
+on('bgChangeBtn', 'click', () => {
     if (!isAdmin) return;
     bgFileInput.value = ''; bgFileInput.click();
 });
@@ -237,7 +335,7 @@ bgFileInput?.addEventListener('change', async () => {
         if (setOverride(currentBgKey(), dataUrl)) applyBg();
     } catch (err) { alert('Не удалось обработать: ' + err.message); }
 });
-$('bgResetBtn')?.addEventListener('click', () => {
+on('bgResetBtn', 'click', () => {
     if (!isAdmin) return;
     const key = currentBgKey();
     if (!getOverrides()[key]) return alert('Уже стоит стандартный фон.');
@@ -249,10 +347,10 @@ $('bgResetBtn')?.addEventListener('click', () => {
    ЭКРАНЫ
 ============================================================ */
 function showScreen(name) {
-    screenHome.hidden  = name !== 'home';
-    screenClan.hidden  = name !== 'clan';
-    clanView.hidden    = name !== 'lists';
-    screenAdmin.hidden = name !== 'admin';
+    if (screenHome)  screenHome.hidden  = name !== 'home';
+    if (screenClan)  screenClan.hidden  = name !== 'clan';
+    if (clanView)    clanView.hidden    = name !== 'lists';
+    if (screenAdmin) screenAdmin.hidden = name !== 'admin';
     window.scrollTo(0, 0);
     applyBg();
 }
@@ -285,7 +383,8 @@ document.querySelectorAll('.side-item').forEach(btn => {
         document.querySelectorAll('.side-item').forEach(b => b.classList.remove('active'));
         document.querySelectorAll('.clan-section').forEach(s => s.classList.remove('active'));
         btn.classList.add('active');
-        $('section-' + section).classList.add('active');
+        const target = document.getElementById('section-' + section);
+        if (target) target.classList.add('active');
         if (section === 'lists') TABS.forEach(loadList);
         else if (section === 'events') renderEvents();
         else if (section === 'treasury') renderTreasury();
@@ -317,92 +416,48 @@ document.querySelectorAll('.admin-nav-item').forEach(btn => {
         if (panel === 'settings') renderSiteFields();
     });
 });
-$('adminBackHome').addEventListener('click', () => {
+on('adminBackHome', 'click', () => {
     currentClan = null;
     showScreen('home');
-});
-
-/* ============================================================
-   ТАКТИКА
-============================================================ */
-async function loadTactics() {
-    const { data, error } = await supabase.from('tactics').select('*').order('sort_order');
-    if (error) { console.warn('Tactics load error:', error.message); return; }
-    tacticsCache = data || [];
-    renderTacticsModal();
-    renderTacticsAdmin();
-}
-function renderTacticsModal() {
-    const body = $('tacticsBody');
-    if (!body) return;
-    body.innerHTML = '';
-    if (!tacticsCache.length) {
-        body.innerHTML = '<p class="empty">Разделы тактики пока не добавлены.</p>';
-        return;
-    }
-    tacticsCache.forEach(t => {
-        const section = document.createElement('section');
-        section.className = 'tactics-section';
-        section.innerHTML = `
-            <h3>${escapeHtml(t.icon || '📖')} ${escapeHtml(t.title || '')}</h3>
-            <div class="tactics-text">${t.content || ''}</div>
-        `;
-        body.appendChild(section);
-    });
-}
-function openTacticsModal() {
-    const modal = $('tacticsModal');
-    if (!modal) return;
-    modal.hidden = false;
-    document.body.style.overflow = 'hidden';
-}
-function closeTacticsModal() {
-    const modal = $('tacticsModal');
-    if (!modal) return;
-    modal.hidden = true;
-    document.body.style.overflow = '';
-}
-$('openTacticsBtn')?.addEventListener('click', openTacticsModal);
-$('closeTactics')?.addEventListener('click', closeTacticsModal);
-$('tacticsModal')?.addEventListener('click', e => {
-    if (e.target.id === 'tacticsModal') closeTacticsModal();
-});
-document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && $('tacticsModal') && !$('tacticsModal').hidden) {
-        closeTacticsModal();
-    }
 });
 
 /* ============================================================
    АДМИН: ВХОД
 ============================================================ */
 function openAdminAuth() {
-    $('adminAuthModal').hidden = false;
-    $('adminAuthError').textContent = '';
-    $('adminEmail').value = ''; $('adminPassword').value = '';
-    $('adminEmail').focus();
+    const m = document.getElementById('adminAuthModal');
+    if (!m) return;
+    m.hidden = false;
+    document.getElementById('adminAuthError').textContent = '';
+    document.getElementById('adminEmail').value = '';
+    document.getElementById('adminPassword').value = '';
+    document.getElementById('adminEmail').focus();
 }
-function closeAdminAuth() { $('adminAuthModal').hidden = true; }
-$('adminLoginBtn').addEventListener('click', openAdminAuth);
-$('cancelAdminLogin').addEventListener('click', closeAdminAuth);
-$('doAdminLogin').addEventListener('click', async () => {
-    const email = $('adminEmail').value.trim();
-    const password = $('adminPassword').value;
-    const err = $('adminAuthError'); err.textContent = '';
+function closeAdminAuth() {
+    const m = document.getElementById('adminAuthModal');
+    if (m) m.hidden = true;
+}
+on('adminLoginBtn', 'click', openAdminAuth);
+on('cancelAdminLogin', 'click', closeAdminAuth);
+on('doAdminLogin', 'click', async () => {
+    const email = val('adminEmail').trim();
+    const password = val('adminPassword');
+    const err = document.getElementById('adminAuthError');
+    err.textContent = '';
     if (!email || !password) { err.textContent = 'Заполни email и пароль'; return; }
-    $('doAdminLogin').disabled = true;
+    document.getElementById('doAdminLogin').disabled = true;
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    $('doAdminLogin').disabled = false;
+    document.getElementById('doAdminLogin').disabled = false;
     if (error) { err.textContent = error.message; return; }
     await logAdminAction('Вход в админ-панель');
     closeAdminAuth();
 });
-$('adminPassword').addEventListener('keydown', e => {
-    if (e.key === 'Enter') $('doAdminLogin').click();
+on('adminPassword', 'keydown', e => {
+    if (e.key === 'Enter') document.getElementById('doAdminLogin').click();
 });
 async function adminLogout() { await supabase.auth.signOut(); }
-$('adminLogoutBtn').addEventListener('click', adminLogout);
-$('adminLogoutBtn2').addEventListener('click', adminLogout);
+on('adminLogoutBtn', 'click', adminLogout);
+on('adminLogoutBtn2', 'click', adminLogout);
 
 supabase.auth.onAuthStateChange(async (_e, session) => {
     isAdmin = !!session?.user && ADMIN_EMAILS.includes((session.user.email || '').toLowerCase());
@@ -411,15 +466,20 @@ supabase.auth.onAuthStateChange(async (_e, session) => {
 });
 
 function applyAdminUI() {
-    $('adminLoginBtn').hidden = isAdmin;
-    $('adminLogoutBtn').hidden = !isAdmin;
-    $('adminPanelBtn').hidden = !isAdmin;
-    $('adminLogoutBtn2').hidden = !isAdmin;
-    $('adminPanelBtn2').hidden = !isAdmin;
-    $('adminPanelBtn3').hidden = !isAdmin;
+    const setHidden = (id, hidden) => {
+        const el = document.getElementById(id);
+        if (el) el.hidden = hidden;
+    };
+    setHidden('adminLoginBtn', isAdmin);
+    setHidden('adminLogoutBtn', !isAdmin);
+    setHidden('adminPanelBtn', !isAdmin);
+    setHidden('adminLogoutBtn2', !isAdmin);
+    setHidden('adminPanelBtn2', !isAdmin);
+    setHidden('adminPanelBtn3', !isAdmin);
     const label = isAdmin ? '👑 Админ' : '';
     ['adminInfo','adminInfo2','adminInfo3'].forEach(id => {
-        const el = $(id); if (el) el.textContent = label;
+        const el = document.getElementById(id);
+        if (el) el.textContent = label;
     });
     document.querySelectorAll('.admin-only').forEach(el => {
         el.hidden = !isAdmin;
@@ -428,7 +488,7 @@ function applyAdminUI() {
     document.querySelectorAll('.add-form.admin-only').forEach(el => {
         el.style.display = isAdmin ? 'flex' : 'none';
     });
-    const clearBtn = $('chatClear');
+    const clearBtn = document.getElementById('chatClear');
     if (clearBtn) clearBtn.hidden = !isAdmin;
     renderAll();
 }
@@ -444,9 +504,9 @@ function openAdminPage() {
     renderTacticsAdmin();
     showScreen('admin');
 }
-$('adminPanelBtn').addEventListener('click', openAdminPage);
-$('adminPanelBtn2').addEventListener('click', openAdminPage);
-$('adminPanelBtn3').addEventListener('click', openAdminPage);
+on('adminPanelBtn', 'click', openAdminPage);
+on('adminPanelBtn2', 'click', openAdminPage);
+on('adminPanelBtn3', 'click', openAdminPage);
 
 /* ============================================================
    ГИЛЬДИИ
@@ -469,7 +529,7 @@ function getClansForGame(gameId) {
     return Object.values(clansCache).filter(c => (c.game_id || 'wosb') === gameId);
 }
 function renderHomeCards() {
-    const grid = $('clanGrid');
+    const grid = document.getElementById('clanGrid');
     if (!grid) return;
     grid.innerHTML = '';
     const list = currentGame ? getClansForGame(currentGame) : Object.values(clansCache);
@@ -500,7 +560,7 @@ function handleClanClick(id) { isUnlocked() ? openClan(id) : openClanInfo(id); }
 function renderScopeSelects() {
     const clans = Object.values(clansCache);
     ['pvpScope', 'pbScope', 'buildEditScope', 'buildDupScope', 'evScope'].forEach(id => {
-        const sel = $(id);
+        const sel = document.getElementById(id);
         if (!sel) return;
         const current = sel.value;
         sel.innerHTML = '';
@@ -529,74 +589,81 @@ function openClanInfo(id) {
     const clan = clansCache[id];
     if (!clan) return;
     pendingClanId = id;
-    $('clanInfoLogo').src = clan.image || '';
-    $('clanInfoLogo').alt = clan.name;
-    $('clanInfoName').textContent = clan.name;
-    $('clanInfoDesc').textContent = clan.description || '';
-    $('clanInfoRules').textContent = clan.rules || 'Правила не заданы.';
-    const newsWrap = $('clanInfoNewsWrap');
+    const setSrc = (elId, src) => { const el = document.getElementById(elId); if (el) el.src = src; };
+    const setText = (elId, txt) => { const el = document.getElementById(elId); if (el) el.textContent = txt; };
+    setSrc('clanInfoLogo', clan.image || '');
+    setText('clanInfoName', clan.name);
+    setText('clanInfoDesc', clan.description || '');
+    setText('clanInfoRules', clan.rules || 'Правила не заданы.');
+    const newsWrap = document.getElementById('clanInfoNewsWrap');
     if (clan.news && clan.news.trim()) {
-        newsWrap.hidden = false;
-        $('clanInfoNews').textContent = clan.news;
-    } else { newsWrap.hidden = true; }
-    $('clanLoginBtn').hidden = isUnlocked();
-    $('clanViewBtn').hidden = !isUnlocked();
+        if (newsWrap) newsWrap.hidden = false;
+        setText('clanInfoNews', clan.news);
+    } else { if (newsWrap) newsWrap.hidden = true; }
+    const loginBtn = document.getElementById('clanLoginBtn');
+    const viewBtn = document.getElementById('clanViewBtn');
+    if (loginBtn) loginBtn.hidden = isUnlocked();
+    if (viewBtn) viewBtn.hidden = !isUnlocked();
     showScreen('clan');
 }
-$('backToHomeBtn').addEventListener('click', () => { pendingClanId = null; showScreen('home'); });
-$('clanViewBtn').addEventListener('click', () => { if (pendingClanId) openClan(pendingClanId); });
+on('backToHomeBtn', 'click', () => { pendingClanId = null; showScreen('home'); });
+on('clanViewBtn', 'click', () => { if (pendingClanId) openClan(pendingClanId); });
 
 /* ============================================================
    ВХОД ПО ПАРОЛЮ
 ============================================================ */
-$('clanLoginBtn').addEventListener('click', () => {
+on('clanLoginBtn', 'click', () => {
     if (!pendingClanId) return;
     const clan = clansCache[pendingClanId];
-    $('clanPassName').textContent = clan.name;
-    $('clanNickname').value = localStorage.getItem(VIEWER_NICK_KEY) || '';
-    $('clanPassword').value = '';
-    $('clanPassError').textContent = '';
-    $('clanPassModal').hidden = false;
-    ($('clanNickname').value ? $('clanPassword') : $('clanNickname')).focus();
+    if (!clan) return;
+    const nameEl = document.getElementById('clanPassName');
+    if (nameEl) nameEl.textContent = clan.name;
+    document.getElementById('clanNickname').value = localStorage.getItem(VIEWER_NICK_KEY) || '';
+    document.getElementById('clanPassword').value = '';
+    document.getElementById('clanPassError').textContent = '';
+    document.getElementById('clanPassModal').hidden = false;
+    (document.getElementById('clanNickname').value ? document.getElementById('clanPassword') : document.getElementById('clanNickname')).focus();
 });
-$('cancelClanLogin').addEventListener('click', () => { $('clanPassModal').hidden = true; });
+on('cancelClanLogin', 'click', () => {
+    document.getElementById('clanPassModal').hidden = true;
+});
 
-$('doClanLogin').addEventListener('click', async () => {
-    const nick = $('clanNickname').value.trim();
-    const entered = $('clanPassword').value;
+on('doClanLogin', 'click', async () => {
+    const nick = val('clanNickname').trim();
+    const entered = val('clanPassword');
     const clan = clansCache[pendingClanId];
     if (!clan) return;
-    if (!nick) { $('clanPassError').textContent = 'Введите ваш ник'; return; }
-    if (nick.length < 2) { $('clanPassError').textContent = 'Ник слишком короткий'; return; }
-    if (!entered) { $('clanPassError').textContent = 'Введите пароль'; return; }
+    if (!nick) { document.getElementById('clanPassError').textContent = 'Введите ваш ник'; return; }
+    if (nick.length < 2) { document.getElementById('clanPassError').textContent = 'Ник слишком короткий'; return; }
+    if (!entered) { document.getElementById('clanPassError').textContent = 'Введите пароль'; return; }
 
     const { data: ok, error: rpcErr } = await supabase.rpc('verify_clan_password', {
         clan_id: pendingClanId,
         entered_password: entered
     });
     if (rpcErr || !ok) {
-        $('clanPassError').textContent = 'Неверный пароль';
+        document.getElementById('clanPassError').textContent = 'Неверный пароль';
         return;
     }
 
     localStorage.setItem(VIEWER_NICK_KEY, nick);
     localStorage.setItem(UNLOCK_KEY, '1');
-    $('clanPassModal').hidden = true;
+    document.getElementById('clanPassModal').hidden = true;
 
     await logView(nick, pendingClanId, 'вход в гильдию');
     sendHeartbeat();
 
-    const tn = $('tm-nickname');
+    const tn = document.getElementById('tm-nickname');
     if (tn && !tn.value) tn.value = nick;
 
     const cid = pendingClanId; pendingClanId = null;
     openClan(cid);
 });
-$('clanNickname').addEventListener('keydown', e => {
-    if (e.key === 'Enter') $('clanPassword').focus();
+on('clanNickname', 'keydown', e => {
+    if (e.key === 'Enter') document.getElementById('clanPassword').focus();
 });
-$('clanPassword').addEventListener('keydown', e => {
-    if (e.key === 'Enter') $('doClanLogin').click();
+on('clanPassword', 'keydown', e => {
+    if (e.key === 'Enter') document.getElementById('doClanLogin').click();
 });
 
 /* ============================================================
@@ -608,9 +675,10 @@ function openClan(id) {
     if (!isUnlocked()) { openClanInfo(id); return; }
     currentClan = id;
     localStorage.setItem(LAST_CLAN_KEY, id);
-    $('clanTitle').textContent = clan.name;
-    $('clanIcon').src = clan.image || '';
-    $('clanIcon').alt = clan.name;
+    const titleEl = document.getElementById('clanTitle');
+    if (titleEl) titleEl.textContent = clan.name;
+    const iconEl = document.getElementById('clanIcon');
+    if (iconEl) { iconEl.src = clan.image || ''; iconEl.alt = clan.name; }
     showScreen('lists');
     document.querySelectorAll('.side-item').forEach(b => b.classList.toggle('active', b.dataset.section === 'lists'));
     document.querySelectorAll('.clan-section').forEach(s => s.classList.toggle('active', s.id === 'section-lists'));
@@ -629,14 +697,14 @@ function openClan(id) {
     sendHeartbeat();
     initRealtime();
 }
-$('backBtn').addEventListener('click', () => {
+on('backBtn', 'click', () => {
     currentClan = null;
     closeChat();
     showScreen('home');
     sendHeartbeat();
     closeRealtime();
 });
-$('clanLeaveBtn').addEventListener('click', () => {
+on('clanLeaveBtn', 'click', () => {
     if (!confirm('Заблокировать просмотр? Пароль потребуется ввести снова.')) return;
     localStorage.removeItem(UNLOCK_KEY);
     localStorage.removeItem(LAST_CLAN_KEY);
@@ -656,7 +724,8 @@ document.querySelectorAll('.tab').forEach(btn => {
         document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
         btn.classList.add('active');
         currentTab = btn.dataset.tab;
-        $('tab-' + currentTab).classList.add('active');
+        const tabContent = document.getElementById('tab-' + currentTab);
+        if (tabContent) tabContent.classList.add('active');
         applySearchFilter();
     });
 });
@@ -664,9 +733,11 @@ document.querySelectorAll('.tab').forEach(btn => {
 /* ============================================================
    ПОИСК
 ============================================================ */
-$('searchInput').addEventListener('input', applySearchFilter);
+on('searchInput', 'input', applySearchFilter);
 function applySearchFilter() {
-    const q = $('searchInput').value.toLowerCase().trim();
+    const input = document.getElementById('searchInput');
+    if (!input) return;
+    const q = input.value.toLowerCase().trim();
     document.querySelectorAll('.tab-content.active .player-list li').forEach(li => {
         if (!q) { li.style.display = ''; return; }
         li.style.display = li.textContent.toLowerCase().includes(q) ? '' : 'none';
@@ -733,7 +804,7 @@ function parseSpecialists(text) {
 }
 async function renderBuilds(type) {
     if (!currentClan) return;
-    const container = type === 'pvp' ? $('pvpList') : $('pbList');
+    const container = document.getElementById(type === 'pvp' ? 'pvpList' : 'pbList');
     if (!container) return;
     container.innerHTML = '<div class="empty">Загрузка…</div>';
     const { data, error } = await supabase.from('builds').select('*')
@@ -858,21 +929,22 @@ function createBuildCard(item) {
 async function addBuild(type) {
     if (!isAdmin || !currentClan) return;
     const isPvp = type === 'pvp';
-    const scopeVal = $(isPvp ? 'pvpScope' : 'pbScope').value;
+    const scopeEl = document.getElementById(isPvp ? 'pvpScope' : 'pbScope');
+    const scopeVal = scopeEl ? scopeEl.value : SHARED;
     const isShared = scopeVal === SHARED;
     const clanValue = isShared ? null : scopeVal;
-    const rank = isPvp ? null : $(`${type}Rank`).value.trim();
-    const ship = $(`${type}Ship`).value.trim();
-    const upgrades = $(`${type}Upgrades`).value;
-    const weapS = $(`${type}WeapS`).value;
-    const weapM = $(`${type}WeapM`).value;
-    const weapL = $(`${type}WeapL`).value;
-    const c1 = $(`${type}Cons1`).value.trim();
-    const c2 = $(`${type}Cons2`).value.trim();
-    const c3 = $(`${type}Cons3`).value.trim();
-    const cargo = $(`${type}Cargo`).value;
-    const specs = $(`${type}Specs`).value;
-    const statusEl = $(`${type}Status`);
+    const rank = isPvp ? null : val(`${type}Rank`).trim();
+    const ship = val(`${type}Ship`).trim();
+    const upgrades = val(`${type}Upgrades`);
+    const weapS = val(`${type}WeapS`);
+    const weapM = val(`${type}WeapM`);
+    const weapL = val(`${type}WeapL`);
+    const c1 = val(`${type}Cons1`).trim();
+    const c2 = val(`${type}Cons2`).trim();
+    const c3 = val(`${type}Cons3`).trim();
+    const cargo = val(`${type}Cargo`);
+    const specs = val(`${type}Specs`);
+    const statusEl = document.getElementById(`${type}Status`);
 
     if (!ship) { flashStatusEl(statusEl, 'Введите название корабля', '#ff7a7a'); return; }
     if (!isPvp && !rank) { flashStatusEl(statusEl, 'Укажите ранг', '#ff7a7a'); return; }
@@ -891,71 +963,77 @@ async function addBuild(type) {
     await logAdminAction(`Добавил билд ${type.toUpperCase()}`, ship);
     ['Rank','Ship','Upgrades','WeapS','WeapM','WeapL','Cons1','Cons2','Cons3','Cargo','Specs']
         .forEach(suffix => {
-            const el = $(`${type}${suffix}`);
+            const el = document.getElementById(`${type}${suffix}`);
             if (el) el.value = '';
         });
     flashStatusEl(statusEl, '✔ Добавлено', '#6ee7a7');
     renderBuilds(type);
 }
-$('pvpAddBtn').addEventListener('click', () => addBuild('pvp'));
-$('pbAddBtn').addEventListener('click', () => addBuild('pb'));
+on('pvpAddBtn', 'click', () => addBuild('pvp'));
+on('pbAddBtn', 'click', () => addBuild('pb'));
 
 /* ============================================================
    РЕДАКТИРОВАНИЕ БИЛДА
 ============================================================ */
 function openBuildEdit(item) {
     editingBuild = { id: item.id, type: item.type };
-    $('buildEditTitle').textContent = item.type === 'pvp'
+    const titleEl = document.getElementById('buildEditTitle');
+    if (titleEl) titleEl.textContent = item.type === 'pvp'
         ? '✏️ Редактировать ПВП-билд' : '✏️ Редактировать ПБ-билд';
-    const rankField = $('buildEditRankField');
-    if (item.type === 'pb') { rankField.hidden = false; $('buildEditRank').value = item.rank || ''; }
-    else { rankField.hidden = true; $('buildEditRank').value = ''; }
-    $('buildEditShip').value = item.ship_name || '';
-    $('buildEditUpgrades').value = item.upgrades || '';
-    $('buildEditWeapS').value = item.weapons_small || '';
-    $('buildEditWeapM').value = item.weapons_medium || '';
-    $('buildEditWeapL').value = item.weapons_large || '';
-    $('buildEditCons1').value = item.consumable1 || '';
-    $('buildEditCons2').value = item.consumable2 || '';
-    $('buildEditCons3').value = item.consumable3 || '';
-    $('buildEditCargo').value = item.cargo || '';
-    $('buildEditSpecs').value = item.specialists || '';
+    const rankField = document.getElementById('buildEditRankField');
+    if (item.type === 'pb') {
+        if (rankField) rankField.hidden = false;
+        document.getElementById('buildEditRank').value = item.rank || '';
+    } else {
+        if (rankField) rankField.hidden = true;
+        document.getElementById('buildEditRank').value = '';
+    }
+    document.getElementById('buildEditShip').value = item.ship_name || '';
+    document.getElementById('buildEditUpgrades').value = item.upgrades || '';
+    document.getElementById('buildEditWeapS').value = item.weapons_small || '';
+    document.getElementById('buildEditWeapM').value = item.weapons_medium || '';
+    document.getElementById('buildEditWeapL').value = item.weapons_large || '';
+    document.getElementById('buildEditCons1').value = item.consumable1 || '';
+    document.getElementById('buildEditCons2').value = item.consumable2 || '';
+    document.getElementById('buildEditCons3').value = item.consumable3 || '';
+    document.getElementById('buildEditCargo').value = item.cargo || '';
+    document.getElementById('buildEditSpecs').value = item.specialists || '';
     renderScopeSelects();
-    $('buildEditScope').value = item.is_shared ? SHARED : (item.clan || SHARED);
-    $('buildEditError').textContent = '';
-    $('buildEditModal').hidden = false;
-    $('buildEditShip').focus();
+    document.getElementById('buildEditScope').value = item.is_shared ? SHARED : (item.clan || SHARED);
+    document.getElementById('buildEditError').textContent = '';
+    document.getElementById('buildEditModal').hidden = false;
+    document.getElementById('buildEditShip').focus();
 }
-$('cancelBuildEdit').addEventListener('click', () => {
-    $('buildEditModal').hidden = true; editingBuild = null;
+on('cancelBuildEdit', 'click', () => {
+    document.getElementById('buildEditModal').hidden = true; editingBuild = null;
 });
-$('saveBuildEdit').addEventListener('click', async () => {
+on('saveBuildEdit', 'click', async () => {
     if (!editingBuild) return;
-    const scopeVal = $('buildEditScope').value;
+    const scopeVal = val('buildEditScope');
     const isShared = scopeVal === SHARED;
     const clanValue = isShared ? null : scopeVal;
-    const rank = $('buildEditRank').value.trim();
-    const ship = $('buildEditShip').value.trim();
-    if (!ship) { $('buildEditError').textContent = 'Введите название корабля'; return; }
-    if (editingBuild.type === 'pb' && !rank) { $('buildEditError').textContent = 'Укажите ранг'; return; }
+    const rank = val('buildEditRank').trim();
+    const ship = val('buildEditShip').trim();
+    if (!ship) { document.getElementById('buildEditError').textContent = 'Введите название корабля'; return; }
+    if (editingBuild.type === 'pb' && !rank) { document.getElementById('buildEditError').textContent = 'Укажите ранг'; return; }
     const { error } = await supabase.from('builds').update({
         clan: clanValue, is_shared: isShared,
         rank: editingBuild.type === 'pb' ? rank : null,
         ship_name: ship,
-        upgrades: $('buildEditUpgrades').value || null,
-        weapons_small: $('buildEditWeapS').value || null,
-        weapons_medium: $('buildEditWeapM').value || null,
-        weapons_large: $('buildEditWeapL').value || null,
-        consumable1: $('buildEditCons1').value.trim() || null,
-        consumable2: $('buildEditCons2').value.trim() || null,
-        consumable3: $('buildEditCons3').value.trim() || null,
-        cargo: $('buildEditCargo').value || null,
-        specialists: $('buildEditSpecs').value || null
+        upgrades: val('buildEditUpgrades') || null,
+        weapons_small: val('buildEditWeapS') || null,
+        weapons_medium: val('buildEditWeapM') || null,
+        weapons_large: val('buildEditWeapL') || null,
+        consumable1: val('buildEditCons1').trim() || null,
+        consumable2: val('buildEditCons2').trim() || null,
+        consumable3: val('buildEditCons3').trim() || null,
+        cargo: val('buildEditCargo') || null,
+        specialists: val('buildEditSpecs') || null
     }).eq('id', editingBuild.id);
-    if (error) { $('buildEditError').textContent = 'Ошибка: ' + error.message; return; }
+    if (error) { document.getElementById('buildEditError').textContent = 'Ошибка: ' + error.message; return; }
     await logAdminAction(`Изменил билд ${editingBuild.type.toUpperCase()}`, ship);
     const type = editingBuild.type;
-    $('buildEditModal').hidden = true;
+    document.getElementById('buildEditModal').hidden = true;
     editingBuild = null;
     renderBuilds(type);
 });
@@ -965,21 +1043,21 @@ $('saveBuildEdit').addEventListener('click', async () => {
 ============================================================ */
 function openBuildDup(item) {
     duplicatingBuild = item;
-    $('buildDupName').textContent = item.ship_name;
+    document.getElementById('buildDupName').textContent = item.ship_name;
     renderScopeSelects();
-    $('buildDupScope').value = SHARED;
-    $('buildDupMsg').textContent = '';
-    $('buildDupModal').hidden = false;
+    document.getElementById('buildDupScope').value = SHARED;
+    document.getElementById('buildDupMsg').textContent = '';
+    document.getElementById('buildDupModal').hidden = false;
 }
-$('cancelBuildDup').addEventListener('click', () => {
-    $('buildDupModal').hidden = true; duplicatingBuild = null;
+on('cancelBuildDup', 'click', () => {
+    document.getElementById('buildDupModal').hidden = true; duplicatingBuild = null;
 });
-$('doBuildDup').addEventListener('click', async () => {
+on('doBuildDup', 'click', async () => {
     if (!duplicatingBuild) return;
-    const scopeVal = $('buildDupScope').value;
+    const scopeVal = val('buildDupScope');
     const isShared = scopeVal === SHARED;
     const clanValue = isShared ? null : scopeVal;
-    const msg = $('buildDupMsg');
+    const msg = document.getElementById('buildDupMsg');
     msg.style.color = '';
     const item = duplicatingBuild;
     const { error } = await supabase.from('builds').insert({
@@ -999,7 +1077,7 @@ $('doBuildDup').addEventListener('click', async () => {
     msg.textContent = '✔ Копия создана';
     msg.style.color = '#6ee7a7';
     setTimeout(() => {
-        $('buildDupModal').hidden = true;
+        document.getElementById('buildDupModal').hidden = true;
         duplicatingBuild = null;
         renderBuilds(item.type);
     }, 700);
@@ -1017,7 +1095,7 @@ async function deleteBuild(id, type) {
 ============================================================ */
 async function renderEvents() {
     if (!currentClan) return;
-    const container = $('eventsList');
+    const container = document.getElementById('eventsList');
     if (!container) return;
     container.innerHTML = '<div class="empty">Загрузка…</div>';
     const { data, error } = await supabase.from('events').select('*')
@@ -1063,15 +1141,15 @@ async function renderEvents() {
         container.appendChild(card);
     });
 }
-$('evAddBtn').addEventListener('click', async () => {
+on('evAddBtn', 'click', async () => {
     if (!isAdmin || !currentClan) return;
-    const title = $('evTitle').value.trim();
-    const dateStr = $('evDate').value;
-    const desc = $('evDesc').value.trim();
-    const scopeVal = $('evScope').value;
+    const title = val('evTitle').trim();
+    const dateStr = val('evDate');
+    const desc = val('evDesc').trim();
+    const scopeVal = val('evScope');
     const isShared = scopeVal === SHARED;
     const clanVal = isShared ? null : scopeVal;
-    const statusEl = $('evStatus');
+    const statusEl = document.getElementById('evStatus');
     if (!title) { flashStatusEl(statusEl, 'Введите название', '#ff7a7a'); return; }
     if (!dateStr) { flashStatusEl(statusEl, 'Укажите дату', '#ff7a7a'); return; }
     const { error } = await supabase.from('events').insert({
@@ -1081,7 +1159,10 @@ $('evAddBtn').addEventListener('click', async () => {
     });
     if (error) { flashStatusEl(statusEl, 'Ошибка: ' + error.message, '#ff7a7a'); return; }
     await logAdminAction('Добавил событие', title);
-    ['evTitle','evDate','evDesc'].forEach(id => $(id).value = '');
+    ['evTitle','evDate','evDesc'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
     flashStatusEl(statusEl, '✔ Добавлено', '#6ee7a7');
     renderEvents();
 });
@@ -1091,7 +1172,7 @@ $('evAddBtn').addEventListener('click', async () => {
 ============================================================ */
 async function renderTreasury() {
     if (!currentClan) return;
-    const container = $('treasuryList');
+    const container = document.getElementById('treasuryList');
     if (!container) return;
     container.innerHTML = '<div class="empty">Загрузка…</div>';
     const { data, error } = await supabase.from('treasury').select('*')
@@ -1104,9 +1185,11 @@ async function renderTreasury() {
         const amt = Number(t.amount) || 0;
         balance += t.type === 'in' ? amt : -amt;
     });
-    const balEl = $('treasuryBalance');
-    balEl.textContent = balance.toLocaleString('ru-RU');
-    balEl.classList.toggle('negative', balance < 0);
+    const balEl = document.getElementById('treasuryBalance');
+    if (balEl) {
+        balEl.textContent = balance.toLocaleString('ru-RU');
+        balEl.classList.toggle('negative', balance < 0);
+    }
     if (!list.length) { container.innerHTML = '<div class="empty">Операций пока нет</div>'; return; }
     container.innerHTML = '';
     list.forEach(t => {
@@ -1137,12 +1220,12 @@ async function renderTreasury() {
         container.appendChild(item);
     });
 }
-$('trAddBtn').addEventListener('click', async () => {
+on('trAddBtn', 'click', async () => {
     if (!isAdmin || !currentClan) return;
-    const type = $('trType').value;
-    const amount = Number($('trAmount').value);
-    const desc = $('trDesc').value.trim();
-    const statusEl = $('trStatus');
+    const type = val('trType');
+    const amount = Number(val('trAmount'));
+    const desc = val('trDesc').trim();
+    const statusEl = document.getElementById('trStatus');
     if (!amount || amount <= 0) { flashStatusEl(statusEl, 'Введите сумму > 0', '#ff7a7a'); return; }
     if (!desc) { flashStatusEl(statusEl, 'Добавьте описание', '#ff7a7a'); return; }
     const { error } = await supabase.from('treasury').insert({
@@ -1150,8 +1233,8 @@ $('trAddBtn').addEventListener('click', async () => {
     });
     if (error) { flashStatusEl(statusEl, 'Ошибка: ' + error.message, '#ff7a7a'); return; }
     await logAdminAction(`Казна: ${type === 'in' ? 'доход' : 'расход'}`, `${amount}`, desc);
-    $('trAmount').value = '';
-    $('trDesc').value = '';
+    document.getElementById('trAmount').value = '';
+    document.getElementById('trDesc').value = '';
     flashStatusEl(statusEl, '✔ Добавлено', '#6ee7a7');
     renderTreasury();
 });
@@ -1187,14 +1270,14 @@ function tradeTimeAgo(iso) {
     return `${Math.floor(s / 86400)} дн назад`;
 }
 function initTradeCategorySelect() {
-    const sel = $('tm-category');
+    const sel = document.getElementById('tm-category');
     if (!sel) return;
     sel.innerHTML = TRADE_CATEGORIES.map(c =>
         `<option value="${c.id}">${c.icon} ${c.name}</option>`
     ).join('');
 }
 function initTradeCategoryFilters() {
-    const wrap = $('tm-cat-filters');
+    const wrap = document.getElementById('tm-cat-filters');
     if (!wrap) return;
     wrap.innerHTML =
         `<span class="tm-chip active" data-cat="all">Все категории</span>` +
@@ -1203,7 +1286,7 @@ function initTradeCategoryFilters() {
         ).join('');
 }
 function renderTradeClanSelect() {
-    const sel = $('tm-clan');
+    const sel = document.getElementById('tm-clan');
     if (!sel) return;
     const cur = sel.value;
     sel.innerHTML = '';
@@ -1215,7 +1298,7 @@ function renderTradeClanSelect() {
     if (cur && clansCache[cur]) sel.value = cur;
 }
 function renderTradeClanFilters() {
-    const wrap = $('tm-clan-filters');
+    const wrap = document.getElementById('tm-clan-filters');
     if (!wrap) return;
     wrap.innerHTML =
         `<span class="tm-chip active" data-clan="all">Все гильдии</span>` +
@@ -1229,7 +1312,7 @@ function renderTradeClanFilters() {
     });
 }
 async function renderTrades() {
-    const container = $('tm-listings');
+    const container = document.getElementById('tm-listings');
     if (!container) return;
     container.innerHTML = '<div class="empty">Загрузка…</div>';
     const { data, error } = await supabase.from('trades').select('*')
@@ -1247,18 +1330,20 @@ function renderTradeCounters() {
         if (t.type === 'buy') { buyGold += total; buyN++; }
         else { sellGold += total; sellN++; }
     });
-    const elBuy = $('tm-counter-buy-gold');
-    const elSell = $('tm-counter-sell-gold');
-    const elBuySub = $('tm-counter-buy-sub');
-    const elSellSub = $('tm-counter-sell-sub');
+    const elBuy = document.getElementById('tm-counter-buy-gold');
+    const elSell = document.getElementById('tm-counter-sell-gold');
+    const elBuySub = document.getElementById('tm-counter-buy-sub');
+    const elSellSub = document.getElementById('tm-counter-sell-sub');
     if (elBuy) elBuy.textContent = tradeFmtGold(buyGold);
     if (elSell) elSell.textContent = tradeFmtGold(sellGold);
     if (elBuySub) elBuySub.textContent = buyN + ' ' + tradePlural(buyN, 'заявка', 'заявки', 'заявок');
     if (elSellSub) elSellSub.textContent = sellN + ' ' + tradePlural(sellN, 'заявка', 'заявки', 'заявок');
 }
 function tradeVisibleListings() {
-    const q = ($('tm-search')?.value || '').trim().toLowerCase();
-    const onlyMine = $('tm-only-mine')?.checked;
+    const searchInput = document.getElementById('tm-search');
+    const onlyMineInput = document.getElementById('tm-only-mine');
+    const q = (searchInput?.value || '').trim().toLowerCase();
+    const onlyMine = onlyMineInput?.checked;
     const myNick = getViewerNick().toLowerCase();
     return tradesCache.filter(t => {
         if (tradeFilterType !== 'all' && t.type !== tradeFilterType) return false;
@@ -1270,7 +1355,7 @@ function tradeVisibleListings() {
     });
 }
 function renderTradeListings() {
-    const container = $('tm-listings');
+    const container = document.getElementById('tm-listings');
     if (!container) return;
     const items = tradeVisibleListings();
     if (!items.length) {
@@ -1356,13 +1441,13 @@ function renderTradeListings() {
     });
 }
 function updateTradeFormTotal() {
-    const p = parseInt($('tm-price')?.value) || 0;
-    const q = parseInt($('tm-qty')?.value) || 0;
-    const el = $('tm-total');
+    const p = parseInt(val('tm-price')) || 0;
+    const q = parseInt(val('tm-qty')) || 0;
+    const el = document.getElementById('tm-total');
     if (el) el.value = tradeFmtGold(p * q);
 }
 function setTradeStatus(msg, type = '') {
-    const el = $('tm-status');
+    const el = document.getElementById('tm-status');
     if (!el) return;
     el.textContent = msg;
     el.className = 'tm-status ' + type;
@@ -1377,11 +1462,11 @@ document.querySelectorAll('.tm-type-btn').forEach(btn => {
         tradeFormType = btn.dataset.type;
     });
 });
-$('tm-price')?.addEventListener('input', updateTradeFormTotal);
-$('tm-qty')?.addEventListener('input', updateTradeFormTotal);
-$('tm-search')?.addEventListener('input', renderTradeListings);
-$('tm-only-mine')?.addEventListener('change', renderTradeListings);
-$('tm-type-filters')?.addEventListener('click', e => {
+on('tm-price', 'input', updateTradeFormTotal);
+on('tm-qty', 'input', updateTradeFormTotal);
+on('tm-search', 'input', renderTradeListings);
+on('tm-only-mine', 'change', renderTradeListings);
+on('tm-type-filters', 'click', e => {
     const chip = e.target.closest('.tm-chip');
     if (!chip) return;
     document.querySelectorAll('#tm-type-filters .tm-chip').forEach(c => c.classList.remove('active'));
@@ -1389,7 +1474,7 @@ $('tm-type-filters')?.addEventListener('click', e => {
     tradeFilterType = chip.dataset.type;
     renderTradeListings();
 });
-$('tm-cat-filters')?.addEventListener('click', e => {
+on('tm-cat-filters', 'click', e => {
     const chip = e.target.closest('.tm-chip');
     if (!chip) return;
     document.querySelectorAll('#tm-cat-filters .tm-chip').forEach(c => c.classList.remove('active'));
@@ -1397,7 +1482,7 @@ $('tm-cat-filters')?.addEventListener('click', e => {
     tradeFilterCat = chip.dataset.cat;
     renderTradeListings();
 });
-$('tm-clan-filters')?.addEventListener('click', e => {
+on('tm-clan-filters', 'click', e => {
     const chip = e.target.closest('.tm-chip');
     if (!chip) return;
     document.querySelectorAll('#tm-clan-filters .tm-chip').forEach(c => c.classList.remove('active'));
@@ -1405,7 +1490,7 @@ $('tm-clan-filters')?.addEventListener('click', e => {
     tradeFilterClan = chip.dataset.clan;
     renderTradeListings();
 });
-$('tm-listings')?.addEventListener('click', async e => {
+on('tm-listings', 'click', async e => {
     const delBtn = e.target.closest('.tm-delete');
     if (delBtn) {
         const id = delBtn.dataset.id;
@@ -1455,16 +1540,16 @@ $('tm-listings')?.addEventListener('click', async e => {
         return;
     }
 });
-$('tm-submit')?.addEventListener('click', async () => {
-    const clan = $('tm-clan').value;
+on('tm-submit', 'click', async () => {
+    const clan = val('tm-clan');
     if (!clan) return setTradeStatus('Выберите гильдию.', 'error');
-    const category = $('tm-category').value;
-    const name = $('tm-name').value.trim();
-    const price = parseInt($('tm-price').value);
-    const qty = parseInt($('tm-qty').value);
-    const port = $('tm-port').value.trim();
-    const nickname = $('tm-nickname').value.trim();
-    const note = $('tm-note').value.trim();
+    const category = val('tm-category');
+    const name = val('tm-name').trim();
+    const price = parseInt(val('tm-price'));
+    const qty = parseInt(val('tm-qty'));
+    const port = val('tm-port').trim();
+    const nickname = val('tm-nickname').trim();
+    const note = val('tm-note').trim();
 
     if (!name) return setTradeStatus('Укажите название.', 'error');
     if (!price || price <= 0) return setTradeStatus('Укажите корректную цену.', 'error');
@@ -1485,11 +1570,11 @@ $('tm-submit')?.addEventListener('click', async () => {
     localStorage.setItem(VIEWER_NICK_KEY, nickname);
     sendHeartbeat();
 
-    $('tm-name').value = '';
-    $('tm-price').value = '';
-    $('tm-qty').value = 1;
-    $('tm-port').value = '';
-    $('tm-note').value = '';
+    document.getElementById('tm-name').value = '';
+    document.getElementById('tm-price').value = '';
+    document.getElementById('tm-qty').value = 1;
+    document.getElementById('tm-port').value = '';
+    document.getElementById('tm-note').value = '';
     updateTradeFormTotal();
 
     setTradeStatus('✅ Заявка опубликована!', 'success');
@@ -1501,27 +1586,27 @@ $('tm-submit')?.addEventListener('click', async () => {
 ============================================================ */
 function openAcceptTradeModal(t) {
     acceptingTrade = t;
-    $('acceptTradeName').textContent = t.name;
-    $('acceptTradeInfo').textContent =
+    document.getElementById('acceptTradeName').textContent = t.name;
+    document.getElementById('acceptTradeInfo').textContent =
         `${t.type === 'buy' ? 'Покупка' : 'Продажа'} · ${Number(t.price).toLocaleString('ru-RU')} 🪙/шт · ${t.qty} шт`;
     const savedNick = getViewerNick();
-    $('acceptTradeNickname').value = savedNick || '';
-    $('acceptTradeError').textContent = '';
-    $('acceptTradeModal').hidden = false;
-    ($('acceptTradeNickname').value ? $('doAcceptTrade') : $('acceptTradeNickname')).focus();
+    document.getElementById('acceptTradeNickname').value = savedNick || '';
+    document.getElementById('acceptTradeError').textContent = '';
+    document.getElementById('acceptTradeModal').hidden = false;
+    (savedNick ? document.getElementById('doAcceptTrade') : document.getElementById('acceptTradeNickname')).focus();
 }
 function closeAcceptTradeModal() {
-    $('acceptTradeModal').hidden = true;
+    document.getElementById('acceptTradeModal').hidden = true;
     acceptingTrade = null;
 }
-$('cancelAcceptTrade')?.addEventListener('click', closeAcceptTradeModal);
-$('acceptTradeModal')?.addEventListener('click', e => {
+on('cancelAcceptTrade', 'click', closeAcceptTradeModal);
+on('acceptTradeModal', 'click', e => {
     if (e.target.id === 'acceptTradeModal') closeAcceptTradeModal();
 });
-$('doAcceptTrade')?.addEventListener('click', async () => {
+on('doAcceptTrade', 'click', async () => {
     if (!acceptingTrade) return;
-    const nick = $('acceptTradeNickname').value.trim();
-    const err = $('acceptTradeError');
+    const nick = val('acceptTradeNickname').trim();
+    const err = document.getElementById('acceptTradeError');
     err.textContent = '';
     if (!nick) { err.textContent = 'Укажите ваш ник'; return; }
     if (nick.length < 2) { err.textContent = 'Ник слишком короткий'; return; }
@@ -1529,19 +1614,19 @@ $('doAcceptTrade')?.addEventListener('click', async () => {
         err.textContent = 'Нельзя принять собственную заявку';
         return;
     }
-    $('doAcceptTrade').disabled = true;
+    document.getElementById('doAcceptTrade').disabled = true;
     const { error } = await supabase.from('trades').update({
         accepted_by: nick,
         accepted_at: new Date().toISOString()
     }).eq('id', acceptingTrade.id);
-    $('doAcceptTrade').disabled = false;
+    document.getElementById('doAcceptTrade').disabled = false;
     if (error) { err.textContent = 'Ошибка: ' + error.message; return; }
     localStorage.setItem(VIEWER_NICK_KEY, nick);
     sendHeartbeat();
     await logAdminAction('Принял торговую заявку', `${acceptingTrade.name} — ${nick}`);
     await createNotification(acceptingTrade.nickname, 'trade', 'Вашу заявку приняли',
         `${nick} принял заявку «${acceptingTrade.name}»`, null);
-    const tn = $('tm-nickname');
+    const tn = document.getElementById('tm-nickname');
     if (tn) tn.value = nick;
     closeAcceptTradeModal();
     renderTrades();
@@ -1551,7 +1636,7 @@ $('doAcceptTrade')?.addEventListener('click', async () => {
    ЗАЯВКИ
 ============================================================ */
 async function renderApplications() {
-    const container = $('applicationsList');
+    const container = document.getElementById('applicationsList');
     if (!container || !isAdmin) return;
     container.innerHTML = '<div class="empty">Загрузка…</div>';
     const { data, error } = await supabase.from('applications').select('*')
@@ -1610,7 +1695,7 @@ async function updateAppStatus(id, status) {
    ФОРМА ЗАЯВКИ
 ============================================================ */
 function renderApplyClanSelect() {
-    const sel = $('applyClan');
+    const sel = document.getElementById('applyClan');
     if (!sel) return;
     sel.innerHTML = '<option value="">— Не выбрано —</option>';
     const list = currentGame ? getClansForGame(currentGame) : Object.values(clansCache);
@@ -1619,29 +1704,32 @@ function renderApplyClanSelect() {
         o.value = c.id; o.textContent = c.name; sel.appendChild(o);
     });
 }
-$('applyBtn').addEventListener('click', async () => {
-    const nick = $('applyNick').value.trim();
-    const why = $('applyWhy').value.trim();
-    const msg = $('applyMsg');
+on('applyBtn', 'click', async () => {
+    const nick = val('applyNick').trim();
+    const why = val('applyWhy').trim();
+    const msg = document.getElementById('applyMsg');
     msg.style.color = '';
     if (!nick) { msg.textContent = 'Введите никнейм'; msg.style.color = '#ff7a7a'; return; }
     if (!why) { msg.textContent = 'Расскажите, почему хотите вступить'; msg.style.color = '#ff7a7a'; return; }
     const payload = {
         nickname: nick,
-        age: $('applyAge').value.trim() || null,
-        experience: $('applyExp').value.trim() || null,
+        age: val('applyAge').trim() || null,
+        experience: val('applyExp').trim() || null,
         why,
-        contact: $('applyContact').value.trim() || null,
-        target_clan: $('applyClan').value || null
+        contact: val('applyContact').trim() || null,
+        target_clan: val('applyClan') || null
     };
-    $('applyBtn').disabled = true;
+    document.getElementById('applyBtn').disabled = true;
     const { error } = await supabase.from('applications').insert(payload);
-    $('applyBtn').disabled = false;
+    document.getElementById('applyBtn').disabled = false;
     if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
     msg.textContent = '✔ Заявка отправлена! С вами свяжутся.';
     msg.style.color = '#6ee7a7';
-    ['applyNick','applyAge','applyExp','applyContact','applyWhy'].forEach(id => $(id).value = '');
-    $('applyClan').value = '';
+    ['applyNick','applyAge','applyExp','applyContact','applyWhy'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+    document.getElementById('applyClan').value = '';
 });
 
 /* ============================================================
@@ -1655,7 +1743,7 @@ async function loadFaq() {
     renderFaqAdmin();
 }
 function renderFaq() {
-    const container = $('faqList');
+    const container = document.getElementById('faqList');
     if (!container) return;
     container.innerHTML = '';
     if (!faqCache.length) { container.innerHTML = '<div class="empty">Пока нет вопросов</div>'; return; }
@@ -1668,7 +1756,7 @@ function renderFaq() {
     });
 }
 function renderFaqAdmin() {
-    const container = $('faqAdminList');
+    const container = document.getElementById('faqAdminList');
     if (!container) return;
     container.innerHTML = '';
     if (!faqCache.length) { container.innerHTML = '<div class="empty">Пока нет</div>'; return; }
@@ -1687,16 +1775,17 @@ function renderFaqAdmin() {
         container.appendChild(el);
     });
 }
-$('faqAddBtn').addEventListener('click', async () => {
-    const q = $('faqQ').value.trim();
-    const a = $('faqA').value.trim();
+on('faqAddBtn', 'click', async () => {
+    const q = val('faqQ').trim();
+    const a = val('faqA').trim();
     if (!q || !a) { alert('Заполни вопрос и ответ'); return; }
     const { error } = await supabase.from('faq').insert({
         question: q, answer: a, sort_order: faqCache.length + 1
     });
     if (error) return alert(error.message);
     await logAdminAction('Добавил вопрос FAQ', q);
-    $('faqQ').value = ''; $('faqA').value = '';
+    document.getElementById('faqQ').value = '';
+    document.getElementById('faqA').value = '';
     loadFaq();
 });
 
@@ -1739,8 +1828,8 @@ function getPartnerLogo(p) {
     return null;
 }
 function renderPartnersHome() {
-    const section = $('partnersSection');
-    const list = $('partnersList');
+    const section = document.getElementById('partnersSection');
+    const list = document.getElementById('partnersList');
     if (!section || !list) return;
     list.innerHTML = '';
     if (!partnersCache.length) { section.hidden = true; return; }
@@ -1801,7 +1890,7 @@ function makePartnerLetter(name) {
     return span;
 }
 function renderPartnersAdmin() {
-    const container = $('partnersAdminList');
+    const container = document.getElementById('partnersAdminList');
     if (!container) return;
     container.innerHTML = '';
     if (!partnersCache.length) {
@@ -1870,28 +1959,28 @@ function compressLogo(file, maxSize = 128, quality = 0.85) {
         reader.readAsDataURL(file);
     });
 }
-$('partnerLogoPick').addEventListener('click', () => $('partnerLogoFile').click());
-$('partnerLogoFile').addEventListener('change', async e => {
+on('partnerLogoPick', 'click', () => document.getElementById('partnerLogoFile').click());
+on('partnerLogoFile', 'change', async e => {
     const file = e.target.files[0];
     if (!file) return;
     try {
         partnerLogoData = await compressLogo(file);
-        $('partnerLogoImg').src = partnerLogoData;
-        $('partnerLogoPreview').hidden = false;
-        $('partnerLogoName').textContent = file.name;
+        document.getElementById('partnerLogoImg').src = partnerLogoData;
+        document.getElementById('partnerLogoPreview').hidden = false;
+        document.getElementById('partnerLogoName').textContent = file.name;
     } catch (err) { alert('Не удалось загрузить картинку: ' + err.message); }
 });
-$('partnerLogoClear').addEventListener('click', () => {
+on('partnerLogoClear', 'click', () => {
     partnerLogoData = null;
-    $('partnerLogoFile').value = '';
-    $('partnerLogoPreview').hidden = true;
-    $('partnerLogoName').textContent = '';
+    document.getElementById('partnerLogoFile').value = '';
+    document.getElementById('partnerLogoPreview').hidden = true;
+    document.getElementById('partnerLogoName').textContent = '';
 });
-$('partnerAddBtn').addEventListener('click', async () => {
-    const name = $('partnerName').value.trim();
-    const url = $('partnerUrl').value.trim();
-    const desc = $('partnerDesc').value.trim();
-    const statusEl = $('partnerStatus');
+on('partnerAddBtn', 'click', async () => {
+    const name = val('partnerName').trim();
+    const url = val('partnerUrl').trim();
+    const desc = val('partnerDesc').trim();
+    const statusEl = document.getElementById('partnerStatus');
     if (!name) { flashStatusEl(statusEl, 'Укажи название', '#ff7a7a'); return; }
     if (!url) { flashStatusEl(statusEl, 'Укажи ссылку', '#ff7a7a'); return; }
     if (!/^https?:\/\//i.test(url)) { flashStatusEl(statusEl, 'Ссылка должна начинаться с http:// или https://', '#ff7a7a'); return; }
@@ -1903,11 +1992,14 @@ $('partnerAddBtn').addEventListener('click', async () => {
     });
     if (error) { flashStatusEl(statusEl, 'Ошибка: ' + error.message, '#ff7a7a'); return; }
     await logAdminAction('Добавил партнёра', name);
-    ['partnerName','partnerUrl','partnerDesc'].forEach(id => $(id).value = '');
+    ['partnerName','partnerUrl','partnerDesc'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
     partnerLogoData = null;
-    $('partnerLogoFile').value = '';
-    $('partnerLogoPreview').hidden = true;
-    $('partnerLogoName').textContent = '';
+    document.getElementById('partnerLogoFile').value = '';
+    document.getElementById('partnerLogoPreview').hidden = true;
+    document.getElementById('partnerLogoName').textContent = '';
     flashStatusEl(statusEl, '✔ Добавлено', '#6ee7a7');
     await loadPartners();
 });
@@ -1916,7 +2008,7 @@ $('partnerAddBtn').addEventListener('click', async () => {
    АДМИН: ТАКТИКА
 ============================================================ */
 function renderTacticsAdmin() {
-    const container = $('tacticsAdminList');
+    const container = document.getElementById('tacticsAdminList');
     if (!container) return;
     container.innerHTML = '';
     if (!tacticsCache.length) {
@@ -1956,25 +2048,25 @@ async function moveTactic(id, dir) {
 }
 function openTacticEdit(t) {
     editingTactic = t;
-    $('tacEditId').value = t.id;
-    $('tacEditTitle').value = t.title || '';
-    $('tacEditIcon').value = t.icon || '';
-    $('tacEditOrder').value = t.sort_order ?? 0;
-    $('tacEditContent').value = t.content || '';
-    $('tacEditMsg').textContent = '';
-    $('tacticsEditModal').hidden = false;
-    $('tacEditTitle').focus();
+    document.getElementById('tacEditId').value = t.id;
+    document.getElementById('tacEditTitle').value = t.title || '';
+    document.getElementById('tacEditIcon').value = t.icon || '';
+    document.getElementById('tacEditOrder').value = t.sort_order ?? 0;
+    document.getElementById('tacEditContent').value = t.content || '';
+    document.getElementById('tacEditMsg').textContent = '';
+    document.getElementById('tacticsEditModal').hidden = false;
+    document.getElementById('tacEditTitle').focus();
 }
-$('cancelTacEdit')?.addEventListener('click', () => {
-    $('tacticsEditModal').hidden = true; editingTactic = null;
+on('cancelTacEdit', 'click', () => {
+    document.getElementById('tacticsEditModal').hidden = true; editingTactic = null;
 });
-$('saveTacEdit')?.addEventListener('click', async () => {
+on('saveTacEdit', 'click', async () => {
     if (!editingTactic) return;
-    const title = $('tacEditTitle').value.trim();
-    const icon = $('tacEditIcon').value.trim();
-    const content = $('tacEditContent').value;
-    const order = parseInt($('tacEditOrder').value) || 0;
-    const msg = $('tacEditMsg');
+    const title = val('tacEditTitle').trim();
+    const icon = val('tacEditIcon').trim();
+    const content = val('tacEditContent');
+    const order = parseInt(val('tacEditOrder')) || 0;
+    const msg = document.getElementById('tacEditMsg');
     if (!title) { msg.textContent = 'Укажи заголовок'; msg.style.color = '#ff7a7a'; return; }
     if (!content.trim()) { msg.textContent = 'Укажи содержимое'; msg.style.color = '#ff7a7a'; return; }
     const { error } = await supabase.from('tactics').update({
@@ -1983,7 +2075,7 @@ $('saveTacEdit')?.addEventListener('click', async () => {
     }).eq('id', editingTactic.id);
     if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
     await logAdminAction('Изменил раздел тактики', title);
-    $('tacticsEditModal').hidden = true;
+    document.getElementById('tacticsEditModal').hidden = true;
     editingTactic = null;
     await loadTactics();
 });
@@ -1993,13 +2085,13 @@ async function deleteTactic(id, title) {
     await logAdminAction('Удалил раздел тактики', title);
     await loadTactics();
 }
-$('tacAddBtn')?.addEventListener('click', async () => {
-    const id = $('tacId').value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
-    const title = $('tacTitle').value.trim();
-    const icon = $('tacIcon').value.trim();
-    const content = $('tacContent').value;
-    const order = parseInt($('tacOrder').value) || 0;
-    const statusEl = $('tacStatus');
+on('tacAddBtn', 'click', async () => {
+    const id = val('tacId').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+    const title = val('tacTitle').trim();
+    const icon = val('tacIcon').trim();
+    const content = val('tacContent');
+    const order = parseInt(val('tacOrder')) || 0;
+    const statusEl = document.getElementById('tacStatus');
     if (!id) { flashStatusEl(statusEl, 'Укажи ID', '#ff7a7a'); return; }
     if (!title) { flashStatusEl(statusEl, 'Укажи заголовок', '#ff7a7a'); return; }
     if (!content.trim()) { flashStatusEl(statusEl, 'Укажи содержимое', '#ff7a7a'); return; }
@@ -2008,8 +2100,11 @@ $('tacAddBtn')?.addEventListener('click', async () => {
     });
     if (error) { flashStatusEl(statusEl, 'Ошибка: ' + error.message, '#ff7a7a'); return; }
     await logAdminAction('Добавил раздел тактики', title);
-    ['tacId','tacTitle','tacIcon','tacContent'].forEach(i => $(i).value = '');
-    $('tacOrder').value = 10;
+    ['tacId','tacTitle','tacIcon','tacContent'].forEach(i => {
+        const el = document.getElementById(i);
+        if (el) el.value = '';
+    });
+    document.getElementById('tacOrder').value = 10;
     flashStatusEl(statusEl, '✔ Добавлено', '#6ee7a7');
     await loadTactics();
 });
@@ -2023,7 +2118,7 @@ async function loadSettings() {
     settingsCache = data;
 }
 async function loadStats() {
-    const row = $('statsRow');
+    const row = document.getElementById('statsRow');
     if (!row) return;
     row.innerHTML = '';
     try {
@@ -2061,7 +2156,7 @@ async function loadStats() {
    КОНТАКТЫ
 ============================================================ */
 function renderContacts() {
-    const container = $('contactsList');
+    const container = document.getElementById('contactsList');
     if (!container) return;
     container.innerHTML = '';
     const clans = Object.values(clansCache);
@@ -2088,7 +2183,7 @@ function renderContacts() {
    АДМИН: ИГРЫ
 ============================================================ */
 function renderGamesAdmin() {
-    const container = $('gamesAdminList');
+    const container = document.getElementById('gamesAdminList');
     if (!container) return;
     container.innerHTML = '';
     const list = Object.values(gamesCache);
@@ -2117,12 +2212,12 @@ function renderGamesAdmin() {
         container.appendChild(el);
     });
 }
-$('gameAddBtn').addEventListener('click', async () => {
-    const id = $('gameId').value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
-    const name = $('gameName').value.trim();
-    const image = $('gameImage').value.trim();
-    const bg = $('gameBg').value.trim();
-    const statusEl = $('gameStatus');
+on('gameAddBtn', 'click', async () => {
+    const id = val('gameId').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+    const name = val('gameName').trim();
+    const image = val('gameImage').trim();
+    const bg = val('gameBg').trim();
+    const statusEl = document.getElementById('gameStatus');
     if (!id) { flashStatusEl(statusEl, 'Укажи ID (латиница)', '#ff7a7a'); return; }
     if (!name) { flashStatusEl(statusEl, 'Укажи название', '#ff7a7a'); return; }
     if (gamesCache[id]) { flashStatusEl(statusEl, 'ID уже существует', '#ff7a7a'); return; }
@@ -2134,36 +2229,39 @@ $('gameAddBtn').addEventListener('click', async () => {
     });
     if (error) { flashStatusEl(statusEl, 'Ошибка: ' + error.message, '#ff7a7a'); return; }
     await logAdminAction('Создал игру', name);
-    ['gameId','gameName','gameImage','gameBg'].forEach(i => $(i).value = '');
+    ['gameId','gameName','gameImage','gameBg'].forEach(i => {
+        const el = document.getElementById(i);
+        if (el) el.value = '';
+    });
     flashStatusEl(statusEl, '✔ Добавлено', '#6ee7a7');
     await loadGames();
 });
 function openGameEdit(g) {
     editingGame = g;
-    $('gameEditId').value = g.id;
-    $('gameEditName').value = g.name;
-    $('gameEditImage').value = g.image || '';
-    $('gameEditBg').value = g.bg || '';
-    $('gameEditMsg').textContent = '';
-    $('gameEditModal').hidden = false;
-    $('gameEditName').focus();
+    document.getElementById('gameEditId').value = g.id;
+    document.getElementById('gameEditName').value = g.name;
+    document.getElementById('gameEditImage').value = g.image || '';
+    document.getElementById('gameEditBg').value = g.bg || '';
+    document.getElementById('gameEditMsg').textContent = '';
+    document.getElementById('gameEditModal').hidden = false;
+    document.getElementById('gameEditName').focus();
 }
-$('cancelGameEdit').addEventListener('click', () => {
-    $('gameEditModal').hidden = true; editingGame = null;
+on('cancelGameEdit', 'click', () => {
+    document.getElementById('gameEditModal').hidden = true; editingGame = null;
 });
-$('saveGameEdit').addEventListener('click', async () => {
+on('saveGameEdit', 'click', async () => {
     if (!editingGame) return;
-    const name = $('gameEditName').value.trim();
-    const image = $('gameEditImage').value.trim();
-    const bg = $('gameEditBg').value.trim();
-    const msg = $('gameEditMsg');
+    const name = val('gameEditName').trim();
+    const image = val('gameEditImage').trim();
+    const bg = val('gameEditBg').trim();
+    const msg = document.getElementById('gameEditMsg');
     if (!name) { msg.textContent = 'Укажи название'; msg.style.color = '#ff7a7a'; return; }
     const { error } = await supabase.from('games').update({
         name, image: image || null, bg: bg || null
     }).eq('id', editingGame.id);
     if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
     await logAdminAction('Изменил игру', name);
-    $('gameEditModal').hidden = true;
+    document.getElementById('gameEditModal').hidden = true;
     editingGame = null;
     await loadGames();
 });
@@ -2188,7 +2286,7 @@ async function deleteGame(id, name) {
    АДМИН: ГИЛЬДИИ
 ============================================================ */
 function renderAdminClanSelect() {
-    const sel = $('adminClanSelect');
+    const sel = document.getElementById('adminClanSelect');
     if (!sel) return;
     const cur = sel.value;
     sel.innerHTML = '';
@@ -2200,7 +2298,7 @@ function renderAdminClanSelect() {
     updateAdminFields();
 }
 function renderGameSelectForClanAdmin() {
-    const sel = $('adminClanGame');
+    const sel = document.getElementById('adminClanGame');
     if (!sel) return;
     const cur = sel.value;
     sel.innerHTML = '';
@@ -2211,7 +2309,7 @@ function renderGameSelectForClanAdmin() {
     if (cur && gamesCache[cur]) sel.value = cur;
 }
 function renderNewClanGameSelect() {
-    const sel = $('newClanGame');
+    const sel = document.getElementById('newClanGame');
     if (!sel) return;
     const cur = sel.value;
     sel.innerHTML = '';
@@ -2222,27 +2320,27 @@ function renderNewClanGameSelect() {
     if (cur && gamesCache[cur]) sel.value = cur;
     else if (currentGame && gamesCache[currentGame]) sel.value = currentGame;
 }
-$('adminClanSelect').addEventListener('change', updateAdminFields);
+on('adminClanSelect', 'change', updateAdminFields);
 function updateAdminFields() {
-    const cid = $('adminClanSelect').value;
+    const cid = val('adminClanSelect');
     const clan = clansCache[cid];
     renderGameSelectForClanAdmin();
-    if (clan) $('adminClanGame').value = clan.game_id || 'wosb';
-    $('adminCurrentPass').value = clan?.password || '—';
-    $('adminNewPass').value = '';
-    $('adminDiscord').value = clan?.discord || '';
-    $('adminNews').value = clan?.news || '';
-    $('adminRules').value = clan?.rules || '';
-    $('adminPanelMsg').textContent = '';
+    if (clan) document.getElementById('adminClanGame').value = clan.game_id || 'wosb';
+    document.getElementById('adminCurrentPass').value = clan?.password || '—';
+    document.getElementById('adminNewPass').value = '';
+    document.getElementById('adminDiscord').value = clan?.discord || '';
+    document.getElementById('adminNews').value = clan?.news || '';
+    document.getElementById('adminRules').value = clan?.rules || '';
+    document.getElementById('adminPanelMsg').textContent = '';
 }
-$('saveAdminSettings').addEventListener('click', async () => {
-    const cid = $('adminClanSelect').value;
-    const newPass = $('adminNewPass').value.trim();
-    const newDiscord = $('adminDiscord').value.trim();
-    const newNews = $('adminNews').value;
-    const newRules = $('adminRules').value;
-    const newGame = $('adminClanGame').value;
-    const msg = $('adminPanelMsg');
+on('saveAdminSettings', 'click', async () => {
+    const cid = val('adminClanSelect');
+    const newPass = val('adminNewPass').trim();
+    const newDiscord = val('adminDiscord').trim();
+    const newNews = val('adminNews');
+    const newRules = val('adminRules');
+    const newGame = val('adminClanGame');
+    const msg = document.getElementById('adminPanelMsg');
     if (!cid) return;
     const clan = clansCache[cid]; if (!clan) return;
     const payload = {
@@ -2258,18 +2356,18 @@ $('saveAdminSettings').addEventListener('click', async () => {
     await logAdminAction('Изменил настройки гильдии', clan.name);
     Object.assign(clansCache[cid], payload);
     msg.textContent = '✔ Сохранено'; msg.style.color = '#6ee7a7';
-    $('adminNewPass').value = '';
+    document.getElementById('adminNewPass').value = '';
     if (pendingClanId === cid) {
-        $('clanInfoRules').textContent = newRules || 'Правила не заданы.';
-        const nw = $('clanInfoNewsWrap');
-        if (newNews?.trim()) { nw.hidden = false; $('clanInfoNews').textContent = newNews; }
+        document.getElementById('clanInfoRules').textContent = newRules || 'Правила не заданы.';
+        const nw = document.getElementById('clanInfoNewsWrap');
+        if (newNews?.trim()) { nw.hidden = false; document.getElementById('clanInfoNews').textContent = newNews; }
         else nw.hidden = true;
     }
     renderHomeCards();
     renderContacts();
 });
-$('deleteClanBtn').addEventListener('click', async () => {
-    const cid = $('adminClanSelect').value;
+on('deleteClanBtn', 'click', async () => {
+    const cid = val('adminClanSelect');
     if (!cid) return alert('Выберите гильдию');
     const clan = clansCache[cid];
     if (!clan) return alert('Гильдия не найдена');
@@ -2280,7 +2378,7 @@ $('deleteClanBtn').addEventListener('click', async () => {
         alert('Название не совпадает. Удаление отменено.');
         return;
     }
-    const btn = $('deleteClanBtn');
+    const btn = document.getElementById('deleteClanBtn');
     btn.disabled = true;
     btn.textContent = '⏳ Удаление…';
     try {
@@ -2307,11 +2405,11 @@ $('deleteClanBtn').addEventListener('click', async () => {
         renderTradeClanSelect();
         renderTradeClanFilters();
         applyBg();
-        $('adminPanelMsg').textContent = `✔ Гильдия «${clan.name}» удалена`;
-        $('adminPanelMsg').style.color = '#6ee7a7';
+        document.getElementById('adminPanelMsg').textContent = `✔ Гильдия «${clan.name}» удалена`;
+        document.getElementById('adminPanelMsg').style.color = '#6ee7a7';
     } catch (err) {
-        $('adminPanelMsg').textContent = 'Ошибка: ' + err.message;
-        $('adminPanelMsg').style.color = '#ff7a7a';
+        document.getElementById('adminPanelMsg').textContent = 'Ошибка: ' + err.message;
+        document.getElementById('adminPanelMsg').style.color = '#ff7a7a';
     } finally {
         btn.disabled = false;
         btn.textContent = '🗑 Удалить гильдию';
@@ -2319,14 +2417,14 @@ $('deleteClanBtn').addEventListener('click', async () => {
 });
 function renderSiteFields() {
     const s = settingsCache || {};
-    $('adminWebhook').value = s.discord_webhook || '';
-    $('adminSiteMsg').textContent = '';
+    document.getElementById('adminWebhook').value = s.discord_webhook || '';
+    document.getElementById('adminSiteMsg').textContent = '';
 }
-$('saveSiteSettings').addEventListener('click', async () => {
-    const msg = $('adminSiteMsg');
+on('saveSiteSettings', 'click', async () => {
+    const msg = document.getElementById('adminSiteMsg');
     msg.style.color = '';
     const payload = {
-        discord_webhook: $('adminWebhook').value.trim() || null,
+        discord_webhook: val('adminWebhook').trim() || null,
         updated_at: new Date().toISOString()
     };
     const { error } = await supabase.from('site_settings').update(payload).eq('id', 'main');
@@ -2340,32 +2438,32 @@ $('saveSiteSettings').addEventListener('click', async () => {
 /* ============================================================
    ДОБАВЛЕНИЕ ГИЛЬДИИ
 ============================================================ */
-$('openAddClan').addEventListener('click', () => {
+on('openAddClan', 'click', () => {
     ['newClanId','newClanName','newClanDesc','newClanRules','newClanPass','newClanDiscord','newClanImage','newClanBg']
-        .forEach(id => { const el = $(id); if (el) el.value = ''; });
+        .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     renderNewClanGameSelect();
-    $('addClanMsg').textContent = '';
-    $('addClanModal').hidden = false;
-    $('newClanId').focus();
+    document.getElementById('addClanMsg').textContent = '';
+    document.getElementById('addClanModal').hidden = false;
+    document.getElementById('newClanId').focus();
 });
-$('cancelAddClan').addEventListener('click', () => { $('addClanModal').hidden = true; });
-$('saveNewClan').addEventListener('click', async () => {
-    const id = $('newClanId').value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
-    const name = $('newClanName').value.trim();
-    const pass = $('newClanPass').value.trim();
-    const game = $('newClanGame').value;
-    const msg = $('addClanMsg');
+on('cancelAddClan', 'click', () => { document.getElementById('addClanModal').hidden = true; });
+on('saveNewClan', 'click', async () => {
+    const id = val('newClanId').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+    const name = val('newClanName').trim();
+    const pass = val('newClanPass').trim();
+    const game = val('newClanGame');
+    const msg = document.getElementById('addClanMsg');
     if (!id || !name || !pass) { msg.textContent = 'ID, название и пароль обязательны'; msg.style.color = '#ff7a7a'; return; }
     if (!game) { msg.textContent = 'Выберите игру'; msg.style.color = '#ff7a7a'; return; }
     if (clansCache[id]) { msg.textContent = 'ID уже занят'; msg.style.color = '#ff7a7a'; return; }
     const payload = {
         id, name, game_id: game,
-        description: $('newClanDesc').value.trim(),
-        rules: $('newClanRules').value,
+        description: val('newClanDesc').trim(),
+        rules: val('newClanRules'),
         password: pass,
-        discord: $('newClanDiscord').value.trim() || null,
-        image: $('newClanImage').value.trim() || 'images/aov.png',
-        bg: $('newClanBg').value.trim() || 'images/bg-main.jpg'
+        discord: val('newClanDiscord').trim() || null,
+        image: val('newClanImage').trim() || 'images/aov.png',
+        bg: val('newClanBg').trim() || 'images/bg-main.jpg'
     };
     const { error } = await supabase.from('clans').insert(payload);
     if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
@@ -2374,7 +2472,7 @@ $('saveNewClan').addEventListener('click', async () => {
     renderHomeCards(); renderAdminClanSelect(); renderScopeSelects(); renderContacts();
     renderTradeClanSelect(); renderTradeClanFilters(); renderApplyClanSelect();
     msg.textContent = '✔ Гильдия создана'; msg.style.color = '#6ee7a7';
-    setTimeout(() => { $('addClanModal').hidden = true; }, 800);
+    setTimeout(() => { document.getElementById('addClanModal').hidden = true; }, 800);
 });
 
 /* ============================================================
@@ -2382,61 +2480,66 @@ $('saveNewClan').addEventListener('click', async () => {
 ============================================================ */
 function openEditModal(tab, item) {
     editingItem = { tab, id: item.id };
-    $('editPlayerGuild').value = item.player_guild || '';
-    $('editNickname').value = item.nickname || '';
-    $('editFaction').value = item.faction || '';
-    $('editNote').value = item.note || '';
-    $('editError').textContent = '';
-    $('editModal').hidden = false;
-    $('editPlayerGuild').focus();
+    document.getElementById('editPlayerGuild').value = item.player_guild || '';
+    document.getElementById('editNickname').value = item.nickname || '';
+    document.getElementById('editFaction').value = item.faction || '';
+    document.getElementById('editNote').value = item.note || '';
+    document.getElementById('editError').textContent = '';
+    document.getElementById('editModal').hidden = false;
+    document.getElementById('editPlayerGuild').focus();
 }
-$('cancelEdit').addEventListener('click', () => { $('editModal').hidden = true; editingItem = null; });
-$('saveEdit').addEventListener('click', async () => {
+on('cancelEdit', 'click', () => {
+    document.getElementById('editModal').hidden = true; editingItem = null;
+});
+on('saveEdit', 'click', async () => {
     if (!editingItem) return;
-    const pg = $('editPlayerGuild').value.trim();
-    const nick = $('editNickname').value.trim();
-    if (!pg && !nick) { $('editError').textContent = 'Заполни Гильдию или Никнейм'; return; }
+    const pg = val('editPlayerGuild').trim();
+    const nick = val('editNickname').trim();
+    if (!pg && !nick) { document.getElementById('editError').textContent = 'Заполни Гильдию или Никнейм'; return; }
     const { tab, id } = editingItem;
     const { error } = await supabase.from(tab).update({
         nickname: nick || null, player_guild: pg || null,
-        faction: $('editFaction').value.trim() || null,
-        note: $('editNote').value.trim() || null
+        faction: val('editFaction').trim() || null,
+        note: val('editNote').trim() || null
     }).eq('id', id);
-    if (error) { $('editError').textContent = 'Ошибка: ' + error.message; return; }
+    if (error) { document.getElementById('editError').textContent = 'Ошибка: ' + error.message; return; }
     await logAdminAction(`Изменил запись (${tab})`, nick || pg);
-    $('editModal').hidden = true; editingItem = null;
+    document.getElementById('editModal').hidden = true; editingItem = null;
     loadList(tab);
 });
 ['editPlayerGuild','editNickname','editFaction','editNote'].forEach(id => {
-    $(id).addEventListener('keydown', e => {
-        if (e.key === 'Enter') $('saveEdit').click();
+    on(id, 'keydown', e => {
+        if (e.key === 'Enter') document.getElementById('saveEdit').click();
     });
 });
 
 /* ============================================================
    ДОБАВЛЕНИЕ ЗАПИСИ
 ============================================================ */
-$('addBtn').addEventListener('click', async () => {
+on('addBtn', 'click', async () => {
     if (!isAdmin || !currentClan) return;
-    const pg = $('playerGuild').value.trim();
-    const nick = $('nickname').value.trim();
+    const pg = val('playerGuild').trim();
+    const nick = val('nickname').trim();
     if (!pg && !nick) { flashStatus('Заполни Гильдию или Никнейм', '#ff7a7a'); return; }
     const { error } = await supabase.from(currentTab).insert({
         nickname: nick || null, player_guild: pg || null,
-        faction: $('faction').value.trim() || null,
-        note: $('note').value.trim() || null,
+        faction: val('faction').trim() || null,
+        note: val('note').trim() || null,
         clan: currentClan
     });
     if (error) { flashStatus('Ошибка: ' + error.message, '#ff7a7a'); return; }
     await logAdminAction(`Добавил запись (${currentTab})`, nick || pg);
-    ['playerGuild','nickname','faction','note'].forEach(id => $(id).value = '');
-    $('playerGuild').focus();
+    ['playerGuild','nickname','faction','note'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+    document.getElementById('playerGuild').focus();
     flashStatus('✔ Добавлено', '#6ee7a7');
     loadList(currentTab);
 });
 ['playerGuild','nickname','faction','note'].forEach(id => {
-    $(id).addEventListener('keydown', e => {
-        if (e.key === 'Enter') $('addBtn').click();
+    on(id, 'keydown', e => {
+        if (e.key === 'Enter') document.getElementById('addBtn').click();
     });
 });
 
@@ -2452,15 +2555,17 @@ async function deleteItem(tab, id) {
 }
 function openMoveModal(fromTab, id) {
     movingItem = { fromTab, id };
-    $('moveModal').hidden = false;
+    document.getElementById('moveModal').hidden = false;
 }
-$('cancelMove').addEventListener('click', () => { $('moveModal').hidden = true; movingItem = null; });
+on('cancelMove', 'click', () => {
+    document.getElementById('moveModal').hidden = true; movingItem = null;
+});
 document.querySelectorAll('#moveModal [data-target]').forEach(btn => {
     btn.addEventListener('click', async () => {
         if (!movingItem || !currentClan) return;
         const { fromTab, id } = movingItem;
         const toTab = btn.dataset.target;
-        $('moveModal').hidden = true; movingItem = null;
+        document.getElementById('moveModal').hidden = true; movingItem = null;
         if (toTab === fromTab) return;
         const { data, error } = await supabase.from(fromTab).select('*').eq('id', id).single();
         if (error) return alert(error.message);
@@ -2504,10 +2609,10 @@ window.addEventListener('hashchange', () => {
 ============================================================ */
 async function openProfile(nickname) {
     if (!nickname) return;
-    $('profileNickname').textContent = nickname;
-    const statsEl = $('profileStats');
+    document.getElementById('profileNickname').textContent = nickname;
+    const statsEl = document.getElementById('profileStats');
     statsEl.innerHTML = '<div class="empty">Загрузка…</div>';
-    $('profileModal').hidden = false;
+    document.getElementById('profileModal').hidden = false;
 
     try {
         const [en, fr, ne, pe, tradesBuy, tradesSell] = await Promise.all([
@@ -2553,9 +2658,9 @@ async function openProfile(nickname) {
         statsEl.innerHTML = `<div class="empty">Ошибка: ${err.message}</div>`;
     }
 }
-$('closeProfile')?.addEventListener('click', () => { $('profileModal').hidden = true; });
-$('profileModal')?.addEventListener('click', e => {
-    if (e.target.id === 'profileModal') $('profileModal').hidden = true;
+on('closeProfile', 'click', () => { document.getElementById('profileModal').hidden = true; });
+on('profileModal', 'click', e => {
+    if (e.target.id === 'profileModal') document.getElementById('profileModal').hidden = true;
 });
 
 /* ============================================================
@@ -2576,11 +2681,12 @@ async function loadNotifications() {
 }
 
 function renderNotifications() {
-    const list = $('notifList');
+    const list = document.getElementById('notifList');
     if (!list) return;
     const unread = notifications.filter(n => !n.is_read).length;
 
-    [$('notifBadge'), $('notifBadge2')].forEach(badge => {
+    ['notifBadge', 'notifBadge2'].forEach(id => {
+        const badge = document.getElementById(id);
         if (!badge) return;
         if (unread > 0) {
             badge.textContent = unread > 99 ? '99+' : unread;
@@ -2629,7 +2735,7 @@ function renderNotifications() {
                     if (clansCache[cid]) openClan(cid);
                 }
             }
-            $('notifPanel').hidden = true;
+            document.getElementById('notifPanel').hidden = true;
         });
     });
 }
@@ -2645,28 +2751,30 @@ async function createNotification(userNickname, type, title, body, link) {
 }
 
 function openNotifPanel() {
-    $('notifPanel').hidden = false;
+    document.getElementById('notifPanel').hidden = false;
     loadNotifications();
 }
 function closeNotifPanel() {
-    $('notifPanel').hidden = true;
+    document.getElementById('notifPanel').hidden = true;
 }
-$('notifBell')?.addEventListener('click', e => {
+on('notifBell', 'click', e => {
     e.stopPropagation();
-    $('notifPanel').hidden ? openNotifPanel() : closeNotifPanel();
+    const p = document.getElementById('notifPanel');
+    p.hidden ? openNotifPanel() : closeNotifPanel();
 });
-$('notifBell2')?.addEventListener('click', e => {
+on('notifBell2', 'click', e => {
     e.stopPropagation();
-    $('notifPanel').hidden ? openNotifPanel() : closeNotifPanel();
+    const p = document.getElementById('notifPanel');
+    p.hidden ? openNotifPanel() : closeNotifPanel();
 });
 document.addEventListener('click', e => {
-    const panel = $('notifPanel');
+    const panel = document.getElementById('notifPanel');
     if (!panel || panel.hidden) return;
     if (e.target.closest('#notifPanel')) return;
     if (e.target.closest('#notifBell') || e.target.closest('#notifBell2')) return;
     closeNotifPanel();
 });
-$('notifMarkAllRead')?.addEventListener('click', async () => {
+on('notifMarkAllRead', 'click', async () => {
     const nick = getViewerNick();
     if (!nick) return;
     await supabase.from('notifications').update({ is_read: true })
@@ -2675,31 +2783,27 @@ $('notifMarkAllRead')?.addEventListener('click', async () => {
 });
 
 /* ============================================================
-   💬 ЧАТ: ГИЛЬДИЯ + ОБЩИЙ + ОЧИСТКА
+   💬 ЧАТ
 ============================================================ */
 function setChatMode(mode) {
     chatMode = mode;
-
     document.querySelectorAll('.chat-tab').forEach(t => {
         t.classList.toggle('active', t.dataset.mode === mode);
     });
-
-    const clearBtn = $('chatClear');
+    const clearBtn = document.getElementById('chatClear');
     if (clearBtn) clearBtn.hidden = !isAdmin;
-
-    const input = $('chatInput');
+    const input = document.getElementById('chatInput');
     if (input) {
         input.placeholder = mode === 'general'
             ? 'Общий чат — напишите всем игрокам...'
             : 'Чат гильдии...';
     }
-
     loadChatMessages();
     initChatRealtime();
 }
 
 async function loadChatMessages() {
-    const container = $('chatMessages');
+    const container = document.getElementById('chatMessages');
     if (!container) return;
 
     if (chatMode === 'guild' && !currentClan) {
@@ -2730,7 +2834,7 @@ async function loadChatMessages() {
 }
 
 function renderChatMessages() {
-    const container = $('chatMessages');
+    const container = document.getElementById('chatMessages');
     if (!container) return;
     if (!chatMessages.length) {
         container.innerHTML = '<p class="empty" style="text-align:center;padding:20px;">Сообщений пока нет. Будьте первым! 👋</p>';
@@ -2761,7 +2865,7 @@ function renderChatMessages() {
 }
 
 async function sendChatMessage() {
-    const input = $('chatInput');
+    const input = document.getElementById('chatInput');
     const text = input.value.trim();
     if (!text) return;
 
@@ -2782,13 +2886,13 @@ async function sendChatMessage() {
         sendHeartbeat();
     }
 
-    $('chatSend').disabled = true;
+    document.getElementById('chatSend').disabled = true;
     const { error } = await supabase.from('chat_messages').insert({
         clan_id: chatMode === 'guild' ? currentClan : null,
         nickname: nick,
         text
     });
-    $('chatSend').disabled = false;
+    document.getElementById('chatSend').disabled = false;
 
     if (error) {
         alert('Ошибка: ' + error.message);
@@ -2799,12 +2903,10 @@ async function sendChatMessage() {
 
 async function clearChat() {
     if (!isAdmin) return;
-
     const label = chatMode === 'general'
         ? 'ОБЩИЙ чат'
         : `чат гильдии «${clansCache[currentClan]?.name || currentClan}»`;
     if (!confirm(`Очистить ${label}?\n\nВсе сообщения будут удалены безвозвратно.`)) return;
-
     if (chatMode === 'guild' && !currentClan) return;
 
     let query = supabase.from('chat_messages').delete();
@@ -2825,11 +2927,9 @@ async function clearChat() {
 }
 
 function openChat(mode) {
-    const clearBtn = $('chatClear');
+    const clearBtn = document.getElementById('chatClear');
     if (clearBtn) clearBtn.hidden = !isAdmin;
-
-    $('chatPanel').hidden = false;
-
+    document.getElementById('chatPanel').hidden = false;
     if (mode) {
         setChatMode(mode);
     } else {
@@ -2838,16 +2938,16 @@ function openChat(mode) {
 }
 
 function closeChat() {
-    $('chatPanel').hidden = true;
+    document.getElementById('chatPanel').hidden = true;
     if (chatChannel) { supabase.removeChannel(chatChannel); chatChannel = null; }
 }
 
-$('openChatBtn')?.addEventListener('click', () => openChat('guild'));
-$('openGeneralChatBtn')?.addEventListener('click', () => openChat('general'));
-$('chatClose')?.addEventListener('click', closeChat);
-$('chatSend')?.addEventListener('click', sendChatMessage);
-$('chatClear')?.addEventListener('click', clearChat);
-$('chatInput')?.addEventListener('keydown', e => {
+on('openChatBtn', 'click', () => openChat('guild'));
+on('openGeneralChatBtn', 'click', () => openChat('general'));
+on('chatClose', 'click', closeChat);
+on('chatSend', 'click', sendChatMessage);
+on('chatClear', 'click', clearChat);
+on('chatInput', 'keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         sendChatMessage();
@@ -2862,11 +2962,9 @@ function initChatRealtime() {
         supabase.removeChannel(chatChannel);
         chatChannel = null;
     }
-
     const channelName = chatMode === 'guild'
         ? `chat_guild_${currentClan}`
         : `chat_general`;
-
     chatChannel = supabase
         .channel(channelName)
         .on('postgres_changes', {
@@ -2893,7 +2991,6 @@ function initChatRealtime() {
 ============================================================ */
 function initRealtime() {
     closeRealtime();
-
     if (!currentClan) return;
 
     onlineChannel = supabase
@@ -2920,7 +3017,8 @@ function initRealtime() {
                 notifications.unshift(payload.new);
                 if (notifications.length > 50) notifications.pop();
                 renderNotifications();
-                [$('notifBell'), $('notifBell2')].forEach(b => {
+                ['notifBell', 'notifBell2'].forEach(id => {
+                    const b = document.getElementById(id);
                     if (!b) return;
                     b.style.transform = 'scale(1.15)';
                     setTimeout(() => b.style.transform = '', 300);
@@ -2936,14 +3034,12 @@ function closeRealtime() {
 }
 
 /* ============================================================
-   📰 НОВОСТИ ИЗ ВКОНТАКТЕ
+   📰 НОВОСТИ ВК
 ============================================================ */
 function loadVkNews() {
     const container = document.getElementById('vkNewsList');
     if (!container) return;
-
     container.innerHTML = '<div class="vk-news-loading">Загрузка новостей…</div>';
-
     const callbackName = 'vkNewsCallback_' + Date.now();
 
     window[callbackName] = function(data) {
@@ -2962,13 +3058,11 @@ function loadVkNews() {
                 </div>`;
             return;
         }
-
         const posts = data.response?.items || [];
         if (!posts.length) {
             container.innerHTML = '<div class="vk-news-empty">Новостей пока нет</div>';
             return;
         }
-
         container.innerHTML = '';
         posts.forEach(post => container.appendChild(createVkNewsCard(post)));
     };
@@ -3039,7 +3133,6 @@ function createVkNewsCard(post) {
             </a>
         </div>
     `;
-
     return card;
 }
 
@@ -3047,6 +3140,7 @@ function createVkNewsCard(post) {
    🚀 СТАРТ
 ============================================================ */
 (async () => {
+    console.log('🚀 Инициализация приложения...');
     const verEl = document.querySelector('.footer-right');
     if (verEl) verEl.textContent = 'v' + APP_VERSION;
 
@@ -3054,7 +3148,9 @@ function createVkNewsCard(post) {
 
     const { data: { session } } = await supabase.auth.getSession();
     isAdmin = !!session?.user && ADMIN_EMAILS.includes((session.user.email || '').toLowerCase());
+    console.log('👤 Пользователь:', isAdmin ? 'админ' : 'гость');
 
+    console.log('📥 Загрузка данных...');
     await loadGames();
     await loadClans();
     await loadSettings();
@@ -3082,4 +3178,6 @@ function createVkNewsCard(post) {
     startHeartbeat();
 
     setTimeout(handleBuildHash, 800);
+
+    console.log('✅ Приложение готово!');
 })();

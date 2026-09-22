@@ -12,6 +12,7 @@
     <div id="screen-home" class="screen">
         <div class="top-right">
             <span id="onlineBadge" class="online-badge" title="Пользователей онлайн">🟢 <b id="onlineCount">0</b></span>
+            <button id="openVkNewsBtn" class="icon-btn" title="Новости игры">📰</button>
             <button id="openGeneralChatBtn" class="icon-btn" title="Общий чат">🌍</button>
             <button id="themeToggle" class="icon-btn" title="Сменить тему">🌓</button>
             <button id="notifBell" class="icon-btn" title="Уведомления">
@@ -36,14 +37,6 @@
             </div>
 
             <div id="statsRow" class="stats-row"></div>
-
-            <!-- НОВОСТИ ВК -->
-            <section id="vkNewsSection" class="vk-news-section">
-                <h2 class="section-title">📰 Новости World of Sea Battle</h2>
-                <div id="vkNewsList" class="vk-news-list">
-                    <div class="vk-news-loading">Загрузка новостей…</div>
-                </div>
-            </section>
 
             <h2 class="section-title">Гильдии</h2>
             <div id="clanGrid" class="clan-grid"></div>
@@ -649,11 +642,30 @@
         </div>
     </div>
 
+    <!-- МОДАЛКА: НОВОСТИ ВК -->
+    <div id="vkNewsModal" class="vk-news-modal" hidden>
+        <div class="vk-news-modal-content">
+            <header class="vk-news-modal-header">
+                <h2>📰 Новости World of Sea Battle</h2>
+                <button id="closeVkNews" class="vk-news-close" title="Закрыть">✕</button>
+            </header>
+            <div id="vkNewsList" class="vk-news-modal-body">
+                <div class="vk-news-loading">Загрузка новостей…</div>
+            </div>
+            <footer class="vk-news-modal-footer">
+                <a href="https://vk.com/worldofseabattle" target="_blank" rel="noopener" class="vk-news-link">
+                    Открыть сообщество ВКонтакте →
+                </a>
+                <span>💡 Esc — закрыть</span>
+            </footer>
+        </div>
+    </div>
+
     <input type="file" id="bgFileInput" accept="image/*" hidden>
 
     <footer class="site-footer">
         <span class="footer-left">Mist Time — Сергеев С.В</span>
-        <span class="footer-right">v1.2.0</span>
+        <span class="footer-right">v1.5.0</span>
     </footer>
 
     <script type="module" src="app.js"></script>

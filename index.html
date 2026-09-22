@@ -8,7 +8,7 @@
 </head>
 <body>
 
-    <!-- ══════════════ ГЛАВНАЯ ══════════════ -->
+    <!-- ГЛАВНАЯ -->
     <div id="screen-home" class="screen">
         <div class="top-right">
             <span id="onlineBadge" class="online-badge" title="Пользователей онлайн">🟢 <b id="onlineCount">0</b></span>
@@ -36,6 +36,14 @@
             </div>
 
             <div id="statsRow" class="stats-row"></div>
+
+            <!-- НОВОСТИ ВК -->
+            <section id="vkNewsSection" class="vk-news-section">
+                <h2 class="section-title">📰 Новости World of Sea Battle</h2>
+                <div id="vkNewsList" class="vk-news-list">
+                    <div class="vk-news-loading">Загрузка новостей…</div>
+                </div>
+            </section>
 
             <h2 class="section-title">Гильдии</h2>
             <div id="clanGrid" class="clan-grid"></div>
@@ -75,44 +83,17 @@
                                 <div class="tm-type-btn buy active" data-type="buy">🛒 Покупка</div>
                                 <div class="tm-type-btn sell" data-type="sell">💰 Продажа</div>
                             </div>
-                            <div class="tm-fg">
-                                <label>Гильдия</label>
-                                <select id="tm-clan"></select>
-                            </div>
-                            <div class="tm-fg">
-                                <label>Категория</label>
-                                <select id="tm-category"></select>
-                            </div>
-                            <div class="tm-fg">
-                                <label>Название *</label>
-                                <input type="text" id="tm-name" maxlength="60" placeholder="Например: Дубовые доски">
-                            </div>
+                            <div class="tm-fg"><label>Гильдия</label><select id="tm-clan"></select></div>
+                            <div class="tm-fg"><label>Категория</label><select id="tm-category"></select></div>
+                            <div class="tm-fg"><label>Название *</label><input type="text" id="tm-name" maxlength="60" placeholder="Например: Дубовые доски"></div>
                             <div class="tm-frow">
-                                <div class="tm-fg">
-                                    <label>Цена за ед. *</label>
-                                    <input type="number" id="tm-price" min="1" step="1" placeholder="0">
-                                </div>
-                                <div class="tm-fg">
-                                    <label>Количество *</label>
-                                    <input type="number" id="tm-qty" min="1" step="1" value="1">
-                                </div>
+                                <div class="tm-fg"><label>Цена за ед. *</label><input type="number" id="tm-price" min="1" step="1" placeholder="0"></div>
+                                <div class="tm-fg"><label>Количество *</label><input type="number" id="tm-qty" min="1" step="1" value="1"></div>
                             </div>
-                            <div class="tm-fg">
-                                <label>Итого золота</label>
-                                <input type="text" id="tm-total" readonly value="0 🪙">
-                            </div>
-                            <div class="tm-fg">
-                                <label>Порт (необязательно)</label>
-                                <input type="text" id="tm-port" maxlength="60" placeholder="Порт-Рояль">
-                            </div>
-                            <div class="tm-fg">
-                                <label>Ваш ник *</label>
-                                <input type="text" id="tm-nickname" maxlength="32" placeholder="Капитан">
-                            </div>
-                            <div class="tm-fg">
-                                <label>Примечание</label>
-                                <textarea id="tm-note" maxlength="140" placeholder="Доп. условия..."></textarea>
-                            </div>
+                            <div class="tm-fg"><label>Итого золота</label><input type="text" id="tm-total" readonly value="0 🪙"></div>
+                            <div class="tm-fg"><label>Порт (необязательно)</label><input type="text" id="tm-port" maxlength="60" placeholder="Порт-Рояль"></div>
+                            <div class="tm-fg"><label>Ваш ник *</label><input type="text" id="tm-nickname" maxlength="32" placeholder="Капитан"></div>
+                            <div class="tm-fg"><label>Примечание</label><textarea id="tm-note" maxlength="140" placeholder="Доп. условия..."></textarea></div>
                             <button id="tm-submit" class="tm-btn-gold">Опубликовать заявку</button>
                             <p id="tm-status" class="tm-status"></p>
                         </section>
@@ -129,9 +110,7 @@
                                 </div>
                                 <div class="tm-filter-row" id="tm-cat-filters"></div>
                                 <div class="tm-filter-row">
-                                    <label class="tm-mine-check">
-                                        <input type="checkbox" id="tm-only-mine"> Только мои заявки
-                                    </label>
+                                    <label class="tm-mine-check"><input type="checkbox" id="tm-only-mine"> Только мои заявки</label>
                                 </div>
                             </div>
                             <div id="tm-listings" class="tm-listings"></div>
@@ -151,51 +130,36 @@
                         <div class="admin-field"><label>Опыт в игре</label><input type="text" id="applyExp" placeholder="Например: 500 часов" maxlength="100"></div>
                         <div class="admin-field"><label>Связь (Discord / Telegram)</label><input type="text" id="applyContact" placeholder="@nickname" maxlength="80"></div>
                     </div>
-                    <div class="admin-field">
-                        <label>Какая гильдия интересует</label>
-                        <select id="applyClan"></select>
-                    </div>
-                    <div class="admin-field">
-                        <label>Почему хотите вступить? *</label>
-                        <textarea id="applyWhy" rows="3" placeholder="Коротко о себе..." maxlength="500"></textarea>
-                    </div>
+                    <div class="admin-field"><label>Какая гильдия интересует</label><select id="applyClan"></select></div>
+                    <div class="admin-field"><label>Почему хотите вступить? *</label><textarea id="applyWhy" rows="3" placeholder="Коротко о себе..." maxlength="500"></textarea></div>
                     <p id="applyMsg" class="error"></p>
                     <button id="applyBtn" class="big-btn primary">📨 Отправить заявку</button>
                 </div>
             </section>
 
-            <!-- FAQ -->
             <section class="faq-section">
                 <h2 class="section-title">❓ Часто задаваемые вопросы</h2>
                 <div id="faqList" class="faq-list"></div>
             </section>
 
-            <!-- ПАРТНЁРЫ -->
             <section id="partnersSection" class="promo-section" hidden>
                 <h2 class="section-title">🤝 Партнёры и Реклама</h2>
                 <div id="partnersList" class="partners-list"></div>
             </section>
 
-            <!-- БЛАГОДАРНОСТИ -->
             <section class="thanks-section">
                 <h2 class="section-title">🙏 Благодарности</h2>
                 <div class="thanks-card">
-                    <p class="thanks-text">
-                        Спасибо всем участникам гильдий <b>АОВ</b> и <b>-К-</b> за активность и поддержку проекта.
-                    </p>
-                    <p class="thanks-text">
-                        Отдельная благодарность — администрации и совету гильдий за помощь в развитии сайта.
-                    </p>
-                    <p class="thanks-text thanks-final">
-                        Этот сайт — для вас. <span class="thanks-heart">❤️</span>
-                    </p>
+                    <p class="thanks-text">Спасибо всем участникам гильдий <b>АОВ</b> и <b>-К-</b> за активность и поддержку проекта.</p>
+                    <p class="thanks-text">Отдельная благодарность — администрации и совету гильдий за помощь в развитии сайта.</p>
+                    <p class="thanks-text thanks-final">Этот сайт — для вас. <span class="thanks-heart">❤️</span></p>
                     <div class="thanks-sign">Mist Time — Сергеев С.В</div>
                 </div>
             </section>
         </div>
     </div>
 
-    <!-- ══════════════ ОПИСАНИЕ ГИЛЬДИИ ══════════════ -->
+    <!-- ОПИСАНИЕ ГИЛЬДИИ -->
     <div id="screen-clan" class="screen" hidden>
         <div class="top-right">
             <button id="themeToggle2" class="icon-btn" title="Сменить тему">🌓</button>
@@ -204,7 +168,6 @@
             <button id="adminLogoutBtn2" hidden>🚪 Выйти</button>
         </div>
         <button id="backToHomeBtn" class="back-btn">← Назад</button>
-
         <div class="clan-info-wrap">
             <div class="clan-info">
                 <img id="clanInfoLogo" class="clan-info-logo" src="" alt="">
@@ -219,9 +182,7 @@
                     <p id="clanInfoRules" class="clan-info-rules"></p>
                 </div>
                 <div class="clan-info-actions">
-                    <a id="clanDownloadBtn" class="big-btn secondary"
-                       href="https://github.com/Flowseal/zapret-discord-youtube/releases/download/1.10.3/zapret-discord-youtube-1.10.3.rar"
-                       target="_blank" rel="noopener">⬇️ Скачать zapret</a>
+                    <a id="clanDownloadBtn" class="big-btn secondary" href="https://github.com/Flowseal/zapret-discord-youtube/releases/download/1.10.3/zapret-discord-youtube-1.10.3.rar" target="_blank" rel="noopener">⬇️ Скачать zapret</a>
                     <button id="clanLoginBtn" class="big-btn primary">🔐 Войти в гильдию</button>
                     <button id="clanViewBtn" class="big-btn primary" hidden>👁 Открыть списки</button>
                 </div>
@@ -229,26 +190,19 @@
         </div>
     </div>
 
-    <!-- ══════════════ ВНУТРИ ГИЛЬДИИ ══════════════ -->
+    <!-- ВНУТРИ ГИЛЬДИИ -->
     <div id="clanView" hidden>
         <header>
             <button id="backBtn" class="back-btn">← Назад</button>
-            <h1>
-                <img id="clanIcon" class="clan-icon-small" src="" alt="">
-                <span id="clanTitle"></span>
-            </h1>
+            <h1><img id="clanIcon" class="clan-icon-small" src="" alt=""><span id="clanTitle"></span></h1>
             <div class="top-right">
                 <span id="adminInfo3"></span>
                 <button id="themeToggle3" class="icon-btn" title="Сменить тему">🌓</button>
-                <button id="notifBell2" class="icon-btn" title="Уведомления">
-                    🔔<span id="notifBadge2" class="notif-badge" hidden>0</span>
-                </button>
+                <button id="notifBell2" class="icon-btn" title="Уведомления">🔔<span id="notifBadge2" class="notif-badge" hidden>0</span></button>
                 <button id="adminPanelBtn3" hidden>⚙️</button>
-                <a id="downloadBtn" class="icon-btn"
-                   href="https://github.com/Flowseal/zapret-discord-youtube/releases/download/1.10.3/zapret-discord-youtube-1.10.3.rar"
-                   target="_blank" rel="noopener" title="Скачать zapret">⬇️</a>
+                <a id="downloadBtn" class="icon-btn" href="https://github.com/Flowseal/zapret-discord-youtube/releases/download/1.10.3/zapret-discord-youtube-1.10.3.rar" target="_blank" rel="noopener" title="Скачать zapret">⬇️</a>
                 <button id="bgChangeBtn" class="icon-btn admin-only" hidden title="Сменить фон">🎨</button>
-                <button id="bgResetBtn"  class="icon-btn admin-only" hidden title="Сбросить фон">↺</button>
+                <button id="bgResetBtn" class="icon-btn admin-only" hidden title="Сбросить фон">↺</button>
                 <button id="clanLeaveBtn" title="Заблокировать просмотр">🚪</button>
             </div>
         </header>
@@ -284,7 +238,6 @@
                         <span id="status"></span>
                     </section>
                     <p class="hint admin-only" hidden>💡 Достаточно заполнить <b>Гильдию</b> или <b>Никнейм</b>.</p>
-
                     <section id="tab-enemies" class="tab-content active"><h2>🔴 Враги гильдии</h2><ul class="player-list" data-list="enemies"></ul></section>
                     <section id="tab-friends" class="tab-content"><h2>🟢 Друзья — полное содействие</h2><ul class="player-list" data-list="friends"></ul></section>
                     <section id="tab-neutral" class="tab-content"><h2>⚪ Нейтралитет</h2><ul class="player-list" data-list="neutral"></ul></section>
@@ -377,14 +330,10 @@
         </div>
     </div>
 
-    <!-- ══════════════ АДМИН-ПАНЕЛЬ ══════════════ -->
+    <!-- АДМИН-ПАНЕЛЬ -->
     <div id="screen-admin" class="screen admin-screen" hidden>
         <aside class="admin-sidebar">
-            <div class="admin-sidebar-brand">
-                <span class="admin-sidebar-logo">⚙️</span>
-                <span class="admin-sidebar-title">Админ-панель</span>
-            </div>
-
+            <div class="admin-sidebar-brand"><span class="admin-sidebar-logo">⚙️</span><span class="admin-sidebar-title">Админ-панель</span></div>
             <nav class="admin-nav">
                 <button class="admin-nav-item active" data-apanel="clans"><span class="admin-nav-ico">🏰</span><span>Гильдии</span></button>
                 <button class="admin-nav-item" data-apanel="games"><span class="admin-nav-ico">🎮</span><span>Игры</span></button>
@@ -393,10 +342,7 @@
                 <button class="admin-nav-item" data-apanel="tactics"><span class="admin-nav-ico">📖</span><span>Тактика</span></button>
                 <button class="admin-nav-item" data-apanel="settings"><span class="admin-nav-ico">⚙️</span><span>Настройки</span></button>
             </nav>
-
-            <div class="admin-sidebar-footer">
-                <button id="adminBackHome" class="admin-back-btn">← На главную</button>
-            </div>
+            <div class="admin-sidebar-footer"><button id="adminBackHome" class="admin-back-btn">← На главную</button></div>
         </aside>
 
         <main class="admin-content">
@@ -500,8 +446,7 @@
         </main>
     </div>
 
-    <!-- ══════════════ МОДАЛКИ ══════════════ -->
-
+    <!-- МОДАЛКИ -->
     <div id="clanPassModal" class="modal" hidden>
         <div class="modal-content">
             <h2>🔐 Вход в гильдию</h2>
@@ -566,9 +511,7 @@
                 <button id="closeTactics" class="tactics-close" title="Закрыть">✕</button>
             </header>
             <div class="tactics-body" id="tacticsBody"></div>
-            <footer class="tactics-footer">
-                <span>💡 Нажми <span class="kbd">Esc</span> или кликни вне окна, чтобы закрыть</span>
-            </footer>
+            <footer class="tactics-footer"><span>💡 Нажми <span class="kbd">Esc</span> или кликни вне окна, чтобы закрыть</span></footer>
         </div>
     </div>
 
@@ -667,9 +610,7 @@
                 <button data-target="neutral">⚪ Нейтралитет</button>
                 <button data-target="personal">🟡 Не трогать</button>
             </div>
-            <div class="modal-actions">
-                <button id="cancelMove" class="secondary">Отмена</button>
-            </div>
+            <div class="modal-actions"><button id="cancelMove" class="secondary">Отмена</button></div>
         </div>
     </div>
 
@@ -678,9 +619,7 @@
             <h2>👤 Профиль игрока</h2>
             <p id="profileNickname" class="auth-clan-name"></p>
             <div id="profileStats" class="profile-stats"></div>
-            <div class="modal-actions">
-                <button id="closeProfile" class="secondary">Закрыть</button>
-            </div>
+            <div class="modal-actions"><button id="closeProfile" class="secondary">Закрыть</button></div>
         </div>
     </div>
 
@@ -692,7 +631,6 @@
         <div id="notifList" class="notif-list"></div>
     </div>
 
-    <!-- ЧАТ (гильдия + общий) -->
     <div id="chatPanel" class="chat-panel" hidden>
         <div class="chat-header">
             <div class="chat-tabs">
@@ -715,7 +653,7 @@
 
     <footer class="site-footer">
         <span class="footer-left">Mist Time — Сергеев С.В</span>
-        <span class="footer-right">v1.0.0</span>
+        <span class="footer-right">v1.2.0</span>
     </footer>
 
     <script type="module" src="app.js"></script>

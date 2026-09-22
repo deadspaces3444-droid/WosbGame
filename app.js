@@ -1,7 +1,7 @@
 import { supabase } from './supabase.js';
 
 const ADMIN_EMAILS = ['kolibri@wosb.ru'];
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.2.0';
 
 const TABS = ['enemies', 'friends', 'neutral', 'personal'];
 const UNLOCK_KEY = 'guild_unlocked';
@@ -168,7 +168,7 @@ function startHeartbeat() {
 }
 
 /* ============================================================
-   ФОНЫ
+   ФОНЫ (исправлено)
 ============================================================ */
 function getOverrides() {
     try { return JSON.parse(localStorage.getItem(BG_STORAGE_KEY) || '{}'); }
@@ -181,18 +181,27 @@ function setOverride(key, dataUrl) {
     catch { alert('Фон слишком большой.'); return false; }
 }
 function currentBgKey() { return currentClan ? currentClan : 'main'; }
+
+// ИСПРАВЛЕНО: возвращаем null, если нет своего фона,
+// чтобы applyBg() не трогал inline-стиль и работал CSS-фон.
 function currentBgFallback() {
     if (currentClan && clansCache[currentClan]?.bg) return clansCache[currentClan].bg;
     if (currentGame && gamesCache[currentGame]?.bg) return gamesCache[currentGame].bg;
     return null;
 }
+
+// ИСПРАВЛЕНО: если url нет — очищаем inline-стиль, чтобы заработал CSS
 function applyBg() {
     const key = currentBgKey();
     const override = getOverrides()[key];
     const url = override || currentBgFallback();
-    if (url) document.body.style.backgroundImage = `url('${url}')`;
-    else document.body.style.backgroundImage = '';
+    if (url) {
+        document.body.style.backgroundImage = `url('${url}')`;
+    } else {
+        document.body.style.backgroundImage = '';
+    }
 }
+
 function compressImage(file, maxW = 1920, quality = 0.8) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();

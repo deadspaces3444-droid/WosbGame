@@ -1,7 +1,7 @@
 import { supabase } from './supabase.js';
 
 const ADMIN_EMAILS = ['kolibri@wosb.ru'];
-const APP_VERSION = '1.2.0';
+const APP_VERSION = '1.3.0';
 
 const TABS = ['enemies', 'friends', 'neutral', 'personal'];
 const UNLOCK_KEY = 'guild_unlocked';
@@ -13,6 +13,11 @@ const THEME_KEY = 'app_theme';
 const SHARED = '__shared__';
 const HEARTBEAT_MS = 30000;
 const ONLINE_WINDOW_MS = 90000;
+
+// VK
+const VK_GROUP_ID = -69908462;
+const VK_API_VERSION = '5.131';
+const VK_POSTS_COUNT = 5;
 
 let gamesCache    = {};
 let clansCache    = {};
@@ -168,7 +173,7 @@ function startHeartbeat() {
 }
 
 /* ============================================================
-   ФОНЫ (исправлено)
+   ФОНЫ
 ============================================================ */
 function getOverrides() {
     try { return JSON.parse(localStorage.getItem(BG_STORAGE_KEY) || '{}'); }
@@ -182,15 +187,13 @@ function setOverride(key, dataUrl) {
 }
 function currentBgKey() { return currentClan ? currentClan : 'main'; }
 
-// ИСПРАВЛЕНО: возвращаем null, если нет своего фона,
-// чтобы applyBg() не трогал inline-стиль и работал CSS-фон.
 function currentBgFallback() {
-    if (currentClan && clansCache[currentClan]?.bg) return clansCache[currentClan].bg;
-    if (currentGame && gamesCache[currentGame]?.bg) return gamesCache[currentGame].bg;
+    if (currentClan && clansCache[currentClan]?.bg) {
+        return clansCache[currentClan].bg;
+    }
     return null;
 }
 
-// ИСПРАВЛЕНО: если url нет — очищаем inline-стиль, чтобы заработал CSS
 function applyBg() {
     const key = currentBgKey();
     const override = getOverrides()[key];
@@ -2933,6 +2936,114 @@ function closeRealtime() {
 }
 
 /* ============================================================
+   📰 НОВОСТИ ИЗ ВКОНТАКТЕ
+============================================================ */
+function loadVkNews() {
+    const container = document.getElementById('vkNewsList');
+    if (!container) return;
+
+    container.innerHTML = '<div class="vk-news-loading">Загрузка новостей…</div>';
+
+    const callbackName = 'vkNewsCallback_' + Date.now();
+
+    window[callbackName] = function(data) {
+        delete window[callbackName];
+        const script = document.getElementById(callbackName);
+        if (script) script.remove();
+
+        if (data.error) {
+            console.warn('VK API error:', data.error);
+            container.innerHTML = `
+                <div class="vk-news-error">
+                    Не удалось загрузить новости.
+                    <a href="https://vk.com/worldofseabattle" target="_blank" rel="noopener" class="vk-news-link">
+                        Открыть сообщество ВКонтакте →
+                    </a>
+                </div>`;
+            return;
+        }
+
+        const posts = data.response?.items || [];
+        if (!posts.length) {
+            container.innerHTML = '<div class="vk-news-empty">Новостей пока нет</div>';
+            return;
+        }
+
+        container.innerHTML = '';
+        posts.forEach(post => container.appendChild(createVkNewsCard(post)));
+    };
+
+    const script = document.createElement('script');
+    script.id = callbackName;
+    script.src = `https://api.vk.com/method/wall.get?owner_id=${VK_GROUP_ID}&count=${VK_POSTS_COUNT}&v=${VK_API_VERSION}&callback=${callbackName}`;
+    script.onerror = function() {
+        delete window[callbackName];
+        script.remove();
+        container.innerHTML = `
+            <div class="vk-news-error">
+                Ошибка сети.
+                <a href="https://vk.com/worldofseabattle" target="_blank" rel="noopener" class="vk-news-link">
+                    Открыть сообщество →
+                </a>
+            </div>`;
+    };
+    document.body.appendChild(script);
+}
+
+function createVkNewsCard(post) {
+    const card = document.createElement('article');
+    card.className = 'vk-news-item';
+
+    const date = new Date(post.date * 1000);
+    const dateStr = date.toLocaleDateString('ru-RU', {
+        day: 'numeric', month: 'long', year: 'numeric'
+    });
+
+    let text = post.text || '';
+    const maxLen = 500;
+    const isLong = text.length > maxLen;
+    const displayText = isLong ? text.substring(0, maxLen) + '…' : text;
+
+    const postLink = `https://vk.com/wall${VK_GROUP_ID}_${post.id}`;
+
+    let photosHtml = '';
+    const photos = [];
+    if (post.attachments) {
+        post.attachments.forEach(att => {
+            if (att.type === 'photo' && att.photo) {
+                const sizes = att.photo.sizes || [];
+                const suitable = sizes.filter(s => s.width <= 1300).sort((a, b) => b.width - a.width)[0];
+                const best = suitable || sizes.sort((a, b) => b.width - a.width)[0];
+                if (best) photos.push(best.url);
+            }
+        });
+    }
+    if (photos.length) {
+        photosHtml = `<div class="vk-news-attachments">
+            ${photos.slice(0, 1).map(url => `<img class="vk-news-photo" src="${escapeHtml(url)}" alt="" loading="lazy">`).join('')}
+        </div>`;
+    }
+
+    const likes = post.likes?.count || 0;
+
+    card.innerHTML = `
+        <div class="vk-news-header">
+            <span class="vk-news-date">📅 ${dateStr}</span>
+        </div>
+        ${displayText ? `<div class="vk-news-text">${escapeHtml(displayText)}</div>` : ''}
+        ${photosHtml}
+        <div class="vk-news-footer">
+            <span class="vk-news-likes">❤️ ${likes}</span>
+            <a class="vk-news-link" href="${escapeHtml(postLink)}" target="_blank" rel="noopener">
+                Читать полностью →
+            </a>
+        </div>
+    `;
+
+    return card;
+}
+
+/* ============================================================
    🚀 СТАРТ
 ============================================================ */
 (async () => {
@@ -2961,6 +3072,9 @@ function closeRealtime() {
     await renderTrades();
 
     await loadNotifications();
+
+    // Загружаем новости ВК
+    loadVkNews();
 
     applyAdminUI();
     showScreen('home');

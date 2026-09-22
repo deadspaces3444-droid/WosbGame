@@ -1,6 +1,6 @@
 /* ============================================================
-   WosbGame v1.1 — style.css
-   3D-кнопки + плавные переходы + тёмная/светлая тема + чат
+   WosbGame v1.2 — style.css
+   3D-кнопки + фон-картинка + тёмная/светлая тема + чат
 ============================================================ */
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -28,7 +28,7 @@
     --gold-dim: #d97706;
     --purple: #b48aff;
     --blue: #7db9ff;
-    --overlay: rgba(0, 0, 0, 0.6);
+    --overlay: rgba(0, 0, 0, 0.65);
     --overlay-modal: rgba(0, 0, 0, 0.8);
     --shadow: rgba(0, 0, 0, .7);
     --inset-light: rgba(255, 255, 255, .08);
@@ -56,7 +56,7 @@
     --gold-dim: #92400e;
     --purple: #7c3aed;
     --blue: #2563eb;
-    --overlay: rgba(232, 236, 243, .55);
+    --overlay: rgba(232, 236, 243, .6);
     --overlay-modal: rgba(0, 0, 0, .45);
     --shadow: rgba(0, 0, 0, .12);
     --inset-light: rgba(255, 255, 255, .9);
@@ -70,18 +70,20 @@ body {
     padding: 20px 20px 50px;
     background-color: var(--bg);
     background-image:
+        url('images/bg-main.jpg'),
         radial-gradient(circle at 20% 0%, rgba(59, 130, 246, .15) 0%, transparent 50%),
         radial-gradient(circle at 80% 100%, rgba(180, 138, 255, .12) 0%, transparent 50%),
         linear-gradient(135deg, #0a0d12 0%, #141821 50%, #0a0d12 100%);
-    background-size: cover;
-    background-position: center;
-    background-attachment: fixed;
-    background-repeat: no-repeat;
+    background-size: cover, auto, auto, auto;
+    background-position: center center, center, center, center;
+    background-attachment: fixed, fixed, fixed, fixed;
+    background-repeat: no-repeat, no-repeat, no-repeat, no-repeat;
     transition: background-color .4s ease, color .4s ease;
     overflow-x: hidden;
 }
 [data-theme="light"] body {
     background-image:
+        url('images/bg-main.jpg'),
         radial-gradient(circle at 20% 0%, rgba(37, 99, 235, .12) 0%, transparent 50%),
         radial-gradient(circle at 80% 100%, rgba(124, 58, 237, .1) 0%, transparent 50%),
         linear-gradient(135deg, #e8ecf3 0%, #f0f2f7 50%, #e8ecf3 100%);

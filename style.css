@@ -1,12 +1,11 @@
 /* ============================================================
    WosbGame v1.1 — style.css
-   3D-кнопки + плавные переходы + тёмная/светлая тема
+   3D-кнопки + плавные переходы + тёмная/светлая тема + чат
 ============================================================ */
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 [hidden] { display: none !important; }
 
-/* ============ ТЕМЫ ============ */
 :root,
 [data-theme="dark"] {
     --bg: #0a0d12;
@@ -32,11 +31,6 @@
     --overlay: rgba(0, 0, 0, 0.6);
     --overlay-modal: rgba(0, 0, 0, 0.8);
     --shadow: rgba(0, 0, 0, .7);
-    --shadow-sm: 0 2px 4px rgba(0,0,0,.4);
-    --shadow-md: 0 4px 12px rgba(0,0,0,.5);
-    --shadow-lg: 0 12px 40px rgba(0,0,0,.6);
-    --btn-shadow-1: rgba(0, 0, 0, .4);
-    --btn-shadow-2: rgba(255, 255, 255, .1);
     --inset-light: rgba(255, 255, 255, .08);
     --inset-dark: rgba(0, 0, 0, .35);
 }
@@ -65,11 +59,6 @@
     --overlay: rgba(232, 236, 243, .55);
     --overlay-modal: rgba(0, 0, 0, .45);
     --shadow: rgba(0, 0, 0, .12);
-    --shadow-sm: 0 2px 4px rgba(0,0,0,.08);
-    --shadow-md: 0 4px 12px rgba(0,0,0,.12);
-    --shadow-lg: 0 12px 40px rgba(0,0,0,.15);
-    --btn-shadow-1: rgba(0, 0, 0, .15);
-    --btn-shadow-2: rgba(255, 255, 255, .8);
     --inset-light: rgba(255, 255, 255, .9);
     --inset-dark: rgba(0, 0, 0, .15);
 }
@@ -80,13 +69,22 @@ body {
     min-height: 100vh;
     padding: 20px 20px 50px;
     background-color: var(--bg);
-    background-image: var(--bg-image);
+    background-image:
+        radial-gradient(circle at 20% 0%, rgba(59, 130, 246, .15) 0%, transparent 50%),
+        radial-gradient(circle at 80% 100%, rgba(180, 138, 255, .12) 0%, transparent 50%),
+        linear-gradient(135deg, #0a0d12 0%, #141821 50%, #0a0d12 100%);
     background-size: cover;
     background-position: center;
     background-attachment: fixed;
     background-repeat: no-repeat;
     transition: background-color .4s ease, color .4s ease;
     overflow-x: hidden;
+}
+[data-theme="light"] body {
+    background-image:
+        radial-gradient(circle at 20% 0%, rgba(37, 99, 235, .12) 0%, transparent 50%),
+        radial-gradient(circle at 80% 100%, rgba(124, 58, 237, .1) 0%, transparent 50%),
+        linear-gradient(135deg, #e8ecf3 0%, #f0f2f7 50%, #e8ecf3 100%);
 }
 body::before {
     content: '';
@@ -97,55 +95,7 @@ body::before {
     pointer-events: none;
     transition: background .4s ease;
 }
-
-/* Плавная прокрутка */
 html { scroll-behavior: smooth; }
-
-/* ============ УНИВЕРСАЛЬНАЯ 3D-КНОПКА ============ */
-.btn-3d {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 12px 20px;
-    font-size: 14px;
-    font-weight: 600;
-    font-family: inherit;
-    color: #fff;
-    background: linear-gradient(180deg, var(--accent) 0%, var(--accent-hover) 100%);
-    border: none;
-    border-radius: 10px;
-    cursor: pointer;
-    text-decoration: none;
-    box-shadow:
-        0 4px 0 rgba(0, 0, 0, .35),
-        0 6px 12px rgba(0, 0, 0, .3),
-        inset 0 1px 0 rgba(255, 255, 255, .25),
-        inset 0 -2px 0 rgba(0, 0, 0, .2);
-    transition: all .12s cubic-bezier(.4, 0, .2, 1);
-    transform: translateY(0);
-    user-select: none;
-    will-change: transform;
-}
-.btn-3d:hover {
-    transform: translateY(-2px);
-    box-shadow:
-        0 6px 0 rgba(0, 0, 0, .35),
-        0 10px 20px rgba(0, 0, 0, .35),
-        inset 0 1px 0 rgba(255, 255, 255, .3),
-        inset 0 -2px 0 rgba(0, 0, 0, .2);
-    filter: brightness(1.1);
-}
-.btn-3d:active {
-    transform: translateY(2px);
-    box-shadow:
-        0 1px 0 rgba(0, 0, 0, .35),
-        0 2px 6px rgba(0, 0, 0, .3),
-        inset 0 1px 0 rgba(255, 255, 255, .15),
-        inset 0 -1px 0 rgba(0, 0, 0, .2);
-}
-.btn-3d:disabled { opacity: .5; cursor: not-allowed; transform: none; }
 
 /* ============ ФУТЕР ============ */
 .site-footer {
@@ -196,8 +146,6 @@ html { scroll-behavior: smooth; }
     gap: 8px;
     flex-wrap: wrap;
 }
-
-/* 3D-кнопки верхней панели */
 .top-right button {
     padding: 8px 14px;
     background: linear-gradient(180deg, var(--panel-3) 0%, var(--panel) 100%);
@@ -230,12 +178,8 @@ html { scroll-behavior: smooth; }
 }
 .top-right button:active {
     transform: translateY(1px);
-    box-shadow:
-        0 1px 0 rgba(0, 0, 0, .3),
-        0 2px 6px rgba(0, 0, 0, .25),
-        inset 0 1px 2px rgba(0, 0, 0, .3);
+    box-shadow: 0 1px 0 rgba(0, 0, 0, .3), inset 0 1px 2px rgba(0, 0, 0, .3);
 }
-
 #adminInfo, #adminInfo2, #adminInfo3 {
     color: var(--gold);
     font-size: 12px;
@@ -249,8 +193,6 @@ html { scroll-behavior: smooth; }
     border-radius: 6px;
     border: 1px solid rgba(255, 212, 121, .25);
 }
-
-/* 3D back-btn */
 .back-btn {
     position: fixed;
     top: 20px; left: 20px;
@@ -288,8 +230,6 @@ html { scroll-behavior: smooth; }
     transform: translateY(1px);
     box-shadow: 0 1px 0 rgba(0, 0, 0, .3), inset 0 1px 2px rgba(0, 0, 0, .3);
 }
-
-/* 3D icon-btn */
 a.icon-btn,
 .icon-btn {
     width: 38px; height: 38px; padding: 0;
@@ -399,7 +339,6 @@ a.icon-btn:hover {
     from { opacity: 0; transform: translateY(20px); }
     to   { opacity: 1; transform: translateY(0); }
 }
-
 .section-title {
     font-size: 24px;
     text-align: center;
@@ -869,8 +808,6 @@ a.icon-btn:hover {
     display: flex; flex-direction: column; gap: 12px;
     width: 100%; max-width: 340px; margin-top: 8px;
 }
-
-/* 3D big-btn */
 .big-btn {
     padding: 14px 24px;
     font-size: 15px; font-weight: 700;
@@ -959,7 +896,6 @@ a.icon-btn:hover {
 #clanView .back-btn { position: static; flex-shrink: 0; margin: 0; }
 #clanView .top-right { position: static; flex-shrink: 0; margin: 0; }
 
-/* ============ LAYOUT С САЙДБАРОМ ============ */
 .clan-layout {
     display: flex; gap: 24px; max-width: 1240px;
     margin: 0 auto; padding: 0 20px; align-items: flex-start;
@@ -968,8 +904,6 @@ a.icon-btn:hover {
     width: 220px; flex-shrink: 0; position: sticky; top: 20px;
     display: flex; flex-direction: column; gap: 8px; align-self: flex-start;
 }
-
-/* 3D side-item */
 .side-item {
     display: flex; align-items: center; gap: 12px;
     padding: 12px 16px;
@@ -1137,7 +1071,6 @@ a.icon-btn:hover {
         inset 0 2px 4px rgba(0, 0, 0, .2),
         0 0 0 3px var(--accent-glow);
 }
-/* 3D add-form button */
 .add-form button {
     padding: 10px 20px;
     background: linear-gradient(180deg, var(--accent) 0%, var(--accent-hover) 100%);
@@ -1200,7 +1133,6 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); text-shadow: 0 2p
         0 3px 8px rgba(0, 0, 0, .2),
         inset 0 1px 0 var(--inset-light);
     transition: all .2s cubic-bezier(.4, 0, .2, 1);
-    animation: listItemFade .3s ease backwards;
 }
 .player-list li:hover {
     transform: translateX(4px);
@@ -1210,10 +1142,6 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); text-shadow: 0 2p
         0 6px 16px rgba(0, 0, 0, .3),
         0 0 16px var(--accent-glow),
         inset 0 1px 0 var(--inset-light);
-}
-@keyframes listItemFade {
-    from { opacity: 0; transform: translateX(-10px); }
-    to   { opacity: 1; transform: translateX(0); }
 }
 .player-list li .info { display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1; }
 .player-list li .row-main { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -1287,7 +1215,6 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); text-shadow: 0 2p
         0 6px 16px rgba(0, 0, 0, .3),
         inset 0 1px 0 var(--inset-light);
     transition: all .25s cubic-bezier(.4, 0, .2, 1);
-    animation: cardFadeIn .4s ease backwards;
 }
 .build-card:hover {
     transform: translateY(-3px);
@@ -1372,7 +1299,7 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); text-shadow: 0 2p
     font-size: 13px; font-weight: 600;
     border-radius: 8px; border: 1px solid;
     white-space: nowrap;
-    transition: transform .15s, box-shadow .15s;
+    transition: transform .15s;
 }
 .chip:hover { transform: translateY(-1px); }
 .chip-upgrade { color: var(--purple); background: linear-gradient(180deg, rgba(180, 138, 255, .18), rgba(180, 138, 255, .06)); border-color: rgba(180, 138, 255, .5); }
@@ -1466,7 +1393,7 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); text-shadow: 0 2p
     border: 1px solid var(--border);
     color: var(--text-dim);
     border-radius: 6px; cursor: pointer; font-size: 12px;
-    box-shadow: 0 2px 0 rgba(0, 0, 0, .25), inset 0 1px 0 var(--inset-light);
+    box-shadow: 0 2px 0 rgba(0, 0, 0, .25);
     transition: all .15s;
 }
 .event-actions button:hover {
@@ -1474,7 +1401,6 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); text-shadow: 0 2p
     background: linear-gradient(180deg, #f87171 0%, #dc2626 100%);
     color: #fff;
     border-color: var(--red);
-    box-shadow: 0 3px 0 rgba(0, 0, 0, .3), 0 5px 10px rgba(220, 38, 38, .4);
 }
 
 /* ============ КАЗНА ============ */
@@ -1796,7 +1722,7 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); text-shadow: 0 2p
 }
 .error { color: var(--red); font-size: 13px; min-height: 18px; font-weight: 600; }
 
-/* ============ ОНЛАЙН-СЧЁТЧИК ============ */
+/* ============ ОНЛАЙН ============ */
 .online-badge {
     display: inline-flex; align-items: center; gap: 6px;
     padding: 8px 14px;
@@ -1811,19 +1737,10 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); text-shadow: 0 2p
         0 4px 10px rgba(0, 0, 0, .25),
         0 0 16px rgba(110, 231, 167, .2),
         inset 0 1px 0 var(--inset-light);
-    transition: all .25s;
-}
-.online-badge:hover {
-    transform: translateY(-2px);
-    box-shadow:
-        0 5px 0 rgba(0, 0, 0, .3),
-        0 8px 16px rgba(0, 0, 0, .3),
-        0 0 24px rgba(110, 231, 167, .4),
-        inset 0 1px 0 var(--inset-light);
 }
 .online-badge b { color: var(--text); }
 
-/* ============ ТОРГОВЛЯ (сохраняем базовый вид, но с 3D) ============ */
+/* ============ ТОРГОВЛЯ ============ */
 .home-trade-section {
     width: 100%; max-width: 900px;
     display: flex; flex-direction: column; gap: 20px;
@@ -2107,7 +2024,6 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); text-shadow: 0 2p
     color: #1a120b;
     border-color: var(--tm-gold-light);
 }
-.tm-listing-actions button.tm-accept:hover { box-shadow: 0 5px 0 rgba(0, 0, 0, .3), 0 8px 20px rgba(232, 201, 90, .5); }
 .tm-listing-actions button.tm-confirm {
     background: linear-gradient(180deg, #4caf50, #2f7f33);
     color: #fff;
@@ -2295,7 +2211,6 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); text-shadow: 0 2p
         inset 0 1px 0 var(--inset-light);
 }
 
-/* ============ ЛОГОТИП-ЗАГРУЗКА ============ */
 .logo-upload { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .logo-pick-btn {
     padding: 10px 16px;
@@ -2310,14 +2225,12 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); text-shadow: 0 2p
         inset 0 1px 0 rgba(255, 255, 255, .25);
     transition: all .15s;
 }
-.logo-pick-btn:hover { transform: translateY(-2px); filter: brightness(1.1); box-shadow: 0 5px 0 rgba(0, 0, 0, .35), 0 8px 18px rgba(0, 0, 0, .35), 0 0 16px var(--accent-glow); }
-.logo-pick-btn:active { transform: translateY(1px); }
+.logo-pick-btn:hover { transform: translateY(-2px); filter: brightness(1.1); }
 .logo-preview {
     position: relative; width: 48px; height: 48px;
     border-radius: 10px; overflow: hidden;
     border: 1px solid var(--border);
     background: var(--panel-2); flex-shrink: 0;
-    box-shadow: inset 0 1px 0 var(--inset-light);
 }
 .logo-preview img { width: 100%; height: 100%; object-fit: cover; }
 .logo-clear {
@@ -2346,7 +2259,7 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); text-shadow: 0 2p
     box-shadow: 0 2px 0 rgba(0, 0, 0, .2), inset 0 1px 0 var(--inset-light);
     transition: all .2s;
 }
-.partners-admin-item:hover { transform: translateY(-2px); border-color: var(--accent); box-shadow: 0 4px 0 rgba(0, 0, 0, .2), 0 6px 14px rgba(0, 0, 0, .3); }
+.partners-admin-item:hover { transform: translateY(-2px); border-color: var(--accent); }
 .partners-admin-item .logo-mini {
     width: 40px; height: 40px; flex-shrink: 0;
     border-radius: 8px; overflow: hidden;
@@ -2368,7 +2281,7 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); text-shadow: 0 2p
     border: 1px solid var(--border);
     color: var(--text-dim); border-radius: 6px;
     cursor: pointer; font-size: 12px;
-    box-shadow: 0 2px 0 rgba(0, 0, 0, .25), inset 0 1px 0 var(--inset-light);
+    box-shadow: 0 2px 0 rgba(0, 0, 0, .25);
     transition: all .15s;
 }
 .partners-admin-item .actions button:hover { transform: translateY(-2px); }
@@ -2385,7 +2298,7 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); text-shadow: 0 2p
     box-shadow: 0 2px 0 rgba(0, 0, 0, .2), inset 0 1px 0 var(--inset-light);
     transition: all .2s;
 }
-.games-admin-item:hover { transform: translateY(-2px); border-color: var(--accent); box-shadow: 0 4px 0 rgba(0, 0, 0, .2), 0 6px 14px rgba(0, 0, 0, .3); }
+.games-admin-item:hover { transform: translateY(-2px); border-color: var(--accent); }
 .games-admin-item .logo-mini {
     width: 40px; height: 40px; flex-shrink: 0;
     border-radius: 8px; overflow: hidden;
@@ -2435,14 +2348,11 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); text-shadow: 0 2p
     background: linear-gradient(180deg, #f87171 0%, #dc2626 100%);
     color: #fff;
     border-color: var(--red);
-    box-shadow: 0 4px 0 rgba(0, 0, 0, .3), 0 6px 14px rgba(220, 38, 38, .4);
 }
 
 /* ============================================================
-   НОВЫЕ ФИЧИ
+   УВЕДОМЛЕНИЯ
 ============================================================ */
-
-/* ============ УВЕДОМЛЕНИЯ ============ */
 .notif-badge {
     position: absolute;
     top: -4px; right: -4px;
@@ -2505,11 +2415,7 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); text-shadow: 0 2p
     transition: all .2s;
 }
 .notif-action:hover { background: rgba(59, 130, 246, .15); color: var(--accent-hover); }
-.notif-list {
-    flex: 1;
-    overflow-y: auto;
-    padding: 8px;
-}
+.notif-list { flex: 1; overflow-y: auto; padding: 8px; }
 .notif-item {
     padding: 12px 14px;
     border-radius: 10px;
@@ -2543,7 +2449,9 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); text-shadow: 0 2p
     margin-top: 4px;
 }
 
-/* ============ ЧАТ ============ */
+/* ============================================================
+   ЧАТ (гильдия + общий)
+============================================================ */
 .chat-panel {
     position: fixed;
     bottom: 60px; right: 20px;
@@ -2570,12 +2478,54 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); text-shadow: 0 2p
     to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 .chat-header {
-    padding: 14px 18px;
-    display: flex; align-items: center; justify-content: space-between;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 12px;
     border-bottom: 1px solid var(--border);
     background: var(--panel-2);
 }
-.chat-header h3 { font-size: 15px; color: var(--text); margin: 0; }
+.chat-tabs {
+    display: flex;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+}
+.chat-tab {
+    padding: 7px 12px;
+    background: linear-gradient(180deg, var(--panel-3) 0%, var(--panel) 100%);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 700;
+    font-family: inherit;
+    white-space: nowrap;
+    box-shadow: 0 2px 0 rgba(0, 0, 0, .25);
+    transition: all .15s cubic-bezier(.4, 0, .2, 1);
+}
+.chat-tab:hover {
+    color: var(--text);
+    border-color: var(--accent);
+    transform: translateY(-1px);
+}
+.chat-tab:active { transform: translateY(1px); }
+.chat-tab.active {
+    background: linear-gradient(180deg, var(--accent) 0%, var(--accent-hover) 100%);
+    color: #fff;
+    border-color: var(--accent);
+    box-shadow:
+        0 3px 0 rgba(0, 0, 0, .3),
+        0 0 16px var(--accent-glow),
+        inset 0 1px 0 rgba(255, 255, 255, .2);
+}
+.chat-header-actions {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+}
 .chat-close {
     width: 30px; height: 30px;
     background: linear-gradient(180deg, var(--panel-3) 0%, var(--panel) 100%);
@@ -2592,6 +2542,24 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); text-shadow: 0 2p
     border-color: var(--red);
     box-shadow: 0 3px 0 rgba(0, 0, 0, .3), 0 5px 12px rgba(220, 38, 38, .4);
 }
+.chat-clear {
+    width: 30px; height: 30px;
+    background: linear-gradient(180deg, var(--panel-3) 0%, var(--panel) 100%);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: 7px;
+    cursor: pointer; font-size: 12px;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .15s;
+}
+.chat-clear:hover {
+    transform: translateY(-2px);
+    background: linear-gradient(180deg, #f87171 0%, #dc2626 100%);
+    color: #fff;
+    border-color: var(--red);
+    box-shadow: 0 3px 0 rgba(0, 0, 0, .3), 0 5px 12px rgba(220, 38, 38, .4);
+}
+.chat-clear:active { transform: translateY(1px); }
 .chat-messages {
     flex: 1;
     overflow-y: auto;
@@ -2821,9 +2789,9 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); text-shadow: 0 2p
     .admin-nav-item { min-width: auto; padding: 10px 14px; }
     .admin-nav-ico { font-size: 20px; }
     .chat-panel { border-radius: 0; }
+    .chat-tab { padding: 6px 10px; font-size: 11px; }
 }
 
-/* Уменьшение анимаций для тех, кому плохо */
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
         animation-duration: .01ms !important;

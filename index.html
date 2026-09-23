@@ -333,6 +333,7 @@
                 <button class="admin-nav-item" data-apanel="partners"><span class="admin-nav-ico">🤝</span><span>Партнёры</span></button>
                 <button class="admin-nav-item" data-apanel="faq"><span class="admin-nav-ico">❓</span><span>FAQ</span></button>
                 <button class="admin-nav-item" data-apanel="tactics"><span class="admin-nav-ico">📖</span><span>Тактика</span></button>
+                <button class="admin-nav-item" data-apanel="online"><span class="admin-nav-ico">👥</span><span>Онлайн</span></button>
                 <button class="admin-nav-item" data-apanel="settings"><span class="admin-nav-ico">⚙️</span><span>Настройки</span></button>
             </nav>
             <div class="admin-sidebar-footer"><button id="adminBackHome" class="admin-back-btn">← На главную</button></div>
@@ -421,6 +422,18 @@
                     <div class="modal-actions"><button id="tacAddBtn">➕ Добавить раздел</button></div>
                 </div>
                 <div id="tacticsAdminList" class="partners-admin-list"></div>
+            </section>
+
+            <!-- РАЗДЕЛ: ОНЛАЙН -->
+            <section class="admin-section" data-apanel="online">
+                <h2 class="admin-section-title">👥 Кто сейчас на сайте</h2>
+                <p class="hint">Обновляется автоматически каждые 15 секунд. Пользователи с префиксом <b>guest_</b> — гости без ника.</p>
+                <div class="modal-actions" style="margin-bottom:12px">
+                    <button id="refreshOnlineList" class="secondary">🔄 Обновить</button>
+                </div>
+                <div id="adminOnlineList" class="online-list">
+                    <div class="empty">Загрузка…</div>
+                </div>
             </section>
 
             <section class="admin-section" data-apanel="settings">
@@ -629,6 +642,7 @@
             <div class="chat-tabs">
                 <button class="chat-tab active" data-mode="guild">🏰 Гильдия</button>
                 <button class="chat-tab" data-mode="general">🌍 Общий</button>
+                <button class="chat-tab" data-mode="private" id="chatPrivateTab" hidden>✉️ Личный</button>
             </div>
             <div class="chat-header-actions">
                 <button id="chatClear" class="chat-clear" title="Очистить чат" hidden>🗑</button>
@@ -665,7 +679,7 @@
 
     <footer class="site-footer">
         <span class="footer-left">Mist Time — Сергеев С.В</span>
-        <span class="footer-right">v1.5.0</span>
+        <span class="footer-right">v1.6.0</span>
     </footer>
 
     <script type="module" src="app.js"></script>

@@ -1601,3 +1601,143 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
         transition-duration: .01ms !important;
     }
 }
+/* ============================================================
+   ПОЛОСА СОЮЗНЫХ ГИЛЬДИЙ
+============================================================ */
+.alliance-bar {
+    max-width: 1240px;
+    margin: 0 auto 16px;
+    padding: 12px 20px;
+    background: linear-gradient(180deg, rgba(255, 212, 121, .08), rgba(255, 212, 121, .02));
+    border: 1px solid rgba(255, 212, 121, .35);
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.alliance-bar-label {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--gold);
+    flex-shrink: 0;
+}
+.alliance-bar-list {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.alliance-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    background: linear-gradient(180deg, var(--panel-3) 0%, var(--panel) 100%);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: inherit;
+    box-shadow: 0 3px 0 rgba(0, 0, 0, .3), inset 0 1px 0 var(--inset-light);
+    transition: all .15s cubic-bezier(.4, 0, .2, 1);
+}
+.alliance-chip img {
+    width: 22px; height: 22px;
+    object-fit: contain;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+.alliance-chip:hover {
+    transform: translateY(-2px);
+    color: var(--gold);
+    border-color: var(--gold);
+    box-shadow: 0 5px 0 rgba(0, 0, 0, .3), 0 6px 14px rgba(0, 0, 0, .3), 0 0 16px rgba(255, 212, 121, .35);
+}
+.alliance-chip:active { transform: translateY(1px); }
+
+/* ============================================================
+   КАРТОЧКИ СОЮЗОВ В АДМИНКЕ
+============================================================ */
+.alliance-admin-item {
+    background: linear-gradient(180deg, var(--panel-3) 0%, var(--panel) 100%);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--gold);
+    border-radius: 12px;
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    box-shadow: 0 3px 0 rgba(0, 0, 0, .2), 0 5px 14px rgba(0, 0, 0, .25);
+    transition: all .2s;
+}
+.alliance-admin-item:hover {
+    transform: translateY(-2px);
+    border-color: var(--gold);
+}
+.alliance-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.alliance-title {
+    font-size: 15px;
+    color: var(--text);
+}
+.alliance-title b { color: var(--gold); }
+.alliance-id {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: ui-monospace, monospace;
+}
+.alliance-actions { display: flex; gap: 4px; flex-shrink: 0; }
+.alliance-actions button {
+    width: 30px; height: 30px;
+    background: linear-gradient(180deg, var(--panel-3) 0%, var(--panel) 100%);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all .15s;
+}
+.alliance-actions button:hover { transform: translateY(-2px); }
+.alliance-actions button.edit:hover { color: var(--gold); border-color: var(--gold); }
+.alliance-actions button.delete:hover { color: var(--red); border-color: var(--red); }
+.alliance-desc {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.5;
+}
+.alliance-clans {
+    font-size: 12px;
+    color: var(--muted);
+    padding-top: 8px;
+    border-top: 1px dashed var(--border);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+}
+.alliance-clans b { color: var(--text); flex-basis: 100%; margin-bottom: 4px; }
+.alliance-clan-chip {
+    display: inline-block;
+    padding: 4px 10px;
+    background: rgba(255, 212, 121, .1);
+    border: 1px solid rgba(255, 212, 121, .35);
+    color: var(--gold);
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* Мобильный адаптив для полосы союза */
+@media (max-width: 700px) {
+    .alliance-bar { padding: 10px 14px; gap: 8px; }
+    .alliance-bar-label { font-size: 12px; }
+    .alliance-chip { padding: 6px 10px; font-size: 12px; }
+    .alliance-chip img { width: 18px; height: 18px; }
+}

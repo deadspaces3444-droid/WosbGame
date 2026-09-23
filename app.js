@@ -1,9 +1,9 @@
 import { supabase } from './supabase.js';
 
-console.log('🚀 app.js v1.5.0');
+console.log('🚀 app.js v1.6.0');
 
 const ADMIN_EMAILS = ['kolibri@wosb.ru'];
-const APP_VERSION = '1.5.0';
+const APP_VERSION = '1.6.0';
 
 const TABS = ['enemies', 'friends', 'neutral', 'personal'];
 const UNLOCK_KEY = 'guild_unlocked';
@@ -51,6 +51,7 @@ let notifChannel  = null;
 let chatMessages  = [];
 let notifications = [];
 let chatMode      = 'guild';
+let chatPrivateWith = null;
 let vkNewsLoaded  = false;
 
 const $ = id => document.getElementById(id);
@@ -317,6 +318,7 @@ document.querySelectorAll('.admin-nav-item').forEach(btn => {
         if (panel === 'partners') renderPartnersAdmin();
         if (panel === 'faq')      renderFaqAdmin();
         if (panel === 'tactics')  renderTacticsAdmin();
+        if (panel === 'online')   renderAdminOnlineList();
         if (panel === 'settings') renderSiteFields();
     });
 });
@@ -454,6 +456,81 @@ function openAdminPage() {
 on('adminPanelBtn', 'click', openAdminPage);
 on('adminPanelBtn2', 'click', openAdminPage);
 on('adminPanelBtn3', 'click', openAdminPage);
+
+/* ============================================================
+   👥 АДМИН: ОНЛАЙН
+============================================================ */
+async function renderAdminOnlineList() {
+    const container = $('adminOnlineList');
+    if (!container) return;
+    if (!isAdmin) return;
+    container.innerHTML = '<div class="empty">Загрузка…</div>';
+
+    const threshold = new Date(Date.now() - ONLINE_WINDOW_MS).toISOString();
+    const { data, error } = await supabase
+        .from('online_users')
+        .select('*')
+        .gte('last_seen', threshold)
+        .order('last_seen', { ascending: false });
+
+    if (error) {
+        container.innerHTML = `<div class="empty">Ошибка: ${error.message}</div>`;
+        return;
+    }
+    if (!data?.length) {
+        container.innerHTML = '<div class="empty">Сейчас никого нет на сайте</div>';
+        return;
+    }
+
+    const me = getViewerNick().toLowerCase();
+
+    container.innerHTML = '';
+    data.forEach(u => {
+        const nick = u.nickname || '—';
+        const isGuest = nick.startsWith('guest_');
+        const isMe = nick.toLowerCase() === me;
+        const clanName = u.clan_id && clansCache[u.clan_id]
+            ? clansCache[u.clan_id].name
+            : (u.clan_id || null);
+
+        const diff = Date.now() - new Date(u.last_seen).getTime();
+        let timeLabel;
+        if (diff < 60000) timeLabel = 'только что';
+        else if (diff < 3600000) timeLabel = `${Math.floor(diff/60000)} мин назад`;
+        else timeLabel = `${Math.floor(diff/3600000)} ч назад`;
+
+        const el = document.createElement('div');
+        el.className = 'online-item' + (isGuest ? ' guest' : '') + (isMe ? ' me' : '');
+
+        const icon = isGuest ? '👤' : '🟢';
+        const name = isGuest ? `Гость (${nick})` : nick;
+
+        el.innerHTML = `
+            <div class="online-icon">${icon}</div>
+            <div class="online-info">
+                <div class="online-nick">${escapeHtml(name)}${isMe ? ' <span class="online-me">— это вы</span>' : ''}</div>
+                <div class="online-meta">
+                    ${clanName ? `🏰 ${escapeHtml(clanName)} · ` : ''}⏱ ${timeLabel}
+                </div>
+            </div>
+            <div class="online-actions">
+                ${!isGuest && !isMe
+                    ? `<button class="online-msg-btn" data-nick="${escapeHtml(nick)}" title="Написать личное сообщение">✉️ Написать</button>`
+                    : isGuest
+                        ? `<span class="online-hint">гость</span>`
+                        : ''}
+            </div>
+        `;
+
+        const msgBtn = el.querySelector('.online-msg-btn');
+        if (msgBtn) {
+            msgBtn.addEventListener('click', () => openPrivateChat(msgBtn.dataset.nick));
+        }
+
+        container.appendChild(el);
+    });
+}
+on('refreshOnlineList', 'click', renderAdminOnlineList);
 
 /* ============================================================
    ГИЛЬДИИ
@@ -2582,35 +2659,87 @@ on('notifMarkAllRead', 'click', async () => {
 });
 
 /* ============================================================
-   💬 ЧАТ
+   💬 ЧАТ (гильдия + общий + личный)
 ============================================================ */
 function setChatMode(mode) {
     chatMode = mode;
-    document.querySelectorAll('.chat-tab').forEach(t => t.classList.toggle('active', t.dataset.mode === mode));
+
+    document.querySelectorAll('.chat-tab').forEach(t => {
+        t.classList.toggle('active', t.dataset.mode === mode);
+    });
+
+    const privTab = $('chatPrivateTab');
+    if (privTab) {
+        if (chatPrivateWith) {
+            privTab.hidden = false;
+            privTab.textContent = '✉️ ' + chatPrivateWith;
+        } else {
+            privTab.hidden = true;
+        }
+    }
+
     const clearBtn = $('chatClear');
     if (clearBtn) clearBtn.hidden = !isAdmin;
+
     const input = $('chatInput');
-    if (input) input.placeholder = mode === 'general' ? 'Общий чат — напишите всем игрокам...' : 'Чат гильдии...';
+    if (input) {
+        if (mode === 'private' && chatPrivateWith) {
+            input.placeholder = `Личное сообщение для ${chatPrivateWith}...`;
+        } else if (mode === 'general') {
+            input.placeholder = 'Общий чат — напишите всем игрокам...';
+        } else {
+            input.placeholder = 'Чат гильдии...';
+        }
+    }
+
     loadChatMessages();
     initChatRealtime();
 }
+
 async function loadChatMessages() {
     const container = $('chatMessages');
     if (!container) return;
+
     if (chatMode === 'guild' && !currentClan) {
         container.innerHTML = '<p class="empty" style="text-align:center;padding:20px;">🏰 Зайдите в гильдию, чтобы писать в чат гильдии. Или переключитесь на 🌍 Общий.</p>';
         chatMessages = [];
         return;
     }
+    if (chatMode === 'private' && !chatPrivateWith) {
+        container.innerHTML = '<p class="empty" style="text-align:center;padding:20px;">Выберите, кому написать — откройте админ-панель → Онлайн.</p>';
+        chatMessages = [];
+        return;
+    }
+
     container.innerHTML = '<p class="empty" style="text-align:center;">Загрузка…</p>';
+
+    const myNick = getViewerNick();
     let query = supabase.from('chat_messages').select('*');
-    if (chatMode === 'guild') query = query.eq('clan_id', currentClan);
-    else query = query.is('clan_id', null);
-    const { data, error } = await query.order('created_at', { ascending: true }).limit(100);
-    if (error) { container.innerHTML = `<p class="empty" style="text-align:center;">Ошибка: ${error.message}</p>`; return; }
+
+    if (chatMode === 'guild') {
+        query = query.eq('clan_id', currentClan).is('recipient', null);
+    } else if (chatMode === 'general') {
+        query = query.is('clan_id', null).is('recipient', null);
+    } else if (chatMode === 'private') {
+        const other = chatPrivateWith;
+        const me = myNick || '__no_nick__';
+        query = query.or(
+            `and(nickname.eq.${me},recipient.eq.${other}),and(nickname.eq.${other},recipient.eq.${me})`
+        );
+    }
+
+    const { data, error } = await query
+        .order('created_at', { ascending: true })
+        .limit(100);
+
+    if (error) {
+        container.innerHTML = `<p class="empty" style="text-align:center;">Ошибка: ${error.message}</p>`;
+        return;
+    }
     chatMessages = data || [];
     renderChatMessages();
 }
+
 function renderChatMessages() {
     const container = $('chatMessages');
     if (!container) return;
@@ -2626,10 +2755,12 @@ function renderChatMessages() {
         const dateStr = d.toLocaleDateString('ru-RU');
         const today = new Date().toLocaleDateString('ru-RU');
         const timeLabel = dateStr === today ? time : `${dateStr} ${time}`;
+        const isPrivate = !!m.recipient;
+        const privBadge = isPrivate ? ' ✉️' : '';
         return `
-            <div class="chat-message ${isMine ? 'mine' : ''}">
+            <div class="chat-message ${isMine ? 'mine' : ''} ${isPrivate ? 'private' : ''}">
                 <div class="chat-message-head">
-                    <span class="chat-message-author" data-nick="${escapeHtml(m.nickname)}">${escapeHtml(m.nickname)}</span>
+                    <span class="chat-message-author" data-nick="${escapeHtml(m.nickname)}">${escapeHtml(m.nickname)}${privBadge}</span>
                     <span class="chat-message-time">${timeLabel}</span>
                 </div>
                 <div class="chat-message-text">${escapeHtml(m.text)}</div>
@@ -2641,72 +2772,157 @@ function renderChatMessages() {
         el.addEventListener('click', () => openProfile(el.dataset.nick));
     });
 }
+
 async function sendChatMessage() {
     const input = $('chatInput');
     const text = input.value.trim();
     if (!text) return;
-    if (chatMode === 'guild' && !currentClan) { alert('Сначала зайдите в гильдию, либо переключитесь на 🌍 Общий чат'); return; }
+
+    if (chatMode === 'guild' && !currentClan) {
+        alert('Сначала зайдите в гильдию, либо переключитесь на 🌍 Общий чат');
+        return;
+    }
+    if (chatMode === 'private' && !chatPrivateWith) {
+        alert('Выберите получателя');
+        return;
+    }
+
     let nick = getViewerNick();
     if (!nick) {
         nick = prompt('Введите ваш ник для чата:');
-        if (!nick || nick.trim().length < 2) { alert('Ник слишком короткий'); return; }
+        if (!nick || nick.trim().length < 2) {
+            alert('Ник слишком короткий');
+            return;
+        }
         nick = nick.trim();
         localStorage.setItem(VIEWER_NICK_KEY, nick);
         sendHeartbeat();
     }
+
+    const payload = { nickname: nick, text };
+    if (chatMode === 'guild') {
+        payload.clan_id = currentClan;
+    } else if (chatMode === 'general') {
+        payload.clan_id = null;
+        payload.recipient = null;
+    } else if (chatMode === 'private') {
+        payload.clan_id = null;
+        payload.recipient = chatPrivateWith;
+    }
+
     $('chatSend').disabled = true;
-    const { error } = await supabase.from('chat_messages').insert({
-        clan_id: chatMode === 'guild' ? currentClan : null, nickname: nick, text
-    });
+    const { error } = await supabase.from('chat_messages').insert(payload);
     $('chatSend').disabled = false;
+
     if (error) { alert('Ошибка: ' + error.message); return; }
     input.value = '';
 }
+
 async function clearChat() {
     if (!isAdmin) return;
-    const label = chatMode === 'general' ? 'ОБЩИЙ чат' : `чат гильдии «${clansCache[currentClan]?.name || currentClan}»`;
+    let label;
+    if (chatMode === 'general') label = 'ОБЩИЙ чат';
+    else if (chatMode === 'private') label = `личные сообщения с «${chatPrivateWith}»`;
+    else label = `чат гильдии «${clansCache[currentClan]?.name || currentClan}»`;
+
     if (!confirm(`Очистить ${label}?\n\nВсе сообщения будут удалены безвозвратно.`)) return;
-    if (chatMode === 'guild' && !currentClan) return;
+
     let query = supabase.from('chat_messages').delete();
-    if (chatMode === 'guild') query = query.eq('clan_id', currentClan);
-    else query = query.is('clan_id', null);
+    const myNick = getViewerNick();
+    if (chatMode === 'guild') {
+        query = query.eq('clan_id', currentClan).is('recipient', null);
+    } else if (chatMode === 'general') {
+        query = query.is('clan_id', null).is('recipient', null);
+    } else if (chatMode === 'private') {
+        const other = chatPrivateWith;
+        query = query.or(
+            `and(nickname.eq.${myNick},recipient.eq.${other}),and(nickname.eq.${other},recipient.eq.${myNick})`
+        );
+    }
+
     const { error } = await query;
     if (error) { alert('Ошибка: ' + error.message); return; }
     await logAdminAction(`Очистил чат`, label);
     chatMessages = [];
     renderChatMessages();
 }
+
 function openChat(mode) {
     const clearBtn = $('chatClear');
     if (clearBtn) clearBtn.hidden = !isAdmin;
     $('chatPanel').hidden = false;
-    if (mode) setChatMode(mode);
-    else setChatMode(currentClan ? 'guild' : 'general');
+
+    if (mode === 'private' && chatPrivateWith) {
+        setChatMode('private');
+    } else if (mode === 'general') {
+        setChatMode('general');
+    } else if (mode === 'guild') {
+        setChatMode('guild');
+    } else {
+        setChatMode(currentClan ? 'guild' : 'general');
+    }
 }
+
+function openPrivateChat(nickname) {
+    if (!nickname) return;
+    chatPrivateWith = nickname;
+    openChat('private');
+    if (!$('screen-admin').hidden) {
+        showScreen('home');
+    }
+}
+
 function closeChat() {
     $('chatPanel').hidden = true;
     if (chatChannel) { supabase.removeChannel(chatChannel); chatChannel = null; }
 }
+
 on('openChatBtn', 'click', () => openChat('guild'));
 on('openGeneralChatBtn', 'click', () => openChat('general'));
 on('chatClose', 'click', closeChat);
 on('chatSend', 'click', sendChatMessage);
 on('chatClear', 'click', clearChat);
 on('chatInput', 'keydown', e => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(); }
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendChatMessage();
+    }
 });
 document.querySelectorAll('.chat-tab').forEach(tab => {
     tab.addEventListener('click', () => setChatMode(tab.dataset.mode));
 });
+
 function initChatRealtime() {
-    if (chatChannel) { supabase.removeChannel(chatChannel); chatChannel = null; }
-    const channelName = chatMode === 'guild' ? `chat_guild_${currentClan}` : `chat_general`;
+    if (chatChannel) {
+        supabase.removeChannel(chatChannel);
+        chatChannel = null;
+    }
+
+    const channelName = 'chat_' + chatMode + '_' + (chatPrivateWith || currentClan || 'global');
+
     chatChannel = supabase
         .channel(channelName)
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, payload => {
+        .on('postgres_changes', {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'chat_messages'
+        }, payload => {
             const m = payload.new;
-            if (chatMode === 'guild') { if (m.clan_id !== currentClan) return; }
-            else { if (m.clan_id !== null) return; }
+            const myNick = getViewerNick();
+
+            if (chatMode === 'guild') {
+                if (m.clan_id !== currentClan) return;
+                if (m.recipient) return;
+            } else if (chatMode === 'general') {
+                if (m.clan_id !== null || m.recipient) return;
+            } else if (chatMode === 'private') {
+                if (!chatPrivateWith) return;
+                const other = chatPrivateWith;
+                const a = m.nickname === myNick && m.recipient === other;
+                const b = m.nickname === other && m.recipient === myNick;
+                if (!a && !b) return;
+            }
+
             if (chatMessages.some(x => x.id === m.id)) return;
             chatMessages.push(m);
             if (chatMessages.length > 200) chatMessages.shift();
@@ -2889,4 +3105,12 @@ document.addEventListener('keydown', e => {
     showScreen('home');
     startHeartbeat();
     setTimeout(handleBuildHash, 800);
+
+    // Авто-обновление онлайна в админке каждые 15 сек
+    setInterval(() => {
+        const onlineSection = document.querySelector('.admin-section[data-apanel="online"]');
+        if (onlineSection && onlineSection.classList.contains('active') && isAdmin) {
+            renderAdminOnlineList();
+        }
+    }, 15000);
 })();

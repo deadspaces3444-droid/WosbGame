@@ -12,7 +12,7 @@
     <div id="screen-home" class="screen">
         <div class="top-right">
             <span id="onlineBadge" class="online-badge" title="Пользователей онлайн">🟢 <b id="onlineCount">0</b></span>
-            <button id="openVkNewsBtn" class="icon-btn" title="Новости игры">📰</button>
+            <button id="openVkNewsBtn" class="icon-btn" title="Новости">📰</button>
             <button id="openGeneralChatBtn" class="icon-btn" title="Общий чат">🌍</button>
             <button id="themeToggle" class="icon-btn" title="Сменить тему">🌓</button>
             <button id="notifBell" class="icon-btn" title="Уведомления">
@@ -373,7 +373,6 @@
                 </div>
             </section>
 
-            <!-- РАЗДЕЛ: СОЮЗЫ -->
             <section class="admin-section" data-apanel="alliances">
                 <h2 class="admin-section-title">🤝 Союзы</h2>
                 <p class="hint">Гильдии одного союза видят данные друг друга. Пароль не нужен — доступ автоматом после входа в любую из них.</p>
@@ -468,6 +467,19 @@
 
             <section class="admin-section" data-apanel="settings">
                 <h2 class="admin-section-title">⚙️ Настройки сайта</h2>
+
+                <div class="admin-card">
+                    <h3 style="font-size:15px;color:#ffd479;margin-bottom:6px;">📰 Новости</h3>
+                    <p class="hint" style="margin:0 0 8px;">
+                        Вставь <b>RSS-ссылку</b> (например <code>https://rsshub.app/vk/worldofseabattle</code>).
+                        Если поле пустое — покажутся новости ВК по умолчанию.
+                    </p>
+                    <div class="admin-field">
+                        <label>🔗 RSS-ссылка новостей</label>
+                        <input type="text" id="adminNewsRss" placeholder="https://example.com/rss.xml" maxlength="400">
+                    </div>
+                </div>
+
                 <div class="admin-card">
                     <h3 style="font-size:15px;color:#ffd479;margin-bottom:6px;">📨 Discord-оповещения</h3>
                     <p class="hint" style="margin:0 0 8px;">Вебхук для уведомлений о новых заявках и событиях.</p>
@@ -475,9 +487,10 @@
                         <label>🌐 Общий вебхук</label>
                         <input type="text" id="adminWebhook" placeholder="https://discord.com/api/webhooks/..." maxlength="400">
                     </div>
-                    <p id="adminSiteMsg" class="error"></p>
-                    <div class="modal-actions"><button id="saveSiteSettings">💾 Сохранить</button></div>
                 </div>
+
+                <p id="adminSiteMsg" class="error"></p>
+                <div class="modal-actions"><button id="saveSiteSettings">💾 Сохранить</button></div>
             </section>
         </main>
     </div>
@@ -574,7 +587,6 @@
         </div>
     </div>
 
-    <!-- РЕДАКТИРОВАНИЕ СОЮЗА -->
     <div id="allyEditModal" class="modal" hidden>
         <div class="modal-content admin-panel-wide">
             <h2>✏️ Редактировать союз</h2>
@@ -691,6 +703,7 @@
                 <button class="chat-tab active" data-mode="guild">🏰 Гильдия</button>
                 <button class="chat-tab" data-mode="general">🌍 Общий</button>
                 <button class="chat-tab" data-mode="private" id="chatPrivateTab" hidden>✉️ Личный</button>
+                <button class="chat-tab" data-mode="voice" id="chatVoiceTab" hidden>🎙 Голос</button>
             </div>
             <div class="chat-header-actions">
                 <button id="chatClear" class="chat-clear" title="Очистить чат" hidden>🗑</button>
@@ -698,16 +711,25 @@
             </div>
         </div>
         <div id="chatMessages" class="chat-messages"></div>
-        <div class="chat-input-row">
+        <div id="chatVoiceContainer" class="chat-voice" hidden>
+            <iframe
+                id="jitsiFrame"
+                class="jitsi-frame"
+                allow="camera; microphone; fullscreen; display-capture; autoplay; clipboard-write; speaker-selection"
+                sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals"
+            ></iframe>
+        </div>
+        <div class="chat-input-row" id="chatInputRow">
             <input type="text" id="chatInput" placeholder="Написать сообщение..." maxlength="500">
             <button id="chatSend">➤</button>
         </div>
     </div>
 
+    <!-- МОДАЛКА НОВОСТЕЙ -->
     <div id="vkNewsModal" class="vk-news-modal" hidden>
         <div class="vk-news-modal-content">
             <header class="vk-news-modal-header">
-                <h2>📰 Новости World of Sea Battle</h2>
+                <h2>📰 Новости</h2>
                 <button id="closeVkNews" class="vk-news-close" title="Закрыть">✕</button>
             </header>
             <div id="vkNewsList" class="vk-news-modal-body">
@@ -726,7 +748,7 @@
 
     <footer class="site-footer">
         <span class="footer-left">Mist Time — Сергеев С.В</span>
-        <span class="footer-right">v1.7.0</span>
+        <span class="footer-right">v1.8.0</span>
     </footer>
 
     <script type="module" src="app.js"></script>

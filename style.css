@@ -318,6 +318,31 @@ a.icon-btn:hover {
     border-radius: 2px;
 }
 
+/* ============ ШАПКА ГИЛЬДИЙ + КНОПКА "+" ============ */
+.clans-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    max-width: 900px;
+    width: 100%;
+}
+.clans-add-btn {
+    width: 44px;
+    height: 44px;
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--green);
+    border-color: var(--green);
+    box-shadow: 0 3px 0 rgba(0,0,0,.3), 0 0 16px rgba(110,231,167,.35);
+}
+.clans-add-btn:hover {
+    background: linear-gradient(180deg, var(--green) 0%, var(--green-dim) 100%);
+    color: #fff;
+    border-color: var(--green);
+    box-shadow: 0 5px 0 rgba(0,0,0,.3), 0 8px 16px rgba(0,0,0,.3), 0 0 20px rgba(110,231,167,.5);
+}
+
 /* ============ СТАТИСТИКА ============ */
 .stats-row {
     display: grid;
@@ -1072,11 +1097,13 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
 .application-card:hover { transform: translateX(4px); }
 .application-card.approved { border-left-color: var(--green); opacity: .7; }
 .application-card.rejected { border-left-color: var(--red); opacity: .5; }
+.application-card.pending { border-left-color: var(--gold); }
 .application-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
 .application-nick { font-size: 16px; font-weight: 700; color: var(--text); }
 .application-date { font-size: 11px; color: var(--muted); }
 .application-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; font-size: 13px; }
 .application-grid b { color: var(--muted); display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .3px; margin-bottom: 2px; }
+.application-grid code { font-family: ui-monospace, monospace; color: var(--gold); font-size: 12px; }
 .application-why { padding: 10px 14px; background: var(--panel-2); border-radius: 8px; font-size: 13px; line-height: 1.5; color: var(--muted); white-space: pre-line; }
 .application-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 .application-actions button { padding: 8px 16px; border-radius: 7px; border: 1px solid var(--border); background: linear-gradient(180deg, var(--panel-3) 0%, var(--panel) 100%); color: var(--text-dim); cursor: pointer; font-size: 12px; font-weight: 700; font-family: inherit; transition: all .15s; }
@@ -1551,7 +1578,8 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
     background: rgba(110,231,167,.15);
     border: 1px solid rgba(110,231,167,.5);
 }
-.partners-admin-item select.role-select {
+.partners-admin-item select.role-select,
+.partners-admin-item select.clan-select {
     padding: 6px 10px;
     background: var(--panel-2);
     border: 1px solid var(--border);
@@ -1560,8 +1588,12 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
     font-family: inherit;
     font-size: 12px;
     cursor: pointer;
+    max-width: 200px;
+    margin-left: 6px;
+    margin-top: 4px;
 }
-.partners-admin-item select.role-select:focus {
+.partners-admin-item select.role-select:focus,
+.partners-admin-item select.clan-select:focus {
     outline: none;
     border-color: var(--accent);
 }
@@ -1862,6 +1894,8 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
     .alliance-bar-label { font-size: 12px; }
     .alliance-chip { padding: 6px 10px; font-size: 12px; }
     .alliance-chip img { width: 18px; height: 18px; }
+    .clans-header { gap: 10px; }
+    .clans-add-btn { width: 40px; height: 40px; font-size: 20px; }
 }
 @media (max-width: 520px) {
     .hero-text h1 { font-size: 18px; }

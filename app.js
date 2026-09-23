@@ -1,9 +1,10 @@
 import { supabase } from './supabase.js';
 
-console.log('🚀 app.js v1.8.0');
+console.log('🚀 app.js v1.8.1');
 
-const ADMIN_EMAILS = ['kolibri@wosb.ru'];
-const APP_VERSION = '1.8.0';
+// Fallback, если таблица site_admins недоступна
+const ADMIN_EMAILS_FALLBACK = ['kolibri@wosb.ru'];
+const APP_VERSION = '1.8.1';
 
 const TABS = ['enemies', 'friends', 'neutral', 'personal'];
 const UNLOCK_KEY = 'guild_unlocked';
@@ -18,7 +19,6 @@ const SHARED = '__shared__';
 const HEARTBEAT_MS = 30000;
 const ONLINE_WINDOW_MS = 90000;
 
-// VK-сообщество, откуда тянем новости
 const VK_DOMAIN = 'worldofseabattle';
 const VK_API_VERSION = '5.131';
 const VK_POSTS_COUNT = 10;
@@ -31,6 +31,8 @@ let faqCache      = [];
 let partnersCache = [];
 let tacticsCache  = [];
 let tradesCache   = [];
+let siteAdminsCache = [];   // массив email (lowercase)
+let currentSession = null;
 let partnerLogoData = null;
 let currentGame   = null;
 let currentClan   = null;
@@ -148,6 +150,99 @@ async function logView(nickname, clanId, page) {
         await supabase.from('view_history').insert({ nickname, clan_id: clanId, page });
     } catch (e) { }
 }
+
+/* ============================================================
+   АДМИНЫ САЙТА
+============================================================ */
+async function loadSiteAdmins() {
+    try {
+        const { data, error } = await supabase.from('site_admins').select('email');
+        if (error) throw error;
+        siteAdminsCache = (data || []).map(r => (r.email || '').toLowerCase()).filter(Boolean);
+    } catch (e) {
+        console.warn('site_admins load error:', e.message);
+        siteAdminsCache = [];
+    }
+    if (!siteAdminsCache.length) {
+        siteAdminsCache = ADMIN_EMAILS_FALLBACK.map(e => e.toLowerCase());
+    }
+    recalcIsAdmin();
+    renderSiteAdminsAdmin();
+}
+
+function recalcIsAdmin() {
+    const email = (currentSession?.user?.email || '').toLowerCase();
+    isAdmin = !!email && siteAdminsCache.includes(email);
+}
+
+function renderSiteAdminsAdmin() {
+    const container = $('siteAdminsList');
+    if (!container) return;
+    container.innerHTML = '';
+    if (!siteAdminsCache.length) {
+        container.innerHTML = '<div class="empty">Пока нет админов</div>';
+        return;
+    }
+    // Сортируем для стабильного отображения
+    const list = siteAdminsCache.slice().sort();
+    list.forEach(email => {
+        const el = document.createElement('div');
+        el.className = 'partners-admin-item';
+        const isMe = (currentSession?.user?.email || '').toLowerCase() === email;
+        const isFallback = ADMIN_EMAILS_FALLBACK.map(e => e.toLowerCase()).includes(email);
+        const badge = isMe ? ' <span style="color:var(--gold);font-size:11px;">— вы</span>' : '';
+        const protect = isFallback
+            ? '<span style="color:var(--muted);font-size:11px;">основной</span>'
+            : '';
+        el.innerHTML = `
+            <div class="logo-mini"><span>👑</span></div>
+            <div class="txt">
+                <b>${escapeHtml(email)}${badge}</b>
+                ${protect}
+            </div>
+            <div class="actions">
+                ${isFallback ? '' : `<button class="delete" title="Удалить">🗑</button>`}
+            </div>
+        `;
+        const delBtn = el.querySelector('.delete');
+        if (delBtn) delBtn.addEventListener('click', () => deleteSiteAdmin(email));
+        container.appendChild(el);
+    });
+}
+
+async function addSiteAdmin(email) {
+    const msg = $('siteAdminsMsg');
+    msg.textContent = '';
+    msg.style.color = '';
+    const clean = String(email || '').trim().toLowerCase();
+    if (!clean) { msg.textContent = 'Укажи email'; msg.style.color = '#ff7a7a'; return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) {
+        msg.textContent = 'Некорректный email'; msg.style.color = '#ff7a7a'; return;
+    }
+    if (siteAdminsCache.includes(clean)) {
+        msg.textContent = 'Этот email уже в списке'; msg.style.color = '#ff7a7a'; return;
+    }
+    const { error } = await supabase.from('site_admins').insert({ email: clean });
+    if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
+    await logAdminAction('Добавил админа сайта', clean);
+    siteAdminsCache.push(clean);
+    msg.textContent = '✔ Добавлено'; msg.style.color = '#6ee7a7';
+    $('newSiteAdminEmail').value = '';
+    renderSiteAdminsAdmin();
+}
+
+async function deleteSiteAdmin(email) {
+    if (!isAdmin) return;
+    if (!confirm(`Удалить админа «${email}»?`)) return;
+    const { error } = await supabase.from('site_admins').delete().eq('email', email);
+    if (error) return alert('Ошибка: ' + error.message);
+    await logAdminAction('Удалил админа сайта', email);
+    siteAdminsCache = siteAdminsCache.filter(e => e !== email);
+    renderSiteAdminsAdmin();
+}
+
+on('addSiteAdminBtn', 'click', () => addSiteAdmin(val('newSiteAdminEmail')));
+on('newSiteAdminEmail', 'keydown', e => { if (e.key === 'Enter') $('addSiteAdminBtn').click(); });
 
 /* ============================================================
    ОНЛАЙН
@@ -400,6 +495,7 @@ document.querySelectorAll('.admin-nav-item').forEach(btn => {
         if (panel === 'faq')       renderFaqAdmin();
         if (panel === 'tactics')   renderTacticsAdmin();
         if (panel === 'online')    renderAdminOnlineList();
+        if (panel === 'admins')    renderSiteAdminsAdmin();
         if (panel === 'settings')  renderSiteFields();
     });
 });
@@ -474,7 +570,7 @@ function closeAdminAuth() { $('adminAuthModal').hidden = true; }
 on('adminLoginBtn', 'click', openAdminAuth);
 on('cancelAdminLogin', 'click', closeAdminAuth);
 on('doAdminLogin', 'click', async () => {
-    const email = val('adminEmail').trim();
+    const email = val('adminEmail').trim().toLowerCase();
     const password = val('adminPassword');
     const nickname = val('adminNickname').trim();
     const err = $('adminAuthError'); err.textContent = '';
@@ -486,6 +582,14 @@ on('doAdminLogin', 'click', async () => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     $('doAdminLogin').disabled = false;
     if (error) { err.textContent = error.message; return; }
+
+    // Перезагрузим список админов, чтобы учесть возможные изменения
+    await loadSiteAdmins();
+    if (!isAdmin) {
+        err.textContent = 'Этот email не в списке админов сайта';
+        await supabase.auth.signOut();
+        return;
+    }
 
     localStorage.setItem(VIEWER_NICK_KEY, nickname);
     sendHeartbeat();
@@ -500,7 +604,8 @@ on('adminLogoutBtn', 'click', adminLogout);
 on('adminLogoutBtn2', 'click', adminLogout);
 
 supabase.auth.onAuthStateChange(async (_e, session) => {
-    isAdmin = !!session?.user && ADMIN_EMAILS.includes((session.user.email || '').toLowerCase());
+    currentSession = session;
+    await loadSiteAdmins();
     await loadClans();
     applyAdminUI();
 });
@@ -550,6 +655,7 @@ function openAdminPage() {
     renderGamesAdmin();
     renderTacticsAdmin();
     renderAlliancesAdmin();
+    renderSiteAdminsAdmin();
     showScreen('admin');
 }
 on('adminPanelBtn', 'click', openAdminPage);
@@ -775,7 +881,6 @@ on('doClanLogin', 'click', async () => {
     if (nick.length < 2) { $('clanPassError').textContent = 'Ник слишком короткий'; return; }
     if (!entered) { $('clanPassError').textContent = 'Введите пароль'; return; }
 
-    // 1. Проверка пароля
     const { data: ok, error: rpcErr } = await supabase.rpc('verify_clan_password', {
         clan_id: pendingClanId,
         entered_password: entered
@@ -794,13 +899,11 @@ on('doClanLogin', 'click', async () => {
         isClanAdminLogin = true;
     }
 
-    // 2. Проверка ника по списку админов
     const adminNicks = normalizeNickList(clan.admin_nicks);
     if (adminNicks.includes(nick.toLowerCase())) {
         isClanAdminLogin = true;
     }
 
-    // 3. Проверка ника по списку участников (если список заполнен)
     const memberNicks = normalizeNickList(clan.members_list);
     if (memberNicks.length > 0) {
         const isKnownAdmin = isClanAdminLogin || adminNicks.includes(nick.toLowerCase());
@@ -810,7 +913,6 @@ on('doClanLogin', 'click', async () => {
         }
     }
 
-    // Сохранение
     localStorage.setItem(VIEWER_NICK_KEY, nick);
     localStorage.setItem(UNLOCK_KEY, '1');
     localStorage.setItem(CLAN_PASS_KEY, entered);
@@ -1298,6 +1400,7 @@ async function deleteBuild(id, type) {
     await logAdminAction(`Удалил билд ${type.toUpperCase()}`, null, `id: ${id}`);
     renderBuilds(type);
 }
+
 /* ============================================================
    СОБЫТИЯ
 ============================================================ */
@@ -1564,7 +1667,6 @@ on('membersFileInput', 'change', async (e) => {
             return;
         }
 
-        // Собираем ники: "1 - Ник" → "Ник", иначе строка как есть
         const nicks = lines.map(line => {
             const m = line.match(/^\d+\s*[-.)\]]?\s*(.+)$/);
             return m ? m[1].trim() : line;
@@ -3531,7 +3633,6 @@ async function loadNews() {
     if (!container) return;
     container.innerHTML = '<div class="vk-news-loading">Загрузка новостей…</div>';
 
-    // Обновляем ссылку в футере, если админ её менял
     const srcLink = $('vkNewsSourceLink');
     if (srcLink && settingsCache?.news_rss_url) {
         srcLink.href = settingsCache.news_rss_url;
@@ -3539,7 +3640,6 @@ async function loadNews() {
 
     const apiUrl = `https://api.vk.com/method/wall.get?domain=${encodeURIComponent(VK_DOMAIN)}&count=${VK_POSTS_COUNT}&v=${VK_API_VERSION}`;
 
-    // CORS-прокси: VK API не отдаёт CORS-заголовки для браузера напрямую
     const proxies = [
         u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
         u => 'https://corsproxy.io/?' + encodeURIComponent(u),
@@ -3637,8 +3737,16 @@ document.addEventListener('keydown', e => {
     const verEl = document.querySelector('.footer-right');
     if (verEl) verEl.textContent = 'v' + APP_VERSION;
     initTheme();
+
+    // 1. Сессия
     const { data: { session } } = await supabase.auth.getSession();
-    isAdmin = !!session?.user && ADMIN_EMAILS.includes((session.user.email || '').toLowerCase());
+    currentSession = session;
+
+    // 2. Список админов сайта (до loadClans!)
+    await loadSiteAdmins();
+    // loadSiteAdmins уже вызвал recalcIsAdmin
+
+    // 3. Данные
     await loadGames();
     await loadAlliances();
     await loadClans();
@@ -3656,6 +3764,7 @@ document.addEventListener('keydown', e => {
     await renderTrades();
     await loadNotifications();
     applyAdminUI();
+
     const lastClan = localStorage.getItem(LAST_CLAN_KEY);
     if (lastClan && isUnlocked() && clansCache[lastClan]) {
         openClan(lastClan, localStorage.getItem(CLAN_ADMIN_PASS_KEY) === '1');

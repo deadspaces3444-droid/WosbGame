@@ -539,7 +539,6 @@ function renderAlliancesAdmin() {
     const list = Object.values(alliancesCache);
     if (!list.length) { container.innerHTML = '<div class="empty">Пока нет союзов</div>'; return; }
 
-    // Рендерим дерево: сначала корневые, потом их дети
     const roots = list.filter(a => !a.parent_id || !alliancesCache[a.parent_id]);
     const renderNode = (a, depth) => {
         const memberClans = Object.values(clansCache).filter(c => c.alliance_id === a.id);
@@ -1505,7 +1504,6 @@ async function renderMembers() {
         container.appendChild(el);
     });
 
-    // Роль-селекты
     container.querySelectorAll('.role-select').forEach(sel => {
         sel.addEventListener('change', async () => {
             const nick = sel.dataset.nick;
@@ -1517,7 +1515,6 @@ async function renderMembers() {
             renderMembers();
         });
     });
-    // Удаление
     container.querySelectorAll('button.delete').forEach(btn => {
         btn.addEventListener('click', async () => {
             const nick = btn.dataset.nick;
@@ -1528,7 +1525,6 @@ async function renderMembers() {
         });
     });
 
-    // Legacy-список из members_list
     if (listWrap) {
         if (members.length) { listWrap.style.display = 'none'; }
         else {
@@ -1553,7 +1549,6 @@ function parseMembersListOld(text) {
     }).filter(Boolean);
 }
 
-/* ---------- Импорт участников из файла ---------- */
 on('membersUploadBtn', 'click', () => {
     if (!canEditClan(currentClan)) return;
     const fi = $('membersFileInput'); if (fi) { fi.value = ''; fi.click(); }
@@ -1583,7 +1578,6 @@ on('membersFileInput', 'change', async (e) => {
 
         if (!rows.length) { if (statusEl) statusEl.textContent = '⚠️ Нет валидных ников'; return; }
 
-        // Удаляем дубликаты и вставляем
         for (const r of rows) {
             await supabase.from('clan_members').delete()
                 .eq('clan_id', currentClan).ilike('nickname', r.nickname);
@@ -1755,7 +1749,6 @@ on('clanRequestSubmit', 'click', async () => {
 function togglePublicClanRequestSection() {
     const sec = $('publicClanRequestSection');
     if (!sec) return;
-    // Показываем блок, если пользователь не в гильдии и не админ
     const myClan = getMyClanId();
     sec.hidden = !!(myClan || isAdmin);
 }
@@ -2666,7 +2659,8 @@ function updateAdminFields() {
     $('adminRules').value = clan?.rules || '';
     $('adminNicks').value = clan?.admin_nicks || '';
     $('adminMembers').value = clan?.members_list || '';
-    $('adminLeaderNick') && ($('adminLeaderNick').value = clan?.leader_nick || '');
+    const leaderEl = $('adminLeaderNick');
+    if (leaderEl) leaderEl.value = clan?.leader_nick || '';
     $('adminPanelMsg').textContent = '';
 }
 on('saveAdminSettings', 'click', async () => {
@@ -2676,7 +2670,7 @@ on('saveAdminSettings', 'click', async () => {
     const msg = $('adminPanelMsg');
     const newPass = val('adminNewPass').trim();
     const newAdminPass = val('adminNewAdminPass').trim();
-    const newLeader = val('adminLeaderNick') ? val('adminLeaderNick').trim() : null;
+    const newLeader = $('adminLeaderNick') ? val('adminLeaderNick').trim() : null;
     const newAllianceRank = val('adminClanAllianceRank') || 'member';
     const payload = {
         discord: val('adminDiscord').trim() || null,
@@ -3347,12 +3341,10 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') { const m = 
     await loadNotifications();
     applyAdminUI();
 
-    const lastClan = localStorage.getItem(LAST_CLAN_KEY);
-    if (lastClan && isUnlocked() && clansCache[lastClan]) {
-        openClan(lastClan, localStorage.getItem(CLAN_ADMIN_PASS_KEY) === '1');
-    } else {
-        showScreen('home');
-    }
+    // Всегда открываем главную. Пользователь сам кликнет на карточку гильдии.
+    // Разблокировка сохранена — на карточке будет кнопка «👁 Открыть списки».
+    showScreen('home');
+
     startHeartbeat();
     setTimeout(handleBuildHash, 800);
     setTimeout(handleInviteHash, 500);

@@ -1,9 +1,9 @@
 import { supabase } from './supabase.js';
 
-console.log('🚀 app.js v1.7.0');
+console.log('🚀 app.js v1.8.0');
 
 const ADMIN_EMAILS = ['kolibri@wosb.ru'];
-const APP_VERSION = '1.7.0';
+const APP_VERSION = '1.8.0';
 
 const TABS = ['enemies', 'friends', 'neutral', 'personal'];
 const UNLOCK_KEY = 'guild_unlocked';
@@ -33,9 +33,9 @@ let tradesCache   = [];
 let partnerLogoData = null;
 let currentGame   = null;
 let currentClan   = null;
-let currentClanIsAdmin = false;   // вошли с админ-паролем
-let currentClanPass = null;       // пароль для RPC
-let allianceClans = [];           // гильдии союза текущего клана
+let currentClanIsAdmin = false;
+let currentClanPass = null;
+let allianceClans = [];
 let pendingClanId = null;
 let currentTab    = 'enemies';
 let isAdmin       = false;
@@ -59,7 +59,7 @@ let chatMessages  = [];
 let notifications = [];
 let chatMode      = 'guild';
 let chatPrivateWith = null;
-let vkNewsLoaded  = false;
+let voiceActive   = false;
 
 const $ = id => document.getElementById(id);
 function on(id, event, handler) {
@@ -107,11 +107,9 @@ function colorFromString(str) {
     const hue = Math.abs(h) % 360;
     return `linear-gradient(135deg, hsl(${hue}, 55%, 45%), hsl(${hue}, 55%, 30%))`;
 }
-
-/* Есть ли право редактировать данные гильдии */
 function canEditClan(clanId) {
-    if (isAdmin) return true;                              // сайтовый админ
-    if (clanId === currentClan && currentClanIsAdmin) return true;  // админ гильдии
+    if (isAdmin) return true;
+    if (clanId === currentClan && currentClanIsAdmin) return true;
     return false;
 }
 
@@ -518,7 +516,6 @@ function applyAdminUI() {
     document.querySelectorAll('.add-form.admin-only').forEach(el => {
         el.style.display = isAdmin ? 'flex' : 'none';
     });
-    // Для админа гильдии
     document.querySelectorAll('.clan-admin-only').forEach(el => {
         const show = canEditClan(currentClan);
         el.hidden = !show;
@@ -666,8 +663,6 @@ function renderHomeCards() {
 }
 function isUnlocked() { return isAdmin || localStorage.getItem(UNLOCK_KEY) === '1'; }
 function handleClanClick(id) {
-    // Если уже разблокирован доступ — открываем
-    // Если нет — показываем инфо (там кнопка "Войти")
     isUnlocked() ? openClan(id) : openClanInfo(id);
 }
 
@@ -700,7 +695,7 @@ function renderScopeSelects() {
 }
 
 /* ============================================================
-   ОПИСАНИЕ ГИЛЬДИИ (до входа)
+   ОПИСАНИЕ ГИЛЬДИИ
 ============================================================ */
 function openClanInfo(id) {
     const clan = clansCache[id];
@@ -717,7 +712,6 @@ function openClanInfo(id) {
         if (newsWrap) newsWrap.hidden = false;
         setText('clanInfoNews', clan.news);
     } else { if (newsWrap) newsWrap.hidden = true; }
-    // Союз
     const allyWrap = $('clanInfoAllianceWrap');
     if (clan.alliance_id && alliancesCache[clan.alliance_id]) {
         const ally = alliancesCache[clan.alliance_id];
@@ -737,7 +731,7 @@ on('backToHomeBtn', 'click', () => { pendingClanId = null; showScreen('home'); }
 on('clanViewBtn', 'click', () => { if (pendingClanId) openClan(pendingClanId); });
 
 /* ============================================================
-   ВХОД ПО ПАРОЛЮ ИЛИ АДМИН-ПАРОЛЮ
+   ВХОД ПО ПАРОЛЮ
 ============================================================ */
 on('clanLoginBtn', 'click', () => {
     if (!pendingClanId) return;
@@ -762,7 +756,6 @@ on('doClanLogin', 'click', async () => {
     if (nick.length < 2) { $('clanPassError').textContent = 'Ник слишком короткий'; return; }
     if (!entered) { $('clanPassError').textContent = 'Введите пароль'; return; }
 
-    // Сначала пробуем обычный пароль
     const { data: ok, error: rpcErr } = await supabase.rpc('verify_clan_password', {
         clan_id: pendingClanId,
         entered_password: entered
@@ -770,7 +763,6 @@ on('doClanLogin', 'click', async () => {
     let isClanAdminLogin = false;
 
     if (rpcErr || !ok) {
-        // Пробуем админ-пароль
         const { data: okAdmin, error: admErr } = await supabase.rpc('verify_clan_admin_password', {
             cid: pendingClanId,
             entered: entered
@@ -839,9 +831,7 @@ function openClan(id, isClanAdminLogin = false) {
     if (!isUnlocked()) { openClanInfo(id); return; }
     currentClan = id;
     localStorage.setItem(LAST_CLAN_KEY, id);
-    // Админ-режим — либо сайтовый админ, либо вход с админ-паролем
     currentClanIsAdmin = isClanAdminLogin || (localStorage.getItem(CLAN_ADMIN_PASS_KEY) === '1' && localStorage.getItem(LAST_CLAN_KEY) === id);
-    // Пароль для RPC (если это не сайтовый админ)
     currentClanPass = localStorage.getItem(CLAN_PASS_KEY) || null;
     if (!currentClanIsAdmin) currentClanPass = null;
 
@@ -922,10 +912,9 @@ function applySearchFilter() {
 }
 
 /* ============================================================
-   СПИСКИ (через RPC если админ гильдии, напрямую если сайтовый админ)
+   СПИСКИ
 ============================================================ */
 function renderAll() { if (currentClan) TABS.forEach(loadList); }
-
 async function loadList(tab) {
     if (!currentClan) return;
     const ul = document.querySelector(`[data-list="${tab}"]`);
@@ -1101,14 +1090,12 @@ async function addBuild(type) {
         specialists: val(`${type}Specs`) || null
     };
 
-    // Сайтовый админ → прямой insert
     if (isAdmin) {
         const { error } = await supabase.from('builds').insert({
             clan: clanValue, is_shared: isShared, ...data
         });
         if (error) { flashStatusEl(statusEl, 'Ошибка: ' + error.message, '#ff7a7a'); return; }
     } else {
-        // Админ гильдии → RPC
         const { data: resp, error } = await supabase.rpc('clan_admin_action', {
             action: 'insert', target_table: 'builds', target_clan: currentClan,
             entered_password: currentClanPass,
@@ -2391,7 +2378,6 @@ function renderContacts() {
     const container = $('contactsList');
     if (!container) return;
     container.innerHTML = '';
-    // Показываем только гильдии своего союза (или все для сайтового админа)
     let clans;
     if (isAdmin) {
         clans = Object.values(clansCache);
@@ -2669,13 +2655,17 @@ on('deleteClanBtn', 'click', async () => {
 function renderSiteFields() {
     const s = settingsCache || {};
     $('adminWebhook').value = s.discord_webhook || '';
+    const rssEl = $('adminNewsRss');
+    if (rssEl) rssEl.value = s.news_rss_url || '';
     $('adminSiteMsg').textContent = '';
 }
 on('saveSiteSettings', 'click', async () => {
     const msg = $('adminSiteMsg');
     msg.style.color = '';
+    const rssEl = $('adminNewsRss');
     const payload = {
         discord_webhook: val('adminWebhook').trim() || null,
+        news_rss_url: rssEl ? (rssEl.value.trim() || null) : null,
         updated_at: new Date().toISOString()
     };
     const { error } = await supabase.from('site_settings').update(payload).eq('id', 'main');
@@ -3034,23 +3024,85 @@ on('notifMarkAllRead', 'click', async () => {
 ============================================================ */
 function setChatMode(mode) {
     chatMode = mode;
-    document.querySelectorAll('.chat-tab').forEach(t => t.classList.toggle('active', t.dataset.mode === mode));
+
+    document.querySelectorAll('.chat-tab').forEach(t => {
+        t.classList.toggle('active', t.dataset.mode === mode);
+    });
+
     const privTab = $('chatPrivateTab');
     if (privTab) {
         if (chatPrivateWith) { privTab.hidden = false; privTab.textContent = '✉️ ' + chatPrivateWith; }
         else privTab.hidden = true;
     }
+
+    const voiceTab = $('chatVoiceTab');
+    if (voiceTab) voiceTab.hidden = !currentClan;
+
     const clearBtn = $('chatClear');
-    if (clearBtn) clearBtn.hidden = !isAdmin;
+    if (clearBtn) clearBtn.hidden = !isAdmin || mode === 'voice';
+
+    const inputRow = $('chatInputRow');
+    const voiceBox = $('chatVoiceContainer');
+    const msgBox = $('chatMessages');
+
+    if (mode === 'voice') {
+        if (inputRow) inputRow.hidden = true;
+        if (msgBox) msgBox.hidden = true;
+        if (voiceBox) voiceBox.hidden = false;
+        startVoiceChat();
+        return;
+    } else {
+        if (inputRow) inputRow.hidden = false;
+        if (msgBox) msgBox.hidden = false;
+        if (voiceBox) voiceBox.hidden = true;
+        stopVoiceChat();
+    }
+
     const input = $('chatInput');
     if (input) {
         if (mode === 'private' && chatPrivateWith) input.placeholder = `Личное сообщение для ${chatPrivateWith}...`;
         else if (mode === 'general') input.placeholder = 'Общий чат — напишите всем игрокам...';
         else input.placeholder = 'Чат гильдии...';
     }
+
     loadChatMessages();
     initChatRealtime();
 }
+
+/* ---------- Голосовой чат (Jitsi) ---------- */
+function startVoiceChat() {
+    if (!currentClan) return;
+    const frame = $('jitsiFrame');
+    if (!frame) return;
+    if (voiceActive && frame.src && frame.src !== 'about:blank') return;
+
+    const clan = clansCache[currentClan];
+    const roomName = 'wosb-guild-' + currentClan + '-' + (clan?.name || '').replace(/[^a-zA-Z0-9]/g, '').slice(0, 20);
+    const params = [
+        'config.startWithVideoMuted=true',
+        'config.startWithAudioMuted=false',
+        'config.prejoinPageEnabled=false',
+        'config.disableDeepLinking=true',
+        'config.p2p.enabled=false',
+        'interfaceConfig.SHOW_JITSI_WATERMARK=false',
+        'interfaceConfig.SHOW_WATERMARK_FOR_GUESTS=false',
+        'interfaceConfig.DEFAULT_BACKGROUND=%230a0d12',
+        'interfaceConfig.TOOLBAR_BUTTONS=' + encodeURIComponent(
+            '["microphone","camera","desktop","chat","raisehand","tileview","settings","hangup"]'
+        )
+    ].join('&');
+
+    frame.src = `https://meet.jit.si/${encodeURIComponent(roomName)}#${params}`;
+    voiceActive = true;
+    console.log('🎙 Голосовой чат:', roomName);
+}
+function stopVoiceChat() {
+    const frame = $('jitsiFrame');
+    if (!frame) return;
+    if (frame.src && frame.src !== 'about:blank') frame.src = 'about:blank';
+    voiceActive = false;
+}
+
 async function loadChatMessages() {
     const container = $('chatMessages');
     if (!container) return;
@@ -3162,7 +3214,8 @@ function openChat(mode) {
     const clearBtn = $('chatClear');
     if (clearBtn) clearBtn.hidden = !isAdmin;
     $('chatPanel').hidden = false;
-    if (mode === 'private' && chatPrivateWith) setChatMode('private');
+    if (mode === 'voice' && currentClan) setChatMode('voice');
+    else if (mode === 'private' && chatPrivateWith) setChatMode('private');
     else if (mode === 'general') setChatMode('general');
     else if (mode === 'guild') setChatMode('guild');
     else setChatMode(currentClan ? 'guild' : 'general');
@@ -3176,6 +3229,7 @@ function openPrivateChat(nickname) {
 function closeChat() {
     $('chatPanel').hidden = true;
     if (chatChannel) { supabase.removeChannel(chatChannel); chatChannel = null; }
+    stopVoiceChat();
 }
 on('openChatBtn', 'click', () => openChat('guild'));
 on('openGeneralChatBtn', 'click', () => openChat('general'));
@@ -3188,8 +3242,10 @@ on('chatInput', 'keydown', e => {
 document.querySelectorAll('.chat-tab').forEach(tab => {
     tab.addEventListener('click', () => setChatMode(tab.dataset.mode));
 });
+on('chatVoiceTab', 'click', () => openChat('voice'));
 function initChatRealtime() {
     if (chatChannel) { supabase.removeChannel(chatChannel); chatChannel = null; }
+    if (chatMode === 'voice') return;
     const channelName = 'chat_' + chatMode + '_' + (chatPrivateWith || currentClan || 'global');
     chatChannel = supabase
         .channel(channelName)
@@ -3253,14 +3309,14 @@ function closeRealtime() {
 }
 
 /* ============================================================
-   📰 НОВОСТИ ВК
+   📰 НОВОСТИ (RSS от админа, fallback — ВК)
 ============================================================ */
 function openVkNewsModal() {
     const modal = $('vkNewsModal');
     if (!modal) return;
     modal.hidden = false;
     document.body.style.overflow = 'hidden';
-    if (!vkNewsLoaded) { loadVkNews(); vkNewsLoaded = true; }
+    loadNews();
 }
 function closeVkNewsModal() {
     const modal = $('vkNewsModal');
@@ -3268,10 +3324,138 @@ function closeVkNewsModal() {
     modal.hidden = true;
     document.body.style.overflow = '';
 }
-function loadVkNews() {
+
+async function loadNews() {
     const container = $('vkNewsList');
     if (!container) return;
     container.innerHTML = '<div class="vk-news-loading">Загрузка новостей…</div>';
+
+    const rssUrl = (settingsCache?.news_rss_url || '').trim();
+    if (!rssUrl) {
+        loadVkNews();
+        return;
+    }
+
+    const proxies = [
+        u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
+        u => 'https://corsproxy.io/?' + encodeURIComponent(u),
+        u => 'https://thingproxy.freeboard.io/fetch/' + u
+    ];
+
+    let xml = null;
+    for (const make of proxies) {
+        try {
+            const res = await fetch(make(rssUrl), { cache: 'no-store' });
+            if (!res.ok) continue;
+            xml = await res.text();
+            if (xml && xml.length > 20) break;
+        } catch (e) { }
+    }
+
+    if (!xml) {
+        container.innerHTML = `
+            <div class="vk-news-error">
+                Не удалось загрузить RSS.<br>
+                Проверь ссылку в админке или попробуй позже.
+            </div>`;
+        return;
+    }
+
+    try {
+        const items = parseRss(xml);
+        if (!items.length) {
+            container.innerHTML = '<div class="vk-news-empty">В ленте нет записей</div>';
+            return;
+        }
+        container.innerHTML = '';
+        items.slice(0, 15).forEach(item => container.appendChild(createRssNewsCard(item)));
+    } catch (err) {
+        console.error('RSS parse error:', err);
+        container.innerHTML = '<div class="vk-news-error">Ошибка разбора RSS: ' + escapeHtml(err.message) + '</div>';
+    }
+}
+
+function parseRss(xmlText) {
+    const doc = new DOMParser().parseFromString(xmlText, 'text/xml');
+    const parserError = doc.querySelector('parsererror');
+    if (parserError) throw new Error('некорректный XML');
+
+    let nodes = doc.querySelectorAll('item');
+    if (!nodes.length) nodes = doc.querySelectorAll('entry');
+
+    const items = [];
+    nodes.forEach(node => {
+        const getText = (sel) => {
+            const el = node.querySelector(sel);
+            if (!el) return '';
+            return (el.textContent || '').trim();
+        };
+        const title = getText('title');
+        let link = '';
+        const linkEl = node.querySelector('link');
+        if (linkEl && linkEl.getAttribute('href')) link = linkEl.getAttribute('href');
+        else link = getText('link');
+        link = link.replace(/<!\[CDATA\[|\]\]>/g, '').trim();
+
+        const desc = (getText('description') || getText('summary') || getText('content'))
+            .replace(/<[^>]*>/g, '')
+            .replace(/&nbsp;/g, ' ')
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .trim();
+
+        const dateStr = getText('pubDate') || getText('updated') || getText('dc:date');
+        let dateObj = null;
+        if (dateStr) {
+            const parsed = new Date(dateStr);
+            if (!isNaN(parsed.getTime())) dateObj = parsed;
+        }
+
+        let image = '';
+        const mediaEl = node.querySelector('content[url], thumbnail[url], enclosure[url]');
+        if (mediaEl && mediaEl.getAttribute('url')) image = mediaEl.getAttribute('url');
+
+        if (title) items.push({ title, link, description: desc, date: dateObj, image });
+    });
+    return items;
+}
+
+function createRssNewsCard(item) {
+    const card = document.createElement('article');
+    card.className = 'vk-news-item';
+
+    const dateStr = item.date
+        ? item.date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
+        : '';
+
+    const maxLen = 1000;
+    const text = item.description || '';
+    const isLong = text.length > maxLen;
+    const displayText = isLong ? text.substring(0, maxLen) + '…' : text;
+
+    card.innerHTML = `
+        <div class="vk-news-header">
+            ${dateStr ? `<span class="vk-news-date">📅 ${dateStr}</span>` : ''}
+        </div>
+        <div class="vk-news-text" style="font-size:16px;font-weight:700;color:#fff;">
+            ${escapeHtml(item.title)}
+        </div>
+        ${displayText ? `<div class="vk-news-text">${escapeHtml(displayText)}</div>` : ''}
+        ${item.image ? `<div class="vk-news-attachments"><img class="vk-news-photo" src="${escapeHtml(item.image)}" alt="" loading="lazy" onerror="this.style.display='none'"></div>` : ''}
+        ${item.link ? `<div class="vk-news-footer">
+            <a class="vk-news-link" href="${escapeHtml(item.link)}" target="_blank" rel="noopener">Читать полностью →</a>
+        </div>` : ''}
+    `;
+    return card;
+}
+
+/* ---------- Fallback: ВК ---------- */
+function loadVkNews() {
+    const container = $('vkNewsList');
+    if (!container) return;
+    container.innerHTML = '<div class="vk-news-loading">Загрузка новостей ВК…</div>';
     const callbackName = 'vkNewsCallback_' + Date.now();
     window[callbackName] = function(data) {
         delete window[callbackName];
@@ -3279,7 +3463,7 @@ function loadVkNews() {
         if (script) script.remove();
         if (data.error) {
             console.warn('VK API error:', data.error);
-            container.innerHTML = '<div class="vk-news-error">Не удалось загрузить новости.<br>Попробуйте позже.</div>';
+            container.innerHTML = '<div class="vk-news-error">Не удалось загрузить новости ВК.</div>';
             return;
         }
         const posts = data.response?.items || [];
@@ -3370,7 +3554,6 @@ document.addEventListener('keydown', e => {
     await renderTrades();
     await loadNotifications();
     applyAdminUI();
-    // Если был открыт #build — попробуем зайти в гильдию из localStorage
     const lastClan = localStorage.getItem(LAST_CLAN_KEY);
     if (lastClan && isUnlocked() && clansCache[lastClan]) {
         openClan(lastClan, localStorage.getItem(CLAN_ADMIN_PASS_KEY) === '1');

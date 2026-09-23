@@ -331,7 +331,17 @@
                     <div id="adminsList" class="members-list"></div>
 
                     <h2 style="margin-top:28px;">👥 Список участников гильдии</h2>
-                    <p class="hint">Формат: <b>номер - ник</b>, каждый с новой строки. Пример: <code>1 - Тайпан56</code></p>
+                    <p class="hint">Формат: <b>номер - ник</b> или просто ник, каждый с новой строки. Если список заполнен — войти смогут только эти ники (и админы).</p>
+
+                    <section class="add-form clan-admin-only" hidden style="flex-direction:column; align-items:stretch; gap:10px;">
+                        <p class="hint" style="margin:0;">📂 Загрузи текстовый файл (или CSV) со списком участников. Поддерживаются строки вида «1 - Ник» и просто «Ник».</p>
+                        <input type="file" id="membersFileInput" accept=".txt,.csv,text/plain" hidden>
+                        <button type="button" id="membersUploadBtn" class="big-btn secondary" style="align-self:flex-start;">
+                            📂 Загрузить участников из файла
+                        </button>
+                        <span id="membersUploadStatus" style="color:var(--green);font-size:13px;font-weight:600;"></span>
+                    </section>
+
                     <div id="membersList" class="members-list"></div>
                 </div>
 
@@ -488,14 +498,14 @@
                 <h2 class="admin-section-title">⚙️ Настройки сайта</h2>
 
                 <div class="admin-card">
-                    <h3 style="font-size:15px;color:#ffd479;margin-bottom:6px;">📰 Новости</h3>
+                    <h3 style="font-size:15px;color:#ffd479;margin-bottom:6px;">📰 Новости ВКонтакте</h3>
                     <p class="hint" style="margin:0 0 8px;">
-                        Вставь <b>RSS-ссылку</b> (например <code>https://rsshub.app/vk/worldofseabattle</code>).
-                        Если поле пустое — покажутся новости ВК по умолчанию.
+                        Новости загружаются с сообщества <b>worldofseabattle</b> через открытый API VK.
+                        Ничего настраивать не нужно — просто работает.
                     </p>
                     <div class="admin-field">
-                        <label>🔗 RSS-ссылка новостей</label>
-                        <input type="text" id="adminNewsRss" placeholder="https://example.com/rss.xml" maxlength="400">
+                        <label>🔗 Ссылка на сообщество (для отображения в футере)</label>
+                        <input type="text" id="adminNewsRss" placeholder="https://vk.ru/@worldofseabattle" maxlength="400" value="https://vk.ru/@worldofseabattle">
                     </div>
                 </div>
 
@@ -522,7 +532,7 @@
             <input type="text" id="clanNickname" placeholder="Ваш игровой ник" maxlength="32" autocomplete="nickname">
             <input type="password" id="clanPassword" placeholder="Пароль гильдии или админ-пароль" autocomplete="current-password">
             <p id="clanPassError" class="error"></p>
-            <p class="hint" style="margin:0;font-size:12px;">💡 Админ-пароль даёт право редактировать данные этой гильдии. Также права даются, если ваш ник есть в списке админов гильдии.</p>
+            <p class="hint" style="margin:0;font-size:12px;">💡 Войти могут только участники из списка гильдии, а также админы. Ваш ник должен совпадать.</p>
             <div class="modal-actions">
                 <button id="doClanLogin">Войти</button>
                 <button id="cancelClanLogin" class="secondary">Отмена</button>
@@ -743,14 +753,14 @@
     <div id="vkNewsModal" class="vk-news-modal" hidden>
         <div class="vk-news-modal-content">
             <header class="vk-news-modal-header">
-                <h2>📰 Новости</h2>
+                <h2>📰 Новости ВКонтакте</h2>
                 <button id="closeVkNews" class="vk-news-close" title="Закрыть">✕</button>
             </header>
             <div id="vkNewsList" class="vk-news-modal-body">
                 <div class="vk-news-loading">Загрузка новостей…</div>
             </div>
             <footer class="vk-news-modal-footer">
-                <a href="https://vk.com/worldofseabattle" target="_blank" rel="noopener" class="vk-news-link">
+                <a id="vkNewsSourceLink" href="https://vk.ru/@worldofseabattle" target="_blank" rel="noopener" class="vk-news-link">
                     Открыть сообщество ВКонтакте →
                 </a>
                 <span>💡 Esc — закрыть</span>

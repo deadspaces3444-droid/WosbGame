@@ -1,14 +1,14 @@
 import { supabase } from './supabase.js';
 
-console.log('🚀 app.js v1.8.1');
+console.log('🚀 app.js v1.8.2');
 
-// Fallback, если таблица site_admins недоступна
 const ADMIN_EMAILS_FALLBACK = ['kolibri@wosb.ru'];
-const APP_VERSION = '1.8.1';
+const APP_VERSION = '1.8.2';
 
 const TABS = ['enemies', 'friends', 'neutral', 'personal'];
 const UNLOCK_KEY = 'guild_unlocked';
 const LAST_CLAN_KEY = 'guild_last_clan';
+const MY_CLAN_KEY = 'guild_my_clan';
 const BG_STORAGE_KEY = 'guild_bg_overrides';
 const GAME_STORAGE_KEY = 'selected_game_id';
 const VIEWER_NICK_KEY = 'viewer_nickname';
@@ -31,7 +31,7 @@ let faqCache      = [];
 let partnersCache = [];
 let tacticsCache  = [];
 let tradesCache   = [];
-let siteAdminsCache = [];   // массив email (lowercase)
+let siteAdminsCache = [];
 let currentSession = null;
 let partnerLogoData = null;
 let currentGame   = null;
@@ -117,6 +117,25 @@ function canEditClan(clanId) {
 }
 
 /* ============================================================
+   ДОСТУП К ГИЛЬДИЯМ (по союзу)
+============================================================ */
+function getMyClanId() {
+    return localStorage.getItem(MY_CLAN_KEY) || null;
+}
+
+function canAccessClan(clanId) {
+    if (isAdmin) return true;
+    const myClan = getMyClanId();
+    if (!myClan) return false;
+    if (clanId === myClan) return true;
+    const my = clansCache[myClan];
+    const target = clansCache[clanId];
+    if (!my || !target) return false;
+    if (!my.alliance_id) return false;
+    return target.alliance_id === my.alliance_id;
+}
+
+/* ============================================================
    ТЕМА
 ============================================================ */
 function applyTheme(theme) {
@@ -183,7 +202,6 @@ function renderSiteAdminsAdmin() {
         container.innerHTML = '<div class="empty">Пока нет админов</div>';
         return;
     }
-    // Сортируем для стабильного отображения
     const list = siteAdminsCache.slice().sort();
     list.forEach(email => {
         const el = document.createElement('div');
@@ -583,7 +601,6 @@ on('doAdminLogin', 'click', async () => {
     $('doAdminLogin').disabled = false;
     if (error) { err.textContent = error.message; return; }
 
-    // Перезагрузим список админов, чтобы учесть возможные изменения
     await loadSiteAdmins();
     if (!isAdmin) {
         err.textContent = 'Этот email не в списке админов сайта';
@@ -755,6 +772,7 @@ async function loadClans() {
 function getClansForGame(gameId) {
     return Object.values(clansCache).filter(c => (c.game_id || 'wosb') === gameId);
 }
+
 function renderHomeCards() {
     const grid = $('clanGrid');
     if (!grid) return;
@@ -764,23 +782,43 @@ function renderHomeCards() {
         grid.innerHTML = '<div class="empty">В этой игре пока нет гильдий</div>';
         return;
     }
+    const myClan = getMyClanId();
     list.forEach(clan => {
         const btn = document.createElement('button');
         btn.className = 'clan-card';
+
+        const accessible = isAdmin || !myClan || canAccessClan(clan.id);
+        if (!accessible) btn.classList.add('locked');
+
         btn.dataset.clan = clan.id;
         btn.innerHTML = `
+            ${accessible ? '' : '<span class="clan-lock">🔒</span>'}
             <img src="${escapeHtml(clan.image || '')}" alt="${escapeHtml(clan.name)}" onerror="this.style.display='none'">
             <span class="clan-name">${escapeHtml(clan.name)}</span>
             <span class="clan-desc">${escapeHtml(clan.description || '')}</span>
-            <span class="clan-more">Подробнее →</span>
+            <span class="clan-more">${accessible ? 'Подробнее →' : 'Только описание →'}</span>
         `;
         btn.addEventListener('click', () => handleClanClick(clan.id));
         grid.appendChild(btn);
     });
 }
+
 function isUnlocked() { return isAdmin || localStorage.getItem(UNLOCK_KEY) === '1'; }
+
 function handleClanClick(id) {
-    isUnlocked() ? openClan(id) : openClanInfo(id);
+    if (isAdmin) { openClan(id); return; }
+
+    const myClan = getMyClanId();
+    if (!myClan) { openClanInfo(id, { locked: false }); return; }
+    if (id === myClan) { openClan(id); return; }
+
+    const my = clansCache[myClan];
+    const target = clansCache[id];
+    if (my?.alliance_id && target?.alliance_id === my.alliance_id) {
+        openClan(id);
+        return;
+    }
+    openClanInfo(id, { locked: true });
 }
 
 /* ============================================================
@@ -814,21 +852,27 @@ function renderScopeSelects() {
 /* ============================================================
    ОПИСАНИЕ ГИЛЬДИИ
 ============================================================ */
-function openClanInfo(id) {
+function openClanInfo(id, opts = {}) {
     const clan = clansCache[id];
     if (!clan) return;
     pendingClanId = id;
+
+    const locked = opts.locked === true;
+    const loggedInSomewhere = isUnlocked();
+
     const setSrc = (elId, src) => { const el = $(elId); if (el) el.src = src; };
     const setText = (elId, txt) => { const el = $(elId); if (el) el.textContent = txt; };
     setSrc('clanInfoLogo', clan.image || '');
     setText('clanInfoName', clan.name);
     setText('clanInfoDesc', clan.description || '');
     setText('clanInfoRules', clan.rules || 'Правила не заданы.');
+
     const newsWrap = $('clanInfoNewsWrap');
     if (clan.news && clan.news.trim()) {
         if (newsWrap) newsWrap.hidden = false;
         setText('clanInfoNews', clan.news);
     } else { if (newsWrap) newsWrap.hidden = true; }
+
     const allyWrap = $('clanInfoAllianceWrap');
     if (clan.alliance_id && alliancesCache[clan.alliance_id]) {
         const ally = alliancesCache[clan.alliance_id];
@@ -838,10 +882,32 @@ function openClanInfo(id) {
     } else {
         if (allyWrap) allyWrap.hidden = true;
     }
+
     const loginBtn = $('clanLoginBtn');
     const viewBtn = $('clanViewBtn');
-    if (loginBtn) loginBtn.hidden = isUnlocked();
-    if (viewBtn) viewBtn.hidden = !isUnlocked();
+    if (loginBtn) loginBtn.hidden = loggedInSomewhere || locked;
+    if (viewBtn) viewBtn.hidden = !loggedInSomewhere || locked;
+
+    let lockMsg = document.getElementById('clanLockMsg');
+    if (locked) {
+        if (!lockMsg) {
+            lockMsg = document.createElement('div');
+            lockMsg.id = 'clanLockMsg';
+            lockMsg.className = 'clan-info-news-wrap';
+            lockMsg.style.borderColor = 'rgba(255,122,122,.5)';
+            lockMsg.style.background = 'rgba(255,122,122,.08)';
+            lockMsg.innerHTML = `
+                <h3 style="color:var(--red)">🔒 Доступ ограничен</h3>
+                <p class="clan-info-news">Вы уже вошли в другую гильдию. Просматривать можно только свою гильдию и гильдии из своего союза. Чтобы получить доступ к этой гильдии, войдите в неё или вступите в общий союз.</p>
+            `;
+            const actions = document.querySelector('.clan-info-actions');
+            if (actions) actions.parentNode.insertBefore(lockMsg, actions);
+        }
+        lockMsg.hidden = false;
+    } else if (lockMsg) {
+        lockMsg.hidden = true;
+    }
+
     showScreen('clan');
 }
 on('backToHomeBtn', 'click', () => { pendingClanId = null; showScreen('home'); });
@@ -917,6 +983,7 @@ on('doClanLogin', 'click', async () => {
     localStorage.setItem(UNLOCK_KEY, '1');
     localStorage.setItem(CLAN_PASS_KEY, entered);
     localStorage.setItem(CLAN_ADMIN_PASS_KEY, isClanAdminLogin ? '1' : '0');
+    localStorage.setItem(MY_CLAN_KEY, pendingClanId);
 
     $('clanPassModal').hidden = true;
     await logView(nick, pendingClanId, isClanAdminLogin ? 'вход в гильдию (админ)' : 'вход в гильдию');
@@ -967,10 +1034,30 @@ function updateAllianceBar() {
 function openClan(id, isClanAdminLogin = false) {
     const clan = clansCache[id];
     if (!clan) return;
-    if (!isUnlocked()) { openClanInfo(id); return; }
+
+    if (!isAdmin) {
+        if (!isUnlocked()) { openClanInfo(id, { locked: false }); return; }
+        const myClan = getMyClanId();
+        if (!myClan) { openClanInfo(id, { locked: false }); return; }
+        if (id !== myClan) {
+            const my = clansCache[myClan];
+            const target = clansCache[id];
+            if (!my?.alliance_id || target?.alliance_id !== my.alliance_id) {
+                openClanInfo(id, { locked: true });
+                return;
+            }
+        }
+    }
+
     currentClan = id;
     localStorage.setItem(LAST_CLAN_KEY, id);
-    currentClanIsAdmin = isClanAdminLogin || (localStorage.getItem(CLAN_ADMIN_PASS_KEY) === '1' && localStorage.getItem(LAST_CLAN_KEY) === id);
+
+    const myClan = getMyClanId();
+    const hasAdminPass = localStorage.getItem(CLAN_ADMIN_PASS_KEY) === '1';
+    currentClanIsAdmin = isAdmin
+        || isClanAdminLogin
+        || (id === myClan && hasAdminPass);
+
     currentClanPass = localStorage.getItem(CLAN_PASS_KEY) || null;
     if (!currentClanIsAdmin) currentClanPass = null;
 
@@ -999,6 +1086,7 @@ function openClan(id, isClanAdminLogin = false) {
     sendHeartbeat();
     initRealtime();
 }
+
 on('backBtn', 'click', () => {
     currentClan = null;
     currentClanIsAdmin = false;
@@ -1007,13 +1095,16 @@ on('backBtn', 'click', () => {
     showScreen('home');
     sendHeartbeat();
     closeRealtime();
+    renderHomeCards();
 });
+
 on('clanLeaveBtn', 'click', () => {
     if (!confirm('Заблокировать просмотр? Пароль потребуется ввести снова.')) return;
     localStorage.removeItem(UNLOCK_KEY);
     localStorage.removeItem(LAST_CLAN_KEY);
     localStorage.removeItem(CLAN_PASS_KEY);
     localStorage.removeItem(CLAN_ADMIN_PASS_KEY);
+    localStorage.removeItem(MY_CLAN_KEY);
     currentClan = null;
     currentClanIsAdmin = false;
     currentClanPass = null;
@@ -1021,6 +1112,7 @@ on('clanLeaveBtn', 'click', () => {
     closeRealtime();
     showScreen('home');
     sendHeartbeat();
+    renderHomeCards();
 });
 
 /* ============================================================
@@ -2892,6 +2984,7 @@ on('deleteClanBtn', 'click', async () => {
             currentClan = null;
             localStorage.removeItem(LAST_CLAN_KEY);
             localStorage.removeItem(UNLOCK_KEY);
+            localStorage.removeItem(MY_CLAN_KEY);
         }
         renderHomeCards();
         renderAdminClanSelect();
@@ -3612,7 +3705,7 @@ function closeRealtime() {
 }
 
 /* ============================================================
-   📰 НОВОСТИ ВКОНТАКТЕ (через открытый VK API)
+   📰 НОВОСТИ ВКОНТАКТЕ
 ============================================================ */
 function openVkNewsModal() {
     const modal = $('vkNewsModal');
@@ -3738,15 +3831,11 @@ document.addEventListener('keydown', e => {
     if (verEl) verEl.textContent = 'v' + APP_VERSION;
     initTheme();
 
-    // 1. Сессия
     const { data: { session } } = await supabase.auth.getSession();
     currentSession = session;
 
-    // 2. Список админов сайта (до loadClans!)
     await loadSiteAdmins();
-    // loadSiteAdmins уже вызвал recalcIsAdmin
 
-    // 3. Данные
     await loadGames();
     await loadAlliances();
     await loadClans();

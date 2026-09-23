@@ -38,8 +38,19 @@
 
             <div id="statsRow" class="stats-row"></div>
 
-            <h2 class="section-title">Гильдии</h2>
+            <div class="clans-header">
+                <h2 class="section-title">Гильдии</h2>
+                <button id="openClanRequestBtn" class="icon-btn clans-add-btn" title="Создать гильдию">➕</button>
+            </div>
             <div id="clanGrid" class="clan-grid"></div>
+
+            <section id="publicClanRequestSection" class="apply-section">
+                <h2 class="section-title">📨 Хочешь свою гильдию?</h2>
+                <div class="apply-card">
+                    <p class="apply-hint">Заполни форму — владелец сайта рассмотрит заявку и создаст гильдию.</p>
+                    <button id="publicClanRequestBtn" class="big-btn primary">➕ Подать заявку на создание гильдии</button>
+                </div>
+            </section>
 
             <!-- ТОРГОВЛЯ -->
             <section id="homeTradeSection" class="home-trade-section">
@@ -325,23 +336,24 @@
                 </div>
 
                 <div id="section-members" class="clan-section">
-                    <h2>👑 Админы гильдии</h2>
-                    <p class="hint">Список формируется в админ-панели сайта. Если твой ник в этом списке — ты получаешь права редактирования гильдии.</p>
-                    <div id="adminsList" class="members-list"></div>
+                    <h2>👑 Роли гильдии</h2>
+                    <p class="hint">Глава — полный доступ. Адмирал — редактирование контента. Моряк — только просмотр.</p>
 
-                    <h2 style="margin-top:28px;">👥 Список участников гильдии</h2>
-                    <p class="hint">Формат: <b>номер - ник</b> или просто ник, каждый с новой строки. Если список заполнен — войти смогут только эти ники (и админы).</p>
+                    <div class="roles-toolbar clan-admin-only" hidden>
+                        <button id="inviteCreateBtn" class="big-btn primary">🔗 Создать ссылку-приглашение</button>
+                    </div>
+
+                    <div id="membersByRole" class="roles-groups"></div>
+                    <div id="membersList" class="members-list"></div>
 
                     <section class="add-form clan-admin-only" hidden style="flex-direction:column; align-items:stretch; gap:10px;">
-                        <p class="hint" style="margin:0;">📂 Загрузи текстовый файл (или CSV) со списком участников. Поддерживаются строки вида «1 - Ник» и просто «Ник».</p>
+                        <p class="hint" style="margin:0;">📂 Загрузи список участников из файла (роль по умолчанию — Моряк). Формат: <code>Ник</code> или <code>Ник | admiral</code>.</p>
                         <input type="file" id="membersFileInput" accept=".txt,.csv,text/plain" hidden>
                         <button type="button" id="membersUploadBtn" class="big-btn secondary" style="align-self:flex-start;">
                             📂 Загрузить участников из файла
                         </button>
                         <span id="membersUploadStatus" style="color:var(--green);font-size:13px;font-weight:600;"></span>
                     </section>
-
-                    <div id="membersList" class="members-list"></div>
                 </div>
 
                 <div id="section-applications" class="clan-section">
@@ -366,6 +378,7 @@
                 <button class="admin-nav-item" data-apanel="tactics"><span class="admin-nav-ico">📖</span><span>Тактика</span></button>
                 <button class="admin-nav-item" data-apanel="online"><span class="admin-nav-ico">👥</span><span>Онлайн</span></button>
                 <button class="admin-nav-item" data-apanel="admins"><span class="admin-nav-ico">👑</span><span>Админы сайта</span></button>
+                <button class="admin-nav-item owner-only" data-apanel="clanRequests" hidden><span class="admin-nav-ico">📨</span><span>Заявки гильдий</span></button>
                 <button class="admin-nav-item" data-apanel="settings"><span class="admin-nav-ico">⚙️</span><span>Настройки</span></button>
             </nav>
             <div class="admin-sidebar-footer"><button id="adminBackHome" class="admin-back-btn">← На главную</button></div>
@@ -378,6 +391,15 @@
                     <div class="admin-field"><label>Гильдия</label><select id="adminClanSelect"></select></div>
                     <div class="admin-field"><label>Игра</label><select id="adminClanGame"></select></div>
                     <div class="admin-field"><label>Союз</label><select id="adminClanAlliance"></select></div>
+                    <div class="admin-field">
+                        <label>Уровень гильдии в союзе</label>
+                        <select id="adminClanAllianceRank">
+                            <option value="member">Рядовой участник</option>
+                            <option value="leader">Главная гильдия</option>
+                            <option value="ally">Союзник (не полный член)</option>
+                        </select>
+                    </div>
+                    <div class="admin-field"><label>👑 Глава гильдии (ник)</label><input type="text" id="adminLeaderNick" maxlength="32" placeholder="Ник главы"></div>
                     <div class="admin-field"><label>Текущий пароль</label><input type="text" id="adminCurrentPass" readonly></div>
                     <div class="admin-field"><label>Новый пароль гильдии</label><input type="text" id="adminNewPass" placeholder="Оставь пустым, чтобы не менять"></div>
                     <div class="admin-field"><label>Текущий админ-пароль</label><input type="text" id="adminCurrentAdminPass" readonly></div>
@@ -410,6 +432,15 @@
                     <h3 style="font-size:15px;color:#ffd479;">➕ Новый союз</h3>
                     <div class="admin-field"><label>ID (латиница)</label><input type="text" id="allyId" placeholder="union1" maxlength="30"></div>
                     <div class="admin-field"><label>Название</label><input type="text" id="allyName" placeholder="Северный союз" maxlength="80"></div>
+                    <div class="admin-field">
+                        <label>Тип союза</label>
+                        <select id="allyType">
+                            <option value="full">🤝 Полный союз</option>
+                            <option value="military">⚔️ Военный союз</option>
+                            <option value="trade">💰 Торговый союз</option>
+                        </select>
+                    </div>
+                    <div class="admin-field"><label>Родительский союз (для дерева)</label><select id="allyParent"><option value="">— Нет —</option></select></div>
                     <div class="admin-field"><label>Описание</label><textarea id="allyDesc" rows="2"></textarea></div>
                     <p id="allyMsg" class="error"></p>
                     <div class="modal-actions"><button id="allyAddBtn">➕ Создать</button></div>
@@ -544,6 +575,12 @@
                 <div id="siteAdminsList" class="partners-admin-list"></div>
             </section>
 
+            <section class="admin-section" data-apanel="clanRequests">
+                <h2 class="admin-section-title">📨 Заявки на создание гильдий</h2>
+                <p class="hint">Видно только владельцу.</p>
+                <div id="clanRequestsList" class="applications-list"></div>
+            </section>
+
             <section class="admin-section" data-apanel="settings">
                 <h2 class="admin-section-title">⚙️ Настройки сайта</h2>
 
@@ -582,7 +619,7 @@
             <input type="text" id="clanNickname" placeholder="Ваш игровой ник" maxlength="32" autocomplete="nickname">
             <input type="password" id="clanPassword" placeholder="Пароль гильдии или админ-пароль" autocomplete="current-password">
             <p id="clanPassError" class="error"></p>
-            <p class="hint" style="margin:0;font-size:12px;">💡 Войти могут только участники из списка гильдии, а также админы. Ваш ник должен совпадать.</p>
+            <p class="hint" style="margin:0;font-size:12px;">💡 Войти могут только участники из списка гильдии, а также админы.</p>
             <div class="modal-actions">
                 <button id="doClanLogin">Войти</button>
                 <button id="cancelClanLogin" class="secondary">Отмена</button>
@@ -770,6 +807,69 @@
         </div>
     </div>
 
+    <div id="inviteModal" class="modal" hidden>
+        <div class="modal-content">
+            <h2>🔗 Ссылка-приглашение</h2>
+            <div class="admin-field">
+                <label>Роль приглашаемого</label>
+                <select id="inviteRole">
+                    <option value="sailor">🛡 Моряк</option>
+                    <option value="admiral">⚔️ Адмирал</option>
+                    <option value="leader">👑 Глава</option>
+                </select>
+            </div>
+            <div class="admin-field"><label>Макс. использований (0 — без лимита)</label><input type="number" id="inviteMaxUses" min="0" value="0"></div>
+            <div class="admin-field"><label>Срок действия (часов)</label><input type="number" id="inviteExpires" min="1" value="72"></div>
+            <p id="inviteMsg" class="error"></p>
+            <div id="inviteResult" hidden>
+                <label>Готовая ссылка</label>
+                <input type="text" id="inviteLink" readonly>
+            </div>
+            <div class="modal-actions">
+                <button id="inviteGenerate">📋 Сгенерировать</button>
+                <button id="inviteCopy" class="secondary" hidden>📎 Копировать</button>
+                <button id="inviteClose" class="secondary">Закрыть</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="acceptInviteModal" class="modal" hidden>
+        <div class="modal-content">
+            <h2>🎉 Приглашение в гильдию</h2>
+            <p id="acceptInviteClan" class="auth-clan-name"></p>
+            <p id="acceptInviteRoleLabel" style="text-align:center;color:var(--muted);font-size:12px;"></p>
+            <input type="text" id="acceptInviteNick" placeholder="Твой игровой ник" maxlength="32">
+            <p id="acceptInviteMsg" class="error"></p>
+            <div class="modal-actions">
+                <button id="acceptInviteGo">✅ Вступить</button>
+                <button id="acceptInviteCancel" class="secondary">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="clanRequestModal" class="modal" hidden>
+        <div class="modal-content admin-panel-wide">
+            <h2>➕ Заявка на создание гильдии</h2>
+            <p class="hint" style="margin:0;">Заполни форму — владелец рассмотрит заявку и создаст гильдию.</p>
+
+            <div class="admin-field"><label>Название гильдии *</label><input type="text" id="crName" maxlength="60" placeholder="Например: Чёрные Паруса"></div>
+            <div class="admin-field"><label>Описание</label><textarea id="crDesc" rows="2" maxlength="500"></textarea></div>
+            <div class="admin-field"><label>Правила</label><textarea id="crRules" rows="3" maxlength="2000"></textarea></div>
+            <div class="admin-field"><label>Ваш игровой ник *</label><input type="text" id="crRequesterNick" maxlength="32" placeholder="Капитан"></div>
+            <div class="admin-field"><label>Email для связи (не обязательно)</label><input type="email" id="crEmail" maxlength="200"></div>
+            <div class="admin-field"><label>Discord (не обязательно)</label><input type="text" id="crDiscord" maxlength="200" placeholder="https://discord.gg/..."></div>
+            <div class="admin-field"><label>Пароль для входа в гильдию *</label><input type="text" id="crPassword" maxlength="60"></div>
+            <div class="admin-field"><label>Админ-пароль гильдии</label><input type="text" id="crAdminPassword" maxlength="60"></div>
+            <div class="admin-field"><label>Игра</label><select id="crGameId"></select></div>
+            <div class="admin-field"><label>Ссылка на логотип (не обязательно)</label><input type="text" id="crImage" maxlength="300" placeholder="images/clan.png"></div>
+            <p id="clanRequestMsg" class="error"></p>
+            <div class="modal-actions">
+                <button id="clanRequestSubmit">📨 Отправить заявку</button>
+                <button id="clanRequestCancel" class="secondary">Отмена</button>
+            </div>
+        </div>
+    </div>
+
     <div id="notifPanel" class="notif-panel" hidden>
         <div class="notif-header">
             <h3>🔔 Уведомления</h3>
@@ -821,7 +921,7 @@
 
     <footer class="site-footer">
         <span class="footer-left">Mist Time — Сергеев С.В</span>
-        <span class="footer-right">v1.8.0</span>
+        <span class="footer-right">v1.9.0</span>
     </footer>
 
     <script type="module" src="app.js"></script>

@@ -18,9 +18,10 @@ const SHARED = '__shared__';
 const HEARTBEAT_MS = 30000;
 const ONLINE_WINDOW_MS = 90000;
 
-const VK_GROUP_ID = -69908462;
+// VK-сообщество, откуда тянем новости
+const VK_DOMAIN = 'worldofseabattle';
 const VK_API_VERSION = '5.131';
-const VK_POSTS_COUNT = 5;
+const VK_POSTS_COUNT = 10;
 
 let gamesCache    = {};
 let clansCache    = {};
@@ -741,7 +742,7 @@ on('backToHomeBtn', 'click', () => { pendingClanId = null; showScreen('home'); }
 on('clanViewBtn', 'click', () => { if (pendingClanId) openClan(pendingClanId); });
 
 /* ============================================================
-   ВХОД ПО ПАРОЛЮ
+   ВХОД ПО ПАРОЛЮ (с проверкой списка участников)
 ============================================================ */
 on('clanLoginBtn', 'click', () => {
     if (!pendingClanId) return;
@@ -757,6 +758,14 @@ on('clanLoginBtn', 'click', () => {
 });
 on('cancelClanLogin', 'click', () => { $('clanPassModal').hidden = true; });
 
+function normalizeNickList(raw) {
+    if (!raw) return [];
+    return String(raw).split('\n')
+        .map(s => s.trim().replace(/^\d+\s*[-.)\]]?\s*/, '').trim())
+        .filter(Boolean)
+        .map(s => s.toLowerCase());
+}
+
 on('doClanLogin', 'click', async () => {
     const nick = val('clanNickname').trim();
     const entered = val('clanPassword');
@@ -766,6 +775,7 @@ on('doClanLogin', 'click', async () => {
     if (nick.length < 2) { $('clanPassError').textContent = 'Ник слишком короткий'; return; }
     if (!entered) { $('clanPassError').textContent = 'Введите пароль'; return; }
 
+    // 1. Проверка пароля
     const { data: ok, error: rpcErr } = await supabase.rpc('verify_clan_password', {
         clan_id: pendingClanId,
         entered_password: entered
@@ -784,19 +794,23 @@ on('doClanLogin', 'click', async () => {
         isClanAdminLogin = true;
     }
 
-    // Проверка по списку админов гильдии (ник из админ-панели)
-    const adminNicksRaw = clan.admin_nicks || '';
-    if (adminNicksRaw) {
-        const nicks = adminNicksRaw.split('\n')
-            .map(s => s.trim().replace(/^\d+\s*[-.)\]]?\s*/, '').trim())
-            .filter(Boolean)
-            .map(s => s.toLowerCase());
-        if (nicks.includes(nick.toLowerCase())) {
-            isClanAdminLogin = true;
-            console.log('👑 Ник в списке админов — права админа гильдии выданы');
+    // 2. Проверка ника по списку админов
+    const adminNicks = normalizeNickList(clan.admin_nicks);
+    if (adminNicks.includes(nick.toLowerCase())) {
+        isClanAdminLogin = true;
+    }
+
+    // 3. Проверка ника по списку участников (если список заполнен)
+    const memberNicks = normalizeNickList(clan.members_list);
+    if (memberNicks.length > 0) {
+        const isKnownAdmin = isClanAdminLogin || adminNicks.includes(nick.toLowerCase());
+        if (!isKnownAdmin && !memberNicks.includes(nick.toLowerCase())) {
+            $('clanPassError').textContent = 'Вашего ника нет в списке участников гильдии';
+            return;
         }
     }
 
+    // Сохранение
     localStorage.setItem(VIEWER_NICK_KEY, nick);
     localStorage.setItem(UNLOCK_KEY, '1');
     localStorage.setItem(CLAN_PASS_KEY, entered);
@@ -1478,7 +1492,6 @@ function parseMembersList(text) {
     return String(text).split('\n').map(line => {
         line = line.trim();
         if (!line) return null;
-        // Поддерживает: "1 - Ник", "1. Ник", "1) Ник", "1] Ник", просто "Ник"
         const m = line.match(/^(\d+)\s*[-.)\]]?\s+(.+)$/);
         if (m) return { num: m[1], name: m[2].trim() };
         return { num: '', name: line };
@@ -1520,6 +1533,67 @@ function renderAdmins() {
         </div>
     `).join('');
 }
+
+/* ---------- Загрузка участников из файла ---------- */
+on('membersUploadBtn', 'click', () => {
+    if (!canEditClan(currentClan)) return;
+    const fileInput = $('membersFileInput');
+    if (fileInput) {
+        fileInput.value = '';
+        fileInput.click();
+    }
+});
+
+on('membersFileInput', 'change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (!canEditClan(currentClan)) {
+        alert('Нет прав на редактирование');
+        return;
+    }
+
+    const statusEl = $('membersUploadStatus');
+    if (statusEl) statusEl.textContent = '⏳ Чтение файла…';
+
+    try {
+        const text = await file.text();
+        const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+
+        if (!lines.length) {
+            if (statusEl) statusEl.textContent = '⚠️ Файл пуст';
+            return;
+        }
+
+        // Собираем ники: "1 - Ник" → "Ник", иначе строка как есть
+        const nicks = lines.map(line => {
+            const m = line.match(/^\d+\s*[-.)\]]?\s*(.+)$/);
+            return m ? m[1].trim() : line;
+        }).filter(Boolean);
+
+        const membersText = nicks.join('\n');
+
+        if (isAdmin) {
+            const { error } = await supabase.from('clans')
+                .update({ members_list: membersText })
+                .eq('id', currentClan);
+            if (error) throw new Error(error.message);
+        } else {
+            const { data: resp, error } = await supabase.rpc('clan_admin_action', {
+                action: 'update', target_table: 'clans', target_clan: currentClan,
+                entered_password: currentClanPass, record_id: currentClan,
+                data: { members_list: membersText }
+            });
+            if (error || resp?.error) throw new Error(resp?.error || error.message);
+        }
+
+        if (clansCache[currentClan]) clansCache[currentClan].members_list = membersText;
+        await logAdminAction('Загрузил список участников из файла', currentClan);
+        if (statusEl) statusEl.textContent = `✔ Загружено ${nicks.length} участников`;
+        renderMembers();
+    } catch (err) {
+        if (statusEl) statusEl.textContent = '❌ Ошибка: ' + err.message;
+    }
+});
 
 /* ============================================================
    ТОРГОВЛЯ
@@ -2739,7 +2813,7 @@ function renderSiteFields() {
     const s = settingsCache || {};
     $('adminWebhook').value = s.discord_webhook || '';
     const rssEl = $('adminNewsRss');
-    if (rssEl) rssEl.value = s.news_rss_url || '';
+    if (rssEl) rssEl.value = s.news_rss_url || 'https://vk.ru/@worldofseabattle';
     $('adminSiteMsg').textContent = '';
 }
 on('saveSiteSettings', 'click', async () => {
@@ -3436,7 +3510,7 @@ function closeRealtime() {
 }
 
 /* ============================================================
-   📰 НОВОСТИ (RSS от админа, fallback — ВК)
+   📰 НОВОСТИ ВКОНТАКТЕ (через открытый VK API)
 ============================================================ */
 function openVkNewsModal() {
     const modal = $('vkNewsModal');
@@ -3457,157 +3531,55 @@ async function loadNews() {
     if (!container) return;
     container.innerHTML = '<div class="vk-news-loading">Загрузка новостей…</div>';
 
-    const rssUrl = (settingsCache?.news_rss_url || '').trim();
-    if (!rssUrl) {
-        loadVkNews();
-        return;
+    // Обновляем ссылку в футере, если админ её менял
+    const srcLink = $('vkNewsSourceLink');
+    if (srcLink && settingsCache?.news_rss_url) {
+        srcLink.href = settingsCache.news_rss_url;
     }
 
+    const apiUrl = `https://api.vk.com/method/wall.get?domain=${encodeURIComponent(VK_DOMAIN)}&count=${VK_POSTS_COUNT}&v=${VK_API_VERSION}`;
+
+    // CORS-прокси: VK API не отдаёт CORS-заголовки для браузера напрямую
     const proxies = [
         u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
         u => 'https://corsproxy.io/?' + encodeURIComponent(u),
         u => 'https://thingproxy.freeboard.io/fetch/' + u
     ];
 
-    let xml = null;
+    let json = null;
+    let lastError = null;
+
     for (const make of proxies) {
         try {
-            const res = await fetch(make(rssUrl), { cache: 'no-store' });
+            const res = await fetch(make(apiUrl), { cache: 'no-store' });
             if (!res.ok) continue;
-            xml = await res.text();
-            if (xml && xml.length > 20) break;
-        } catch (e) { }
+            const data = await res.json();
+            if (data && data.response) { json = data; break; }
+            if (data && data.error) lastError = data.error.error_msg || 'VK API error';
+        } catch (e) {
+            lastError = e.message;
+        }
     }
 
-    if (!xml) {
+    if (!json) {
         container.innerHTML = `
             <div class="vk-news-error">
-                Не удалось загрузить RSS.<br>
-                Проверь ссылку в админке или попробуй позже.
+                Не удалось загрузить новости ВКонтакте.<br>
+                ${lastError ? escapeHtml(lastError) : 'Проверьте соединение.'}
             </div>`;
         return;
     }
 
-    try {
-        const items = parseRss(xml);
-        if (!items.length) {
-            container.innerHTML = '<div class="vk-news-empty">В ленте нет записей</div>';
-            return;
-        }
-        container.innerHTML = '';
-        items.slice(0, 15).forEach(item => container.appendChild(createRssNewsCard(item)));
-    } catch (err) {
-        console.error('RSS parse error:', err);
-        container.innerHTML = '<div class="vk-news-error">Ошибка разбора RSS: ' + escapeHtml(err.message) + '</div>';
+    const posts = json.response?.items || [];
+    if (!posts.length) {
+        container.innerHTML = '<div class="vk-news-empty">Новостей пока нет</div>';
+        return;
     }
+
+    container.innerHTML = '';
+    posts.forEach(post => container.appendChild(createVkNewsCard(post)));
 }
 
-function parseRss(xmlText) {
-    const doc = new DOMParser().parseFromString(xmlText, 'text/xml');
-    const parserError = doc.querySelector('parsererror');
-    if (parserError) throw new Error('некорректный XML');
-
-    let nodes = doc.querySelectorAll('item');
-    if (!nodes.length) nodes = doc.querySelectorAll('entry');
-
-    const items = [];
-    nodes.forEach(node => {
-        const getText = (sel) => {
-            const el = node.querySelector(sel);
-            if (!el) return '';
-            return (el.textContent || '').trim();
-        };
-        const title = getText('title');
-        let link = '';
-        const linkEl = node.querySelector('link');
-        if (linkEl && linkEl.getAttribute('href')) link = linkEl.getAttribute('href');
-        else link = getText('link');
-        link = link.replace(/<!\[CDATA\[|\]\]>/g, '').trim();
-
-        const desc = (getText('description') || getText('summary') || getText('content'))
-            .replace(/<[^>]*>/g, '')
-            .replace(/&nbsp;/g, ' ')
-            .replace(/&amp;/g, '&')
-            .replace(/&lt;/g, '<')
-            .replace(/&gt;/g, '>')
-            .replace(/&quot;/g, '"')
-            .trim();
-
-        const dateStr = getText('pubDate') || getText('updated') || getText('dc:date');
-        let dateObj = null;
-        if (dateStr) {
-            const parsed = new Date(dateStr);
-            if (!isNaN(parsed.getTime())) dateObj = parsed;
-        }
-
-        let image = '';
-        const mediaEl = node.querySelector('content[url], thumbnail[url], enclosure[url]');
-        if (mediaEl && mediaEl.getAttribute('url')) image = mediaEl.getAttribute('url');
-
-        if (title) items.push({ title, link, description: desc, date: dateObj, image });
-    });
-    return items;
-}
-
-function createRssNewsCard(item) {
-    const card = document.createElement('article');
-    card.className = 'vk-news-item';
-
-    const dateStr = item.date
-        ? item.date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
-        : '';
-
-    const maxLen = 1000;
-    const text = item.description || '';
-    const isLong = text.length > maxLen;
-    const displayText = isLong ? text.substring(0, maxLen) + '…' : text;
-
-    card.innerHTML = `
-        <div class="vk-news-header">
-            ${dateStr ? `<span class="vk-news-date">📅 ${dateStr}</span>` : ''}
-        </div>
-        <div class="vk-news-text" style="font-size:16px;font-weight:700;color:#fff;">
-            ${escapeHtml(item.title)}
-        </div>
-        ${displayText ? `<div class="vk-news-text">${escapeHtml(displayText)}</div>` : ''}
-        ${item.image ? `<div class="vk-news-attachments"><img class="vk-news-photo" src="${escapeHtml(item.image)}" alt="" loading="lazy" onerror="this.style.display='none'"></div>` : ''}
-        ${item.link ? `<div class="vk-news-footer">
-            <a class="vk-news-link" href="${escapeHtml(item.link)}" target="_blank" rel="noopener">Читать полностью →</a>
-        </div>` : ''}
-    `;
-    return card;
-}
-
-/* ---------- Fallback: ВК ---------- */
-function loadVkNews() {
-    const container = $('vkNewsList');
-    if (!container) return;
-    container.innerHTML = '<div class="vk-news-loading">Загрузка новостей ВК…</div>';
-    const callbackName = 'vkNewsCallback_' + Date.now();
-    window[callbackName] = function(data) {
-        delete window[callbackName];
-        const script = $(callbackName);
-        if (script) script.remove();
-        if (data.error) {
-            console.warn('VK API error:', data.error);
-            container.innerHTML = '<div class="vk-news-error">Не удалось загрузить новости ВК.</div>';
-            return;
-        }
-        const posts = data.response?.items || [];
-        if (!posts.length) { container.innerHTML = '<div class="vk-news-empty">Новостей пока нет</div>'; return; }
-        container.innerHTML = '';
-        posts.forEach(post => container.appendChild(createVkNewsCard(post)));
-    };
-    const script = document.createElement('script');
-    script.id = callbackName;
-    script.src = `https://api.vk.com/method/wall.get?owner_id=${VK_GROUP_ID}&count=${VK_POSTS_COUNT}&v=${VK_API_VERSION}&callback=${callbackName}`;
-    script.onerror = function() {
-        delete window[callbackName];
-        script.remove();
-        container.innerHTML = '<div class="vk-news-error">Ошибка сети.</div>';
-    };
-    document.body.appendChild(script);
-}
 function createVkNewsCard(post) {
     const card = document.createElement('article');
     card.className = 'vk-news-item';
@@ -3617,7 +3589,8 @@ function createVkNewsCard(post) {
     const maxLen = 1000;
     const isLong = text.length > maxLen;
     const displayText = isLong ? text.substring(0, maxLen) + '…' : text;
-    const postLink = `https://vk.com/wall${VK_GROUP_ID}_${post.id}`;
+    const postLink = `https://vk.com/wall${post.owner_id}_${post.id}`;
+
     let photosHtml = '';
     const photos = [];
     if (post.attachments) {
@@ -3631,8 +3604,9 @@ function createVkNewsCard(post) {
         });
     }
     if (photos.length) {
-        photosHtml = `<div class="vk-news-attachments">${photos.slice(0, 2).map(url => `<img class="vk-news-photo" src="${escapeHtml(url)}" alt="" loading="lazy">`).join('')}</div>`;
+        photosHtml = `<div class="vk-news-attachments">${photos.slice(0, 2).map(url => `<img class="vk-news-photo" src="${escapeHtml(url)}" alt="" loading="lazy" onerror="this.style.display='none'">`).join('')}</div>`;
     }
+
     const likes = post.likes?.count || 0;
     card.innerHTML = `
         <div class="vk-news-header"><span class="vk-news-date">📅 ${dateStr}</span></div>
@@ -3645,6 +3619,7 @@ function createVkNewsCard(post) {
     `;
     return card;
 }
+
 on('openVkNewsBtn', 'click', openVkNewsModal);
 on('closeVkNews', 'click', closeVkNewsModal);
 on('vkNewsModal', 'click', e => { if (e.target.id === 'vkNewsModal') closeVkNewsModal(); });

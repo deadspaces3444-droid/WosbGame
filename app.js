@@ -1,9 +1,15 @@
 import { supabase } from './supabase.js';
 
-console.log('🚀 app.js v1.8.5');
+console.log('🚀 app.js v1.8.6');
 
 const ADMIN_EMAILS_FALLBACK = ['dead_antihrist@mail.ru'];
-const APP_VERSION = '1.8.5';
+const APP_VERSION = '1.8.6';
+
+// 👇 Email-ы, которым разрешено менять привязки админов к гильдиям
+const BINDING_OWNERS = [
+    'kolibri@wosb.ru',
+    'dead_antihrist@mail.ru'
+];
 
 const TABS = ['enemies', 'friends', 'neutral', 'personal'];
 const UNLOCK_KEY = 'guild_unlocked';
@@ -87,6 +93,10 @@ function canEditClan(clanId) {
     if (clanId === currentClan && currentClanIsAdmin) return true;
     return false;
 }
+function canEditBindings() {
+    const myEmail = (currentSession?.user?.email || '').toLowerCase();
+    return BINDING_OWNERS.map(e => e.toLowerCase()).includes(myEmail);
+}
 
 /* ============ ДОСТУП ПО СОЮЗУ ============ */
 function getMyClanId() { return localStorage.getItem(MY_CLAN_KEY) || null; }
@@ -161,6 +171,9 @@ async function renderSiteAdminsAdmin() {
     if (!container) return;
     container.innerHTML = '<div class="empty">Загрузка…</div>';
 
+    const canBind = canEditBindings();
+
+    // Показываем форму создания только owner-у
     document.querySelectorAll('.owner-only').forEach(el => { el.hidden = !isOwner; });
 
     if (!siteAdminsCache.length) {
@@ -222,6 +235,7 @@ async function renderSiteAdminsAdmin() {
         const myEmail = (currentSession?.user?.email || '').toLowerCase();
         const isMe = email === myEmail;
 
+        // Роль: селект для owner-а (кроме себя)
         const roleHtml = isOwner && !isMe
             ? `<select class="role-select" data-email="${escapeHtml(email)}">
                    <option value="owner" ${role === 'owner' ? 'selected' : ''}>👑 Владелец</option>
@@ -230,7 +244,8 @@ async function renderSiteAdminsAdmin() {
                </select>`
             : `<span class="role-badge ${role}">${roleLabels[role] || role}</span>`;
 
-        const clanHtml = isOwner && !isMe
+        // Привязка: селект ТОЛЬКО для email-ов из BINDING_OWNERS
+        const clanHtml = canBind && !isMe
             ? `<select class="clan-select" data-email="${escapeHtml(email)}">
                    ${clanOptionsHtml(clanId)}
                </select>`
@@ -329,7 +344,7 @@ async function setAdminRole(email, newRole) {
 }
 
 async function setAdminClanId(email, clanId) {
-    if (!isOwner) { alert('Только владелец'); renderSiteAdminsAdmin(); return; }
+    if (!canEditBindings()) { alert('Менять привязку может только владелец'); renderSiteAdminsAdmin(); return; }
     const { data, error } = await supabase.rpc('set_admin_clan_id', {
         target_email: email,
         new_clan_id: clanId || ''

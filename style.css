@@ -422,6 +422,27 @@ a.icon-btn:hover {
 }
 .clan-card:hover .clan-more { transform: translateX(6px); }
 
+/* ============ ЗАКРЫТЫЕ КАРТОЧКИ ГИЛЬДИЙ ============ */
+.clan-card.locked {
+    opacity: .55;
+    filter: grayscale(.35);
+    position: relative;
+}
+.clan-card.locked:hover {
+    opacity: .85;
+    filter: grayscale(.1);
+}
+.clan-lock {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    font-size: 20px;
+    opacity: .9;
+    pointer-events: none;
+    text-shadow: 0 2px 6px rgba(0,0,0,.7);
+    z-index: 2;
+}
+
 /* ============ ФОРМА ЗАЯВКИ ============ */
 .apply-section {
     display: flex; flex-direction: column; align-items: center;
@@ -1321,6 +1342,7 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
 .partners-admin-item .actions button.up:hover { color: var(--green); border-color: var(--green); }
 .partners-admin-item .actions button.down:hover { color: var(--blue); border-color: var(--blue); }
 .partners-admin-item .actions button.edit:hover, .games-admin-item .actions button.edit:hover { color: var(--gold); border-color: var(--gold); }
+.partners-admin-item .actions button.nick-btn:hover { color: var(--purple); border-color: var(--purple); }
 .faq-admin-list { display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow-y: auto; }
 .faq-admin-item { align-items: flex-start; }
 .faq-admin-item .txt { flex: 1; min-width: 0; font-size: 13px; line-height: 1.4; }
@@ -1500,6 +1522,64 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
     border: 1px solid var(--border);
 }
 
+/* ============ РОЛИ АДМИНОВ ============ */
+.role-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+    margin-left: 6px;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+.role-badge.owner {
+    color: #ffd479;
+    background: rgba(255,212,121,.15);
+    border: 1px solid rgba(255,212,121,.5);
+    box-shadow: 0 0 12px rgba(255,212,121,.25);
+}
+.role-badge.admin {
+    color: #7db9ff;
+    background: rgba(125,185,255,.15);
+    border: 1px solid rgba(125,185,255,.5);
+}
+.role-badge.mod {
+    color: #6ee7a7;
+    background: rgba(110,231,167,.15);
+    border: 1px solid rgba(110,231,167,.5);
+}
+.partners-admin-item select.role-select {
+    padding: 6px 10px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
+}
+.partners-admin-item select.role-select:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+.admin-nick {
+    display: inline-block;
+    font-weight: 700;
+    color: var(--text);
+    font-size: 14px;
+    margin-right: 6px;
+}
+.admin-email {
+    display: inline-block;
+    color: var(--muted);
+    font-size: 11px;
+    font-family: ui-monospace, monospace;
+    word-break: break-all;
+}
+
 /* ============ УВЕДОМЛЕНИЯ ============ */
 .notif-badge { position: absolute; top: -4px; right: -4px; min-width: 20px; height: 20px; padding: 0 5px; background: linear-gradient(180deg, #f87171 0%, #dc2626 100%); color: #fff; border-radius: 10px; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; border: 2px solid var(--panel); pointer-events: none; box-shadow: 0 0 12px rgba(220, 38, 38, .8); animation: pulseNotif 2s ease-in-out infinite; }
 @keyframes pulseNotif { 0%, 100% { box-shadow: 0 0 12px rgba(220, 38, 38, .8); } 50% { box-shadow: 0 0 20px rgba(220, 38, 38, 1); } }
@@ -1586,9 +1666,7 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
 .profile-stat-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; font-weight: 600; }
 .profile-stat-value { font-size: 14px; font-weight: 700; color: var(--text); font-family: ui-monospace, monospace; }
 
-/* ============================================================
-   НОВОСТИ — МОДАЛЬНОЕ ОКНО
-============================================================ */
+/* ============ НОВОСТИ ============ */
 .vk-news-modal {
     position: fixed;
     inset: 0;
@@ -1802,24 +1880,4 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
         animation-iteration-count: 1 !important;
         transition-duration: .01ms !important;
     }
-}
-/* ============ ЗАКРЫТЫЕ КАРТОЧКИ ГИЛЬДИЙ ============ */
-.clan-card.locked {
-    opacity: .55;
-    filter: grayscale(.35);
-    position: relative;
-}
-.clan-card.locked:hover {
-    opacity: .85;
-    filter: grayscale(.1);
-}
-.clan-lock {
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    font-size: 20px;
-    opacity: .9;
-    pointer-events: none;
-    text-shadow: 0 2px 6px rgba(0,0,0,.7);
-    z-index: 2;
 }

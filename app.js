@@ -375,6 +375,7 @@ document.querySelectorAll('.side-item').forEach(btn => {
         else if (section === 'pvp') renderBuilds('pvp');
         else if (section === 'pb') renderBuilds('pb');
         else if (section === 'contacts') renderContacts();
+        else if (section === 'members') { renderMembers(); renderAdmins(); }
         else if (section === 'applications') renderApplications();
     });
 });
@@ -463,7 +464,9 @@ document.addEventListener('keydown', e => {
 function openAdminAuth() {
     $('adminAuthModal').hidden = false;
     $('adminAuthError').textContent = '';
-    $('adminEmail').value = ''; $('adminPassword').value = '';
+    $('adminEmail').value = '';
+    $('adminPassword').value = '';
+    $('adminNickname').value = localStorage.getItem(VIEWER_NICK_KEY) || '';
     $('adminEmail').focus();
 }
 function closeAdminAuth() { $('adminAuthModal').hidden = true; }
@@ -472,13 +475,20 @@ on('cancelAdminLogin', 'click', closeAdminAuth);
 on('doAdminLogin', 'click', async () => {
     const email = val('adminEmail').trim();
     const password = val('adminPassword');
+    const nickname = val('adminNickname').trim();
     const err = $('adminAuthError'); err.textContent = '';
     if (!email || !password) { err.textContent = 'Заполни email и пароль'; return; }
+    if (!nickname) { err.textContent = 'Укажи ваш игровой ник'; return; }
+    if (nickname.length < 2) { err.textContent = 'Ник слишком короткий'; return; }
+
     $('doAdminLogin').disabled = true;
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     $('doAdminLogin').disabled = false;
     if (error) { err.textContent = error.message; return; }
-    await logAdminAction('Вход в админ-панель');
+
+    localStorage.setItem(VIEWER_NICK_KEY, nickname);
+    sendHeartbeat();
+    await logAdminAction('Вход в админ-панель', nickname);
     closeAdminAuth();
 });
 on('adminPassword', 'keydown', e => {
@@ -774,6 +784,19 @@ on('doClanLogin', 'click', async () => {
         isClanAdminLogin = true;
     }
 
+    // Проверка по списку админов гильдии (ник из админ-панели)
+    const adminNicksRaw = clan.admin_nicks || '';
+    if (adminNicksRaw) {
+        const nicks = adminNicksRaw.split('\n')
+            .map(s => s.trim().replace(/^\d+\s*[-.)\]]?\s*/, '').trim())
+            .filter(Boolean)
+            .map(s => s.toLowerCase());
+        if (nicks.includes(nick.toLowerCase())) {
+            isClanAdminLogin = true;
+            console.log('👑 Ник в списке админов — права админа гильдии выданы');
+        }
+    }
+
     localStorage.setItem(VIEWER_NICK_KEY, nick);
     localStorage.setItem(UNLOCK_KEY, '1');
     localStorage.setItem(CLAN_PASS_KEY, entered);
@@ -855,6 +878,8 @@ function openClan(id, isClanAdminLogin = false) {
     renderEvents();
     renderTreasury();
     renderApplications();
+    renderMembers();
+    renderAdmins();
     sendHeartbeat();
     initRealtime();
 }
@@ -1444,6 +1469,57 @@ on('trAddBtn', 'click', async () => {
     flashStatusEl(statusEl, '✔ Добавлено', '#6ee7a7');
     renderTreasury();
 });
+
+/* ============================================================
+   УЧАСТНИКИ И АДМИНЫ ГИЛЬДИИ
+============================================================ */
+function parseMembersList(text) {
+    if (!text) return [];
+    return String(text).split('\n').map(line => {
+        line = line.trim();
+        if (!line) return null;
+        // Поддерживает: "1 - Ник", "1. Ник", "1) Ник", "1] Ник", просто "Ник"
+        const m = line.match(/^(\d+)\s*[-.)\]]?\s+(.+)$/);
+        if (m) return { num: m[1], name: m[2].trim() };
+        return { num: '', name: line };
+    }).filter(Boolean);
+}
+
+function renderMembers() {
+    if (!currentClan) return;
+    const container = $('membersList');
+    if (!container) return;
+    const clan = clansCache[currentClan];
+    const parsed = parseMembersList(clan?.members_list || '');
+    if (!parsed.length) {
+        container.innerHTML = '<div class="empty">Список участников пока пуст</div>';
+        return;
+    }
+    container.innerHTML = parsed.map(m => `
+        <div class="member-row">
+            <span class="member-num">${m.num || '•'}</span>
+            <span class="member-name">${escapeHtml(m.name)}</span>
+        </div>
+    `).join('');
+}
+
+function renderAdmins() {
+    if (!currentClan) return;
+    const container = $('adminsList');
+    if (!container) return;
+    const clan = clansCache[currentClan];
+    const parsed = parseMembersList(clan?.admin_nicks || '');
+    if (!parsed.length) {
+        container.innerHTML = '<div class="empty">Список админов пока пуст</div>';
+        return;
+    }
+    container.innerHTML = parsed.map(m => `
+        <div class="member-row admin">
+            <span class="member-num">👑</span>
+            <span class="member-name">${escapeHtml(m.name)}</span>
+        </div>
+    `).join('');
+}
 
 /* ============================================================
    ТОРГОВЛЯ
@@ -2564,6 +2640,8 @@ function updateAdminFields() {
     $('adminDiscord').value = clan?.discord || '';
     $('adminNews').value = clan?.news || '';
     $('adminRules').value = clan?.rules || '';
+    $('adminNicks').value = clan?.admin_nicks || '';
+    $('adminMembers').value = clan?.members_list || '';
     $('adminPanelMsg').textContent = '';
 }
 on('saveAdminSettings', 'click', async () => {
@@ -2575,6 +2653,8 @@ on('saveAdminSettings', 'click', async () => {
     const newRules = val('adminRules');
     const newGame = val('adminClanGame');
     const newAlliance = val('adminClanAlliance');
+    const newAdminNicks = val('adminNicks');
+    const newMembers = val('adminMembers');
     const msg = $('adminPanelMsg');
     if (!cid) return;
     const clan = clansCache[cid]; if (!clan) return;
@@ -2584,6 +2664,8 @@ on('saveAdminSettings', 'click', async () => {
         rules: newRules,
         game_id: newGame || null,
         alliance_id: newAlliance || null,
+        admin_nicks: newAdminNicks || null,
+        members_list: newMembers || null,
         updated_at: new Date().toISOString()
     };
     if (newPass) payload.password = newPass;
@@ -2603,6 +2685,7 @@ on('saveAdminSettings', 'click', async () => {
         if (newNews?.trim()) { nw.hidden = false; $('clanInfoNews').textContent = newNews; }
         else nw.hidden = true;
     }
+    if (currentClan === cid) { renderMembers(); renderAdmins(); }
     renderHomeCards();
     renderContacts();
     renderAlliancesAdmin();
@@ -3069,37 +3152,81 @@ function setChatMode(mode) {
     initChatRealtime();
 }
 
-/* ---------- Голосовой чат (Jitsi) ---------- */
+/* ---------- Голосовой чат (Jitsi External API) ---------- */
+let jitsiApi = null;
+let jitsiLoading = false;
+
+function buildVoiceRoomName() {
+    const cid = String(currentClan || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+    return 'wosb_guild_' + (cid || 'common');
+}
+function ensureJitsiApi(cb) {
+    if (window.JitsiMeetExternalAPI) { cb(); return; }
+    if (jitsiLoading) return;
+    jitsiLoading = true;
+    const s = document.createElement('script');
+    s.src = 'https://meet.jit.si/external_api.js';
+    s.async = true;
+    s.onload = () => { jitsiLoading = false; cb(); };
+    s.onerror = () => {
+        jitsiLoading = false;
+        console.error('Не удалось загрузить Jitsi External API');
+        alert('Не удалось загрузить голосовой чат. Проверьте соединение.');
+    };
+    document.head.appendChild(s);
+}
 function startVoiceChat() {
     if (!currentClan) return;
-    const frame = $('jitsiFrame');
-    if (!frame) return;
-    if (voiceActive && frame.src && frame.src !== 'about:blank') return;
+    const container = $('chatVoiceContainer');
+    if (!container) return;
+    if (jitsiApi) return;
 
-    const clan = clansCache[currentClan];
-    const roomName = 'wosb-guild-' + currentClan + '-' + (clan?.name || '').replace(/[^a-zA-Z0-9]/g, '').slice(0, 20);
-    const params = [
-        'config.startWithVideoMuted=true',
-        'config.startWithAudioMuted=false',
-        'config.prejoinPageEnabled=false',
-        'config.disableDeepLinking=true',
-        'config.p2p.enabled=false',
-        'interfaceConfig.SHOW_JITSI_WATERMARK=false',
-        'interfaceConfig.SHOW_WATERMARK_FOR_GUESTS=false',
-        'interfaceConfig.DEFAULT_BACKGROUND=%230a0d12',
-        'interfaceConfig.TOOLBAR_BUTTONS=' + encodeURIComponent(
-            '["microphone","camera","desktop","chat","raisehand","tileview","settings","hangup"]'
-        )
-    ].join('&');
+    ensureJitsiApi(() => {
+        const roomName = buildVoiceRoomName();
+        const nick = getViewerNick() || 'Гость';
+        container.innerHTML = '';
 
-    frame.src = `https://meet.jit.si/${encodeURIComponent(roomName)}#${params}`;
-    voiceActive = true;
-    console.log('🎙 Голосовой чат:', roomName);
+        jitsiApi = new window.JitsiMeetExternalAPI('meet.jit.si', {
+            roomName,
+            parentNode: container,
+            width: '100%',
+            height: '100%',
+            userInfo: { displayName: nick },
+            configOverwrite: {
+                startWithVideoMuted: true,
+                startWithAudioMuted: false,
+                prejoinPageEnabled: false,
+                disableDeepLinking: true,
+                p2p: { enabled: false },
+                toolbarButtons: [
+                    'microphone', 'camera', 'desktop', 'chat',
+                    'raisehand', 'tileview', 'settings', 'hangup'
+                ]
+            },
+            interfaceConfigOverwrite: {
+                SHOW_JITSI_WATERMARK: false,
+                SHOW_WATERMARK_FOR_GUESTS: false,
+                DEFAULT_BACKGROUND: '#0a0d12'
+            }
+        });
+
+        jitsiApi.addEventListener('ready', () => {
+            console.log('🎙 Голосовой чат готов, комната:', roomName);
+        });
+        jitsiApi.addEventListener('videoConferenceLeft', () => {
+            stopVoiceChat();
+        });
+
+        voiceActive = true;
+    });
 }
 function stopVoiceChat() {
-    const frame = $('jitsiFrame');
-    if (!frame) return;
-    if (frame.src && frame.src !== 'about:blank') frame.src = 'about:blank';
+    if (jitsiApi) {
+        try { jitsiApi.dispose(); } catch (e) { }
+        jitsiApi = null;
+    }
+    const container = $('chatVoiceContainer');
+    if (container) container.innerHTML = '';
     voiceActive = false;
 }
 

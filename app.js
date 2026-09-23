@@ -1,9 +1,9 @@
 import { supabase } from './supabase.js';
 
-console.log('🚀 app.js v1.8.4');
+console.log('🚀 app.js v1.8.5');
 
-const ADMIN_EMAILS_FALLBACK = ['kolibri@wosb.ru'];
-const APP_VERSION = '1.8.4';
+const ADMIN_EMAILS_FALLBACK = ['dead_antihrist@mail.ru'];
+const APP_VERSION = '1.8.5';
 
 const TABS = ['enemies', 'friends', 'neutral', 'personal'];
 const UNLOCK_KEY = 'guild_unlocked';
@@ -140,12 +140,13 @@ async function loadSiteAdmins() {
     }
     if (!siteAdminsCache.length) {
         siteAdminsCache = ADMIN_EMAILS_FALLBACK.map(email => ({
-            email: email.toLowerCase(), role: 'owner', nickname: 'MistTime', clan_id: null
+            email: email.toLowerCase(), role: 'owner', nickname: 'Владелец', clan_id: null
         }));
     }
     recalcIsAdmin();
     renderSiteAdminsAdmin();
 }
+
 function recalcIsAdmin() {
     const email = (currentSession?.user?.email || '').toLowerCase();
     const me = siteAdminsCache.find(r => (r.email || '').toLowerCase() === email);
@@ -154,21 +155,62 @@ function recalcIsAdmin() {
     siteAdminRole = me?.role || null;
     myAdminClanId = me?.clan_id || null;
 }
-function renderSiteAdminsAdmin() {
+
+async function renderSiteAdminsAdmin() {
     const container = $('siteAdminsList');
     if (!container) return;
-    container.innerHTML = '';
+    container.innerHTML = '<div class="empty">Загрузка…</div>';
+
     document.querySelectorAll('.owner-only').forEach(el => { el.hidden = !isOwner; });
+
     if (!siteAdminsCache.length) {
         container.innerHTML = '<div class="empty">Пока нет админов</div>';
         return;
     }
+
+    // Подгружаем гильдии, если кэш пуст
+    let clansList = Object.values(clansCache);
+    if (!clansList.length) {
+        try {
+            const { data, error } = await supabase
+                .from('clans')
+                .select('id, name')
+                .order('name');
+            if (error) throw error;
+            clansList = data || [];
+            clansList.forEach(c => { clansCache[c.id] = c; });
+        } catch (e) {
+            console.warn('Не удалось загрузить гильдии для селекта:', e.message);
+            try {
+                const { data } = await supabase
+                    .from('clans_public')
+                    .select('id, name')
+                    .order('name');
+                clansList = data || [];
+            } catch (e2) { }
+        }
+    }
+
     const roleLabels = { owner: '👑 Владелец', admin: '⚙️ Админ', mod: '🛡 Модератор' };
-    const roleIcons = { owner: '👑', admin: '⚙️', mod: '🛡' };
+    const roleIcons  = { owner: '👑', admin: '⚙️', mod: '🛡' };
+
+    const clanOptionsHtml = (selectedId) => {
+        if (!clansList.length) {
+            return '<option value="">— Нет доступных гильдий —</option>';
+        }
+        const sorted = clansList.slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+        return ['<option value="">— Без привязки —</option>']
+            .concat(sorted.map(c =>
+                `<option value="${escapeHtml(c.id)}" ${c.id === selectedId ? 'selected' : ''}>🏰 ${escapeHtml(c.name)}</option>`
+            )).join('');
+    };
+
     const list = siteAdminsCache.slice().sort((a, b) => {
         const order = { owner: 0, admin: 1, mod: 2 };
         return (order[a.role] ?? 9) - (order[b.role] ?? 9);
     });
+
+    container.innerHTML = '';
     list.forEach(item => {
         const email = (item.email || '').toLowerCase();
         const role = item.role || 'admin';
@@ -176,6 +218,7 @@ function renderSiteAdminsAdmin() {
         const clanId = item.clan_id || '';
         const el = document.createElement('div');
         el.className = 'partners-admin-item';
+
         const myEmail = (currentSession?.user?.email || '').toLowerCase();
         const isMe = email === myEmail;
 
@@ -187,14 +230,13 @@ function renderSiteAdminsAdmin() {
                </select>`
             : `<span class="role-badge ${role}">${roleLabels[role] || role}</span>`;
 
-        // Список гильдий для привязки
-        const clanOpts = ['<option value="">— Без привязки —</option>']
-            .concat(Object.values(clansCache).map(c =>
-                `<option value="${c.id}" ${c.id === clanId ? 'selected' : ''}>🏰 ${escapeHtml(c.name)}</option>`
-            )).join('');
-        const clanHtml = isOwner && !isMe && role !== 'owner'
-            ? `<select class="clan-select" data-email="${escapeHtml(email)}">${clanOpts}</select>`
-            : (clanId && clansCache[clanId] ? `<span class="role-badge admin">🏰 ${escapeHtml(clansCache[clanId].name)}</span>` : '');
+        const clanHtml = isOwner && !isMe
+            ? `<select class="clan-select" data-email="${escapeHtml(email)}">
+                   ${clanOptionsHtml(clanId)}
+               </select>`
+            : (clanId && clansCache[clanId]
+                ? `<span class="role-badge admin">🏰 ${escapeHtml(clansCache[clanId].name)}</span>`
+                : `<span class="role-badge mod">🌐 Все гильдии</span>`);
 
         el.innerHTML = `
             <div class="logo-mini"><span>${roleIcons[role] || '⚙️'}</span></div>
@@ -203,9 +245,12 @@ function renderSiteAdminsAdmin() {
                     <span class="admin-nick">${escapeHtml(nick)}</span>
                     ${isMe ? '<span style="color:var(--gold);font-size:11px;">— вы</span>' : ''}
                 </div>
-                <div>
+                <div class="admin-row">
                     <span class="admin-email">${escapeHtml(email)}</span>
                     ${roleHtml}
+                </div>
+                <div class="admin-row">
+                    <span class="admin-email-label">Гильдия:</span>
                     ${clanHtml}
                 </div>
             </div>
@@ -215,19 +260,26 @@ function renderSiteAdminsAdmin() {
                 ${(isOwner && !isMe) ? `<button class="delete" title="Удалить">🗑</button>` : ''}
             </div>
         `;
+
         const roleSelect = el.querySelector('.role-select');
         if (roleSelect) roleSelect.addEventListener('change', () => setAdminRole(email, roleSelect.value));
+
         const clanSelect = el.querySelector('.clan-select');
         if (clanSelect) clanSelect.addEventListener('change', () => setAdminClanId(email, clanSelect.value));
+
         const passBtn = el.querySelector('.edit');
         if (passBtn) passBtn.addEventListener('click', () => changeAdminPassword(email));
+
         const nickBtn = el.querySelector('.nick-btn');
         if (nickBtn) nickBtn.addEventListener('click', () => changeAdminNickname(email, nick));
+
         const delBtn = el.querySelector('.delete');
         if (delBtn) delBtn.addEventListener('click', () => deleteSiteAdmin(email));
+
         container.appendChild(el);
     });
 }
+
 async function addSiteAdmin(email, password, role, nickname) {
     const msg = $('siteAdminsMsg');
     msg.textContent = ''; msg.style.color = '';
@@ -251,8 +303,10 @@ async function addSiteAdmin(email, password, role, nickname) {
     msg.textContent = '✔ Админ создан'; msg.style.color = '#6ee7a7';
     ['newSiteAdminNickname','newSiteAdminEmail','newSiteAdminPassword'].forEach(id => { const el = $(id); if (el) el.value = ''; });
     $('newSiteAdminRole').value = 'admin';
-    await loadSiteAdmins(); renderSiteAdminsAdmin();
+    await loadSiteAdmins();
+    renderSiteAdminsAdmin();
 }
+
 async function deleteSiteAdmin(email) {
     if (!isOwner) { alert('Только владелец может удалять админов'); return; }
     if (!confirm(`Удалить админа «${email}»?\n\nАккаунт будет удалён полностью.`)) return;
@@ -260,24 +314,33 @@ async function deleteSiteAdmin(email) {
     if (error) return alert('Ошибка: ' + error.message);
     if (data?.error) return alert(data.error);
     await logAdminAction('Удалил админа сайта', email);
-    await loadSiteAdmins(); renderSiteAdminsAdmin();
+    await loadSiteAdmins();
+    renderSiteAdminsAdmin();
 }
+
 async function setAdminRole(email, newRole) {
     if (!isOwner) { alert('Только владелец'); renderSiteAdminsAdmin(); return; }
     const { data, error } = await supabase.rpc('set_admin_role', { target_email: email, new_role: newRole });
     if (error) { alert('Ошибка: ' + error.message); renderSiteAdminsAdmin(); return; }
     if (data?.error) { alert(data.error); renderSiteAdminsAdmin(); return; }
     await logAdminAction('Изменил роль админа', email, `новая: ${newRole}`);
-    await loadSiteAdmins(); renderSiteAdminsAdmin();
+    await loadSiteAdmins();
+    renderSiteAdminsAdmin();
 }
+
 async function setAdminClanId(email, clanId) {
     if (!isOwner) { alert('Только владелец'); renderSiteAdminsAdmin(); return; }
-    const { data, error } = await supabase.rpc('set_admin_clan_id', { target_email: email, new_clan_id: clanId });
+    const { data, error } = await supabase.rpc('set_admin_clan_id', {
+        target_email: email,
+        new_clan_id: clanId || ''
+    });
     if (error) { alert('Ошибка: ' + error.message); renderSiteAdminsAdmin(); return; }
     if (data?.error) { alert(data.error); renderSiteAdminsAdmin(); return; }
-    await logAdminAction('Изменил гильдию админа', email, `clan_id: ${clanId}`);
-    await loadSiteAdmins(); renderSiteAdminsAdmin();
+    await logAdminAction('Привязал админа к гильдии', email, `clan_id: ${clanId || '—'}`);
+    await loadSiteAdmins();
+    renderSiteAdminsAdmin();
 }
+
 async function changeAdminPassword(email) {
     const target = prompt(`Новый пароль для «${email}» (от 6 символов):`, '');
     if (!target) return;
@@ -288,6 +351,7 @@ async function changeAdminPassword(email) {
     await logAdminAction('Сменил пароль админа', email);
     alert('✔ Пароль изменён');
 }
+
 async function changeAdminNickname(email, current) {
     const target = prompt(`Новый никнейм для «${email}»:`, current && current !== '—' ? current : '');
     if (!target) return;
@@ -297,8 +361,10 @@ async function changeAdminNickname(email, current) {
     if (error) return alert('Ошибка: ' + error.message);
     if (data?.error) return alert(data.error);
     await logAdminAction('Изменил никнейм админа', email, `новый: ${clean}`);
-    await loadSiteAdmins(); renderSiteAdminsAdmin();
+    await loadSiteAdmins();
+    renderSiteAdminsAdmin();
 }
+
 on('addSiteAdminBtn', 'click', () => {
     addSiteAdmin(val('newSiteAdminEmail'), val('newSiteAdminPassword'), val('newSiteAdminRole'), val('newSiteAdminNickname'));
 });
@@ -1433,7 +1499,6 @@ on('clanRequestSubmit', 'click', async () => {
     if (!name) { msg.textContent = 'Укажи название гильдии'; msg.style.color = '#ff7a7a'; return; }
     if (!nick) { msg.textContent = 'Укажи свой игровой ник'; msg.style.color = '#ff7a7a'; return; }
     if (!password || password.length < 2) { msg.textContent = 'Пароль от 2 символов'; msg.style.color = '#ff7a7a'; return; }
-
     const payload = {
         nickname: nick,
         email: val('crEmail').trim() || null,
@@ -1461,8 +1526,7 @@ async function renderClanRequestsAdmin() {
     const container = $('clanRequestsList'); if (!container) return;
     if (!isOwner) { container.innerHTML = '<div class="empty">Доступно только владельцу</div>'; return; }
     container.innerHTML = '<div class="empty">Загрузка…</div>';
-    const { data, error } = await supabase.from('clan_requests').select('*')
-        .order('created_at', { ascending: false });
+    const { data, error } = await supabase.from('clan_requests').select('*').order('created_at', { ascending: false });
     if (error) { container.innerHTML = `<div class="empty">Ошибка: ${error.message}</div>`; return; }
     if (!data?.length) { container.innerHTML = '<div class="empty">Заявок пока нет</div>'; return; }
     container.innerHTML = '';

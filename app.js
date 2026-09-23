@@ -1,11 +1,10 @@
 import { supabase } from './supabase.js';
 
-console.log('🚀 app.js v1.9.0');
+console.log('🚀 app.js v1.9.1');
 
 const ADMIN_EMAILS_FALLBACK = ['dead_antihrist@mail.ru'];
-const APP_VERSION = '1.9.0';
+const APP_VERSION = '1.9.1';
 
-// Email-ы, которым разрешено менять привязки админов к гильдиям
 const BINDING_OWNERS = [
     'kolibri@wosb.ru',
     'dead_antihrist@mail.ru'
@@ -192,7 +191,6 @@ async function renderSiteAdminsAdmin() {
         return;
     }
 
-    // Подгружаем гильдии, если кэш пуст
     let clansList = Object.values(clansCache);
     if (!clansList.length) {
         try {
@@ -683,9 +681,25 @@ on('doAdminLogin', 'click', async () => {
     closeAdminAuth();
 });
 on('adminPassword', 'keydown', e => { if (e.key === 'Enter') $('doAdminLogin').click(); });
-async function adminLogout() { await supabase.auth.signOut(); }
+
+/* ============ ВЫХОД АДМИНА (полная очистка) ============ */
+async function adminLogout() {
+    await supabase.auth.signOut();
+    // Сбрасываем всё, что связано со входом в гильдию
+    ['guild_unlocked','guild_last_clan','clan_pass','clan_admin_pass','guild_my_clan']
+        .forEach(k => localStorage.removeItem(k));
+    currentClan = null;
+    currentClanIsAdmin = false;
+    currentClanPass = null;
+    pendingClanId = null;
+    closeChat();
+    closeRealtime();
+    showScreen('home');
+    renderHomeCards();
+}
 on('adminLogoutBtn', 'click', adminLogout);
 on('adminLogoutBtn2', 'click', adminLogout);
+
 supabase.auth.onAuthStateChange(async (_e, session) => {
     currentSession = session;
     await loadSiteAdmins();
@@ -843,7 +857,12 @@ function openClanInfo(id, opts = {}) {
     const clan = clansCache[id]; if (!clan) return;
     pendingClanId = id;
     const locked = opts.locked === true;
-    const loggedInSomewhere = isUnlocked();
+
+    // ВАЖНО: считаем пользователя "вошедшим" только если есть MY_CLAN_KEY
+    const myClanId = getMyClanId();
+    const haveAnyClan = !!myClanId;
+    const alreadyInThisOrAllied = haveAnyClan && (myClanId === id || canAccessClan(id));
+
     const setSrc = (elId, src) => { const el = $(elId); if (el) el.src = src; };
     const setText = (elId, txt) => { const el = $(elId); if (el) el.textContent = txt; };
     setSrc('clanInfoLogo', clan.image || '');
@@ -861,9 +880,15 @@ function openClanInfo(id, opts = {}) {
         const typeLabel = ALLIANCE_TYPE_LABELS[ally.type] || '🤝 Союз';
         setText('clanInfoAlliance', `${typeLabel}: ${ally.name}${ally.description ? ' — ' + ally.description : ''}\nСостоят: ${members.length ? members.map(c => c.name).join(', ') : 'только эта гильдия'}`);
     } else { if (allyWrap) allyWrap.hidden = true; }
-    const loginBtn = $('clanLoginBtn'); const viewBtn = $('clanViewBtn');
-    if (loginBtn) loginBtn.hidden = loggedInSomewhere || locked;
-    if (viewBtn) viewBtn.hidden = !loggedInSomewhere || locked;
+
+    const loginBtn = $('clanLoginBtn');
+    const viewBtn = $('clanViewBtn');
+
+    // "Войти" — если у пользователя нет своей гильдии и не заблокировано
+    if (loginBtn) loginBtn.hidden = haveAnyClan || locked;
+    // "Открыть списки" — если это своя или союзная гильдия
+    if (viewBtn) viewBtn.hidden = !alreadyInThisOrAllied || locked;
+
     let lockMsg = document.getElementById('clanLockMsg');
     if (locked) {
         if (!lockMsg) {
@@ -967,9 +992,9 @@ function updateAllianceBar() {
 function openClan(id, isClanAdminLogin = false) {
     const clan = clansCache[id]; if (!clan) return;
     if (!isAdmin) {
-        if (!isUnlocked()) { openClanInfo(id, { locked: false }); return; }
+        // Если нет разблокировки ИЛИ нет «своей» гильдии — показываем описание с кнопкой входа
+        if (!isUnlocked() || !getMyClanId()) { openClanInfo(id, { locked: false }); return; }
         const myClan = getMyClanId();
-        if (!myClan) { openClanInfo(id, { locked: false }); return; }
         if (id !== myClan) {
             const my = clansCache[myClan];
             const target = clansCache[id];
@@ -3342,7 +3367,6 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') { const m = 
     applyAdminUI();
 
     // Всегда открываем главную. Пользователь сам кликнет на карточку гильдии.
-    // Разблокировка сохранена — на карточке будет кнопка «👁 Открыть списки».
     showScreen('home');
 
     startHeartbeat();

@@ -1,9 +1,9 @@
 import { supabase } from './supabase.js';
 
-console.log('🚀 app.js v1.8.2');
+console.log('🚀 app.js v1.8.3');
 
 const ADMIN_EMAILS_FALLBACK = ['kolibri@wosb.ru'];
-const APP_VERSION = '1.8.2';
+const APP_VERSION = '1.8.3';
 
 const TABS = ['enemies', 'friends', 'neutral', 'personal'];
 const UNLOCK_KEY = 'guild_unlocked';
@@ -23,46 +23,47 @@ const VK_DOMAIN = 'worldofseabattle';
 const VK_API_VERSION = '5.131';
 const VK_POSTS_COUNT = 10;
 
-let gamesCache    = {};
-let clansCache    = {};
-let alliancesCache = {};
-let settingsCache = null;
-let faqCache      = [];
-let partnersCache = [];
-let tacticsCache  = [];
-let tradesCache   = [];
+let gamesCache      = {};
+let clansCache      = {};
+let alliancesCache  = {};
+let settingsCache   = null;
+let faqCache        = [];
+let partnersCache   = [];
+let tacticsCache    = [];
+let tradesCache     = [];
 let siteAdminsCache = [];
-let currentSession = null;
+let currentSession  = null;
+let isOwner         = false;
+let siteAdminRole   = null;
 let partnerLogoData = null;
-let currentGame   = null;
-let currentClan   = null;
+let currentGame     = null;
+let currentClan     = null;
 let currentClanIsAdmin = false;
 let currentClanPass = null;
-let allianceClans = [];
-let pendingClanId = null;
-let currentTab    = 'enemies';
-let isAdmin       = false;
-let movingItem    = null;
-let editingItem   = null;
-let editingBuild  = null;
-let editingGame   = null;
+let pendingClanId   = null;
+let currentTab      = 'enemies';
+let isAdmin         = false;
+let movingItem      = null;
+let editingItem     = null;
+let editingBuild    = null;
+let editingGame     = null;
 let duplicatingBuild = null;
-let editingTactic = null;
+let editingTactic   = null;
 let editingAlliance = null;
-let acceptingTrade = null;
-let tradeFormType = 'buy';
+let acceptingTrade  = null;
+let tradeFormType   = 'buy';
 let tradeFilterType = 'all';
-let tradeFilterCat = 'all';
+let tradeFilterCat  = 'all';
 let tradeFilterClan = 'all';
-let heartbeatTimer = null;
-let chatChannel   = null;
-let onlineChannel = null;
-let notifChannel  = null;
-let chatMessages  = [];
-let notifications = [];
-let chatMode      = 'guild';
+let heartbeatTimer  = null;
+let chatChannel     = null;
+let onlineChannel   = null;
+let notifChannel    = null;
+let chatMessages    = [];
+let notifications   = [];
+let chatMode        = 'guild';
 let chatPrivateWith = null;
-let voiceActive   = false;
+let voiceActive     = false;
 
 const $ = id => document.getElementById(id);
 function on(id, event, handler) {
@@ -175,15 +176,17 @@ async function logView(nickname, clanId, page) {
 ============================================================ */
 async function loadSiteAdmins() {
     try {
-        const { data, error } = await supabase.from('site_admins').select('email');
+        const { data, error } = await supabase.from('site_admins').select('email, role, nickname');
         if (error) throw error;
-        siteAdminsCache = (data || []).map(r => (r.email || '').toLowerCase()).filter(Boolean);
+        siteAdminsCache = data || [];
     } catch (e) {
         console.warn('site_admins load error:', e.message);
         siteAdminsCache = [];
     }
     if (!siteAdminsCache.length) {
-        siteAdminsCache = ADMIN_EMAILS_FALLBACK.map(e => e.toLowerCase());
+        siteAdminsCache = ADMIN_EMAILS_FALLBACK.map(email => ({
+            email: email.toLowerCase(), role: 'owner', nickname: 'MistTime'
+        }));
     }
     recalcIsAdmin();
     renderSiteAdminsAdmin();
@@ -191,76 +194,238 @@ async function loadSiteAdmins() {
 
 function recalcIsAdmin() {
     const email = (currentSession?.user?.email || '').toLowerCase();
-    isAdmin = !!email && siteAdminsCache.includes(email);
+    const me = siteAdminsCache.find(r => (r.email || '').toLowerCase() === email);
+    isAdmin = !!me;
+    isOwner = me?.role === 'owner';
+    siteAdminRole = me?.role || null;
 }
 
 function renderSiteAdminsAdmin() {
     const container = $('siteAdminsList');
     if (!container) return;
     container.innerHTML = '';
+
+    document.querySelectorAll('.owner-only').forEach(el => {
+        el.hidden = !isOwner;
+    });
+
     if (!siteAdminsCache.length) {
         container.innerHTML = '<div class="empty">Пока нет админов</div>';
         return;
     }
-    const list = siteAdminsCache.slice().sort();
-    list.forEach(email => {
+
+    const roleLabels = {
+        owner: '👑 Владелец',
+        admin: '⚙️ Админ',
+        mod:   '🛡 Модератор'
+    };
+    const roleIcons = { owner: '👑', admin: '⚙️', mod: '🛡' };
+
+    const list = siteAdminsCache.slice().sort((a, b) => {
+        const order = { owner: 0, admin: 1, mod: 2 };
+        return (order[a.role] ?? 9) - (order[b.role] ?? 9);
+    });
+
+    list.forEach(item => {
+        const email = (item.email || '').toLowerCase();
+        const role = item.role || 'admin';
+        const nick = item.nickname || '—';
         const el = document.createElement('div');
         el.className = 'partners-admin-item';
-        const isMe = (currentSession?.user?.email || '').toLowerCase() === email;
-        const isFallback = ADMIN_EMAILS_FALLBACK.map(e => e.toLowerCase()).includes(email);
-        const badge = isMe ? ' <span style="color:var(--gold);font-size:11px;">— вы</span>' : '';
-        const protect = isFallback
-            ? '<span style="color:var(--muted);font-size:11px;">основной</span>'
-            : '';
+
+        const myEmail = (currentSession?.user?.email || '').toLowerCase();
+        const isMe = email === myEmail;
+
+        const roleHtml = isOwner && !isMe
+            ? `<select class="role-select" data-email="${escapeHtml(email)}">
+                   <option value="owner" ${role === 'owner' ? 'selected' : ''}>👑 Владелец</option>
+                   <option value="admin" ${role === 'admin' ? 'selected' : ''}>⚙️ Админ</option>
+                   <option value="mod"   ${role === 'mod'   ? 'selected' : ''}>🛡 Модератор</option>
+               </select>`
+            : `<span class="role-badge ${role}">${roleLabels[role] || role}</span>`;
+
         el.innerHTML = `
-            <div class="logo-mini"><span>👑</span></div>
+            <div class="logo-mini"><span>${roleIcons[role] || '⚙️'}</span></div>
             <div class="txt">
-                <b>${escapeHtml(email)}${badge}</b>
-                ${protect}
+                <div>
+                    <span class="admin-nick">${escapeHtml(nick)}</span>
+                    ${isMe ? '<span style="color:var(--gold);font-size:11px;">— вы</span>' : ''}
+                </div>
+                <div>
+                    <span class="admin-email">${escapeHtml(email)}</span>
+                    ${roleHtml}
+                </div>
             </div>
             <div class="actions">
-                ${isFallback ? '' : `<button class="delete" title="Удалить">🗑</button>`}
+                ${(isOwner || isMe) ? `<button class="edit" title="Сменить пароль">🔑</button>` : ''}
+                ${(isOwner && !isMe) ? `<button class="nick-btn" title="Сменить никнейм">✏️</button>` : ''}
+                ${(isOwner && !isMe) ? `<button class="delete" title="Удалить">🗑</button>` : ''}
             </div>
         `;
+
+        const roleSelect = el.querySelector('.role-select');
+        if (roleSelect) roleSelect.addEventListener('change', () => setAdminRole(email, roleSelect.value));
+
+        const passBtn = el.querySelector('.edit');
+        if (passBtn) passBtn.addEventListener('click', () => changeAdminPassword(email));
+
+        const nickBtn = el.querySelector('.nick-btn');
+        if (nickBtn) nickBtn.addEventListener('click', () => changeAdminNickname(email, nick));
+
         const delBtn = el.querySelector('.delete');
         if (delBtn) delBtn.addEventListener('click', () => deleteSiteAdmin(email));
+
         container.appendChild(el);
     });
 }
 
-async function addSiteAdmin(email) {
+async function addSiteAdmin(email, password, role, nickname) {
     const msg = $('siteAdminsMsg');
     msg.textContent = '';
     msg.style.color = '';
-    const clean = String(email || '').trim().toLowerCase();
-    if (!clean) { msg.textContent = 'Укажи email'; msg.style.color = '#ff7a7a'; return; }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) {
+
+    const cleanEmail = String(email || '').trim().toLowerCase();
+    const cleanNick  = String(nickname || '').trim();
+
+    if (!cleanNick) { msg.textContent = 'Укажи никнейм'; msg.style.color = '#ff7a7a'; return; }
+    if (!cleanEmail) { msg.textContent = 'Укажи email'; msg.style.color = '#ff7a7a'; return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
         msg.textContent = 'Некорректный email'; msg.style.color = '#ff7a7a'; return;
     }
-    if (siteAdminsCache.includes(clean)) {
-        msg.textContent = 'Этот email уже в списке'; msg.style.color = '#ff7a7a'; return;
+    if (!password || password.length < 6) {
+        msg.textContent = 'Пароль должен быть от 6 символов'; msg.style.color = '#ff7a7a'; return;
     }
-    const { error } = await supabase.from('site_admins').insert({ email: clean });
+    if (!['owner', 'admin', 'mod'].includes(role)) {
+        msg.textContent = 'Некорректная роль'; msg.style.color = '#ff7a7a'; return;
+    }
+
+    const btn = $('addSiteAdminBtn');
+    btn.disabled = true;
+    btn.textContent = '⏳ Создание…';
+
+    const { data, error } = await supabase.rpc('create_site_admin', {
+        new_email: cleanEmail,
+        new_password: password,
+        new_role: role,
+        new_nickname: cleanNick
+    });
+
+    btn.disabled = false;
+    btn.textContent = '➕ Создать админа';
+
     if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
-    await logAdminAction('Добавил админа сайта', clean);
-    siteAdminsCache.push(clean);
-    msg.textContent = '✔ Добавлено'; msg.style.color = '#6ee7a7';
+    if (data?.error) { msg.textContent = data.error; msg.style.color = '#ff7a7a'; return; }
+
+    await logAdminAction('Добавил админа сайта', cleanEmail, `ник: ${cleanNick}, роль: ${role}`);
+    msg.textContent = '✔ Админ создан. Можно входить с этим email/паролем.';
+    msg.style.color = '#6ee7a7';
+
+    $('newSiteAdminNickname').value = '';
     $('newSiteAdminEmail').value = '';
+    $('newSiteAdminPassword').value = '';
+    $('newSiteAdminRole').value = 'admin';
+
+    await loadSiteAdmins();
     renderSiteAdminsAdmin();
 }
 
 async function deleteSiteAdmin(email) {
-    if (!isAdmin) return;
-    if (!confirm(`Удалить админа «${email}»?`)) return;
-    const { error } = await supabase.from('site_admins').delete().eq('email', email);
+    if (!isOwner) { alert('Только владелец может удалять админов'); return; }
+    if (!confirm(`Удалить админа «${email}»?\n\nУчётная запись будет удалена полностью.`)) return;
+
+    const { data, error } = await supabase.rpc('delete_site_admin', { target_email: email });
     if (error) return alert('Ошибка: ' + error.message);
+    if (data?.error) return alert(data.error);
+
     await logAdminAction('Удалил админа сайта', email);
-    siteAdminsCache = siteAdminsCache.filter(e => e !== email);
+    await loadSiteAdmins();
     renderSiteAdminsAdmin();
 }
 
-on('addSiteAdminBtn', 'click', () => addSiteAdmin(val('newSiteAdminEmail')));
-on('newSiteAdminEmail', 'keydown', e => { if (e.key === 'Enter') $('addSiteAdminBtn').click(); });
+async function setAdminRole(email, newRole) {
+    if (!isOwner) { alert('Только владелец может менять роли'); renderSiteAdminsAdmin(); return; }
+    const { data, error } = await supabase.rpc('set_admin_role', {
+        target_email: email,
+        new_role: newRole
+    });
+    if (error) { alert('Ошибка: ' + error.message); renderSiteAdminsAdmin(); return; }
+    if (data?.error) { alert(data.error); renderSiteAdminsAdmin(); return; }
+    await logAdminAction('Изменил роль админа', email, `новая: ${newRole}`);
+    await loadSiteAdmins();
+    renderSiteAdminsAdmin();
+}
+
+async function changeAdminPassword(email) {
+    const target = prompt(`Новый пароль для «${email}» (от 6 символов):`, '');
+    if (!target) return;
+    if (target.length < 6) { alert('Пароль от 6 символов'); return; }
+
+    const { data, error } = await supabase.rpc('change_admin_password', {
+        target_email: email,
+        new_password: target
+    });
+    if (error) return alert('Ошибка: ' + error.message);
+    if (data?.error) return alert(data.error);
+    await logAdminAction('Сменил пароль админа', email);
+    alert('✔ Пароль изменён');
+}
+
+async function changeAdminNickname(email, current) {
+    const target = prompt(
+        `Новый никнейм для «${email}»:`,
+        current && current !== '—' ? current : ''
+    );
+    if (!target) return;
+    const clean = target.trim();
+    if (!clean) { alert('Никнейм не может быть пустым'); return; }
+
+    const { data, error } = await supabase.rpc('set_admin_nickname', {
+        target_email: email,
+        new_nickname: clean
+    });
+    if (error) return alert('Ошибка: ' + error.message);
+    if (data?.error) return alert(data.error);
+
+    await logAdminAction('Изменил никнейм админа', email, `новый: ${clean}`);
+    await loadSiteAdmins();
+    renderSiteAdminsAdmin();
+}
+
+on('addSiteAdminBtn', 'click', () => {
+    addSiteAdmin(
+        val('newSiteAdminEmail'),
+        val('newSiteAdminPassword'),
+        val('newSiteAdminRole'),
+        val('newSiteAdminNickname')
+    );
+});
+
+on('newSiteAdminPassword', 'keydown', e => {
+    if (e.key === 'Enter') $('addSiteAdminBtn').click();
+});
+
+on('changeMyPassBtn', 'click', async () => {
+    const pass = val('myNewPassword');
+    const msg = $('myPassMsg');
+    msg.textContent = '';
+    msg.style.color = '';
+    if (!pass || pass.length < 6) {
+        msg.textContent = 'Пароль от 6 символов'; msg.style.color = '#ff7a7a'; return;
+    }
+    const myEmail = (currentSession?.user?.email || '').toLowerCase();
+    if (!myEmail) { msg.textContent = 'Нет активной сессии'; msg.style.color = '#ff7a7a'; return; }
+
+    const { data, error } = await supabase.rpc('change_admin_password', {
+        target_email: myEmail,
+        new_password: pass
+    });
+    if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
+    if (data?.error) { msg.textContent = data.error; msg.style.color = '#ff7a7a'; return; }
+
+    $('myNewPassword').value = '';
+    msg.textContent = '✔ Пароль изменён'; msg.style.color = '#6ee7a7';
+    await logAdminAction('Сменил свой пароль');
+});
 
 /* ============================================================
    ОНЛАЙН
@@ -638,7 +803,7 @@ function applyAdminUI() {
     setHidden('adminLogoutBtn2', !isAdmin);
     setHidden('adminPanelBtn2', !isAdmin);
     setHidden('adminPanelBtn3', !isAdmin);
-    const label = isAdmin ? '👑 Админ' : '';
+    const label = isAdmin ? (isOwner ? '👑 Владелец' : siteAdminRole === 'mod' ? '🛡 Модератор' : '⚙️ Админ') : '';
     ['adminInfo','adminInfo2','adminInfo3'].forEach(id => {
         const el = $(id); if (el) el.textContent = label;
     });
@@ -656,6 +821,9 @@ function applyAdminUI() {
     });
     document.querySelectorAll('.add-form.clan-admin-only').forEach(el => {
         el.style.display = canEditClan(currentClan) ? 'flex' : 'none';
+    });
+    document.querySelectorAll('.owner-only').forEach(el => {
+        el.hidden = !isOwner;
     });
     const clearBtn = $('chatClear');
     if (clearBtn) clearBtn.hidden = !isAdmin;
@@ -1729,7 +1897,6 @@ function renderAdmins() {
     `).join('');
 }
 
-/* ---------- Загрузка участников из файла ---------- */
 on('membersUploadBtn', 'click', () => {
     if (!canEditClan(currentClan)) return;
     const fileInput = $('membersFileInput');
@@ -3421,7 +3588,6 @@ function setChatMode(mode) {
     initChatRealtime();
 }
 
-/* ---------- Голосовой чат (Jitsi External API) ---------- */
 let jitsiApi = null;
 let jitsiLoading = false;
 

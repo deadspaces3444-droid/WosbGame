@@ -224,6 +224,7 @@
                 <button class="side-item" id="openTacticsBtn"><span class="side-ico">📖</span><span>Тактика боя</span></button>
                 <button class="side-item" id="openChatBtn"><span class="side-ico">💭</span><span>Чат гильдии</span></button>
                 <button class="side-item clan-admin-only" data-section="applications" hidden><span class="side-ico">📝</span><span>Заявки</span></button>
+                <button class="side-item clan-admin-only" data-section="online" hidden><span class="side-ico">🟢</span><span>Онлайн</span></button>
             </aside>
 
             <div class="clan-main">
@@ -328,9 +329,16 @@
                 </div>
 
                 <div id="section-members" class="clan-section">
-                    <h2>👑 Админы гильдии</h2>
-                    <p class="hint">Список формируется в админ-панели сайта.</p>
+                    <h2>👑 Адмиралы</h2>
+                    <p class="hint">Список адмиралов гильдии. Управление доступно главе клана.</p>
                     <div id="adminsList" class="members-list"></div>
+
+                    <section class="add-form clan-admin-only" hidden style="flex-direction:column; align-items:stretch; gap:10px;">
+                        <p class="hint" style="margin:0;">👑 Список адмиралов — по одному нику в строке.</p>
+                        <textarea id="clanAdminNicksInput" rows="4" placeholder="Тайпан56&#10;SamuRay" style="width:100%;"></textarea>
+                        <button type="button" id="clanAdminNicksSave" class="big-btn primary" style="align-self:flex-start;">💾 Сохранить адмиралов</button>
+                        <span id="clanAdminNicksStatus" style="font-size:13px;font-weight:600;"></span>
+                    </section>
 
                     <h2 style="margin-top:28px;">👥 Список участников гильдии</h2>
                     <p class="hint">Формат: <b>номер - ник</b> или просто ник, каждый с новой строки.</p>
@@ -349,6 +357,17 @@
                     <h2>📝 Заявки в гильдию</h2>
                     <p class="hint">Все заявки, отправленные через форму на главной</p>
                     <div id="applicationsList" class="applications-list"></div>
+                </div>
+
+                <div id="section-online" class="clan-section">
+                    <h2>🟢 Кто сейчас на сайте</h2>
+                    <p class="hint">Список обновляется автоматически каждые 15 секунд.</p>
+                    <div class="modal-actions" style="margin-bottom:12px;">
+                        <button id="clanOnlineRefresh" class="secondary">🔄 Обновить</button>
+                    </div>
+                    <div id="clanOnlineList" class="online-list">
+                        <div class="empty">Нажмите «Обновить»</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -477,6 +496,7 @@
                         <input type="text" id="adminLeaderNick" placeholder="Например: Тайпан56" maxlength="40">
                     </div>
                     <div class="admin-field"><label>Discord-ссылка</label><input type="text" id="adminDiscord" placeholder="https://discord.gg/xxxxx" maxlength="200"></div>
+                    <div class="admin-field"><label>Телефон (необязательно)</label><input type="text" id="adminPhone" placeholder="+7 999 123-45-67" maxlength="30"></div>
                     <div class="admin-field"><label>Новости</label><textarea id="adminNews" rows="5"></textarea></div>
                     <div class="admin-field"><label>Логотип (PNG)</label><input type="text" id="adminClanImage" placeholder="images/clan.png" maxlength="200"></div>
                     <div class="admin-field">
@@ -492,7 +512,7 @@
                     </div>
                     <div class="admin-field"><label>Правила</label><textarea id="adminRules" rows="8"></textarea></div>
                     <div class="admin-field">
-                        <label>👑 Список админов гильдии (по одному нику в строке)</label>
+                        <label>👑 Список адмиралов (по одному нику в строке)</label>
                         <textarea id="adminNicks" rows="6" placeholder="Тайпан56&#10;SamuRay"></textarea>
                     </div>
                     <div class="admin-field">
@@ -595,7 +615,7 @@
             <section class="admin-section" data-apanel="admins">
                 <h2 class="admin-section-title">👑 Админы сайта</h2>
                 <p class="hint">
-                    <b>👑 Владелец</b> — полный доступ. <b>⚙️ Админ</b> / <b>🛡 Модератор</b> с привязкой редактируют только свою гильдию.
+                    <b>👑 Владелец</b> — полный доступ. <b>⚙️ Админ</b> / <b>🎖 Глава Клана</b> с привязкой редактируют только свою гильдию.
                 </p>
 
                 <div class="admin-card owner-only" hidden>
@@ -607,7 +627,7 @@
                         <label>Роль *</label>
                         <select id="newSiteAdminRole">
                             <option value="admin">⚙️ Админ</option>
-                            <option value="mod">🛡 Модератор</option>
+                            <option value="mod">🎖 Глава Клана</option>
                             <option value="owner">👑 Владелец</option>
                         </select>
                     </div>
@@ -738,6 +758,7 @@
             <div class="admin-field"><label>Пароль гильдии</label><input type="text" id="newClanPass"></div>
             <div class="admin-field"><label>Админ-пароль</label><input type="text" id="newClanAdminPass"></div>
             <div class="admin-field"><label>Discord</label><input type="text" id="newClanDiscord" placeholder="https://discord.gg/xxxxx"></div>
+            <div class="admin-field"><label>Телефон (необязательно)</label><input type="text" id="newClanPhone" placeholder="+7 999 123-45-67" maxlength="30"></div>
             <div class="admin-field"><label>Логотип (PNG, необязательно)</label><input type="text" id="newClanImage" placeholder="images/clan3.png"></div>
             <div class="admin-field">
                 <label>Флаг (если нет PNG)</label>

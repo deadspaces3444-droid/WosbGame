@@ -1,9 +1,9 @@
 import { supabase } from './supabase.js';
 
-console.log('🚀 app.js v1.9.1');
+console.log('🚀 app.js v1.9.2');
 
 const ADMIN_EMAILS_FALLBACK = ['dead_antihrist@mail.ru'];
-const APP_VERSION = '1.9.1';
+const APP_VERSION = '1.9.2';
 
 const BINDING_OWNERS = [
     'kolibri@wosb.ru',
@@ -56,6 +56,7 @@ let heartbeatTimer = null;
 let chatChannel = null, onlineChannel = null, notifChannel = null;
 let chatMessages = [], notifications = [];
 let chatMode = 'guild', chatPrivateWith = null, voiceActive = false;
+let voiceRoomOverride = null;
 
 const $ = id => document.getElementById(id);
 function on(id, event, handler) {
@@ -119,7 +120,6 @@ function canEditClan(clanId) {
 
 function getMyClanId() { return localStorage.getItem(MY_CLAN_KEY) || null; }
 
-/** Кто считается главой клана — имеет доступ к панели лидера */
 function getLeaderClanId() {
     return myAdminClanId || getMyClanId() || currentClan || null;
 }
@@ -131,7 +131,6 @@ function isClanLeader() {
 
 function canAccessClan(clanId) {
     if (isOwner) return true;
-    // Админ или модератор С привязкой — своя + гильдии своего союза
     if (isAdmin && myAdminClanId) {
         if (clanId === myAdminClanId) return true;
         const my = clansCache[myAdminClanId];
@@ -139,11 +138,8 @@ function canAccessClan(clanId) {
         if (!my || !target || !my.alliance_id) return false;
         return target.alliance_id === my.alliance_id;
     }
-    // Админ без привязки — видит всё
     if (isAdmin && !myAdminClanId && !isMod) return true;
-    // Модератор без привязки — не должен иметь доступ ни к чему
     if (isMod && !myAdminClanId) return false;
-    // Обычный игрок: своя гильдия + гильдии союза
     const myClan = getMyClanId();
     if (!myClan) return false;
     if (clanId === myClan) return true;
@@ -190,7 +186,6 @@ async function logView(nickname, clanId, page) {
     if (!nickname) return;
     try { await supabase.from('view_history').insert({ nickname, clan_id: clanId, page }); } catch (e) { }
 }
-
 
 /* ============ DISCORD ВЕБХУК ============ */
 async function sendDiscordWebhook(payload) {
@@ -629,7 +624,7 @@ document.querySelectorAll('.side-item').forEach(btn => {
         else if (section === 'contacts') renderContacts();
         else if (section === 'members') { renderMembers(); renderAdmins(); }
         else if (section === 'applications') renderApplications();
-    else if (section === 'online') renderClanOnlineList();
+        else if (section === 'online') renderClanOnlineList();
     });
 });
 
@@ -810,7 +805,6 @@ async function renderAdminOnlineList() {
 }
 on('refreshOnlineList', 'click', renderAdminOnlineList);
 
-
 /* ============ ОНЛАЙН — ДЛЯ ГЛАВЫ КЛАНА ============ */
 async function renderClanOnlineList() {
     const container = $('clanOnlineList'); if (!container) return;
@@ -873,6 +867,7 @@ function renderHomeCards() {
         let accessible = true;
         if (isOwner) accessible = true;
         else if (isAdmin && myAdminClanId) accessible = canAccessClan(clan.id);
+        else if (isMod && !myAdminClanId) accessible = false;
         else if (isAdmin) accessible = true;
         else accessible = !myClan || canAccessClan(clan.id);
 
@@ -895,6 +890,7 @@ function renderHomeCards() {
 function isUnlocked() { return isAdmin || localStorage.getItem(UNLOCK_KEY) === '1'; }
 function handleClanClick(id) {
     if (isOwner) { openClan(id); return; }
+    if (isMod && !myAdminClanId) { openClanInfo(id, { locked: true }); return; }
     if (isAdmin && myAdminClanId) {
         if (canAccessClan(id)) { openClan(id); return; }
         openClanInfo(id, { locked: true }); return;
@@ -2967,6 +2963,10 @@ function renderNotifications() {
         if (unread > 0) { badge.textContent = unread > 99 ? '99+' : unread; badge.hidden = false; }
         else badge.hidden = true;
     });
+    ['notifBell', 'notifBell2'].forEach(id => {
+        const bell = $(id); if (!bell) return;
+        bell.classList.toggle('has-notif', unread > 0);
+    });
     if (!notifications.length) { list.innerHTML = '<p class="empty" style="padding:20px;text-align:center;">Уведомлений пока нет</p>'; return; }
     const icons = { event: '📅', trade: '🪙', application: '📝', chat: '💬', system: '⚙️' };
     list.innerHTML = notifications.map(n => `
@@ -3045,6 +3045,7 @@ function setChatMode(mode) {
 }
 let jitsiApi = null, jitsiLoading = false;
 function buildVoiceRoomName() {
+    if (voiceRoomOverride) return voiceRoomOverride;
     if (chatMode === 'leaders') return 'wosb_leaders_hall';
     if (!currentClan) return 'wosb_common_hall';
     return 'wosb_guild_' + String(currentClan).replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
@@ -3170,10 +3171,13 @@ async function clearChat() {
     if (error) { alert('Ошибка: ' + error.message); return; }
     chatMessages = []; renderChatMessages();
 }
-function openChat(mode) {
+function openChat(mode, opts = {}) {
     const clearBtn = $('chatClear'); if (clearBtn) clearBtn.hidden = !isAdmin && !canEditClan(currentClan);
     $('chatPanel').hidden = false;
-    if (mode === 'voice') setChatMode('voice');
+    if (mode === 'voice') {
+        voiceRoomOverride = opts.room || null;
+        setChatMode('voice');
+    }
     else if (mode === 'private' && chatPrivateWith) setChatMode('private');
     else if (mode === 'general') setChatMode('general');
     else if (mode === 'leaders') setChatMode('leaders');
@@ -3305,7 +3309,7 @@ async function loadNews() {
                 <div class="vk-news-header"><span class="vk-news-date">📅 ${escapeHtml(date)}</span></div>
                 ${cleanDesc ? `<div class="vk-news-text">${escapeHtml(cleanDesc)}${cleanDesc.length >= 200 ? '…' : ''}</div>` : ''}
                 <div class="vk-news-footer">
-                    <span class="vk-news-read">Читать полностью →</span>
+                    <span class="vk-news-link">Читать полностью →</span>
                 </div>`;
             card.addEventListener('click', () => openVkNewsFullscreen({ title, date, link, desc }));
             container.appendChild(card);
@@ -3596,8 +3600,8 @@ on('leaderAlliancePickerSend', 'click', async () => {
 /* ---------- Кнопки чата/голоса глав ---------- */
 on('leaderOpenChatBtn', 'click', () => openChat('leaders'));
 on('leaderOpenChatTop', 'click', () => openChat('leaders'));
-on('leaderOpenVoiceBtn', 'click', () => openChat('voice'));
-on('leaderOpenVoiceTop', 'click', () => openChat('voice'));
+on('leaderOpenVoiceBtn', 'click', () => openChat('voice', { room: 'wosb_leaders_hall' }));
+on('leaderOpenVoiceTop', 'click', () => openChat('voice', { room: 'wosb_leaders_hall' }));
 
 /* ============ СТАРТ ============ */
 (async () => {
@@ -3637,5 +3641,9 @@ on('leaderOpenVoiceTop', 'click', () => openChat('voice'));
     setInterval(() => {
         const onlineSection = document.querySelector('.admin-section[data-apanel="online"]');
         if (onlineSection && onlineSection.classList.contains('active') && isAdmin) renderAdminOnlineList();
+        const clanOnlineSection = $('section-online');
+        if (clanOnlineSection && clanOnlineSection.classList.contains('active') && canEditClan(currentClan)) {
+            renderClanOnlineList();
+        }
     }, 15000);
 })();

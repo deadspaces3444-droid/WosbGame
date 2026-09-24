@@ -1,9 +1,9 @@
 import { supabase } from './supabase.js';
 
-console.log('🚀 app.js v1.8.10 (leader panel)');
+console.log('🚀 app.js v1.9.1');
 
 const ADMIN_EMAILS_FALLBACK = ['dead_antihrist@mail.ru'];
-const APP_VERSION = '1.8.10';
+const APP_VERSION = '1.9.1';
 
 const BINDING_OWNERS = [
     'kolibri@wosb.ru',
@@ -186,7 +186,13 @@ async function logAdminAction(action, target = null, details = null) {
         });
     } catch (e) { }
 }
+async function logView(nickname, clanId, page) {
+    if (!nickname) return;
+    try { await supabase.from('view_history').insert({ nickname, clan_id: clanId, page }); } catch (e) { }
+}
 
+
+/* ============ DISCORD ВЕБХУК ============ */
 async function sendDiscordWebhook(payload) {
     try {
         const webhookUrl = settingsCache?.discord_webhook;
@@ -200,10 +206,6 @@ async function sendDiscordWebhook(payload) {
     } catch (e) {
         console.warn('Discord webhook failed:', e.message);
     }
-}
-async function logView(nickname, clanId, page) {
-    if (!nickname) return;
-    try { await supabase.from('view_history').insert({ nickname, clan_id: clanId, page }); } catch (e) { }
 }
 
 /* ============ АДМИНЫ САЙТА ============ */
@@ -627,7 +629,7 @@ document.querySelectorAll('.side-item').forEach(btn => {
         else if (section === 'contacts') renderContacts();
         else if (section === 'members') { renderMembers(); renderAdmins(); }
         else if (section === 'applications') renderApplications();
-            else if (section === 'online') renderClanOnlineList();
+    else if (section === 'online') renderClanOnlineList();
     });
 });
 
@@ -749,7 +751,7 @@ function applyAdminUI() {
         el.style.display = canEditClan(currentClan) ? 'flex' : 'none';
     });
     document.querySelectorAll('.owner-only').forEach(el => { el.hidden = !isOwner; });
-    const clearBtn = $('chatClear'); if (clearBtn) clearBtn.hidden = !isAdmin && !canEditClan(currentClan);
+    const clearBtn = $('chatClear'); if (clearBtn) clearBtn.hidden = !isAdmin;
     renderAll();
     updateLeaderButtonsVisibility();
 }
@@ -808,6 +810,7 @@ async function renderAdminOnlineList() {
 }
 on('refreshOnlineList', 'click', renderAdminOnlineList);
 
+
 /* ============ ОНЛАЙН — ДЛЯ ГЛАВЫ КЛАНА ============ */
 async function renderClanOnlineList() {
     const container = $('clanOnlineList'); if (!container) return;
@@ -839,6 +842,7 @@ async function renderClanOnlineList() {
         container.appendChild(el);
     });
 }
+on('clanOnlineRefresh', 'click', renderClanOnlineList);
 
 /* ============ ГИЛЬДИИ ============ */
 async function loadClans() {
@@ -1500,15 +1504,6 @@ on('evAddBtn', 'click', async () => {
         if (error || resp?.error) { flashStatusEl(statusEl, 'Ошибка: ' + (resp?.error || error.message), '#ff7a7a'); return; }
     }
     await logAdminAction('Добавил событие', title);
-    await sendDiscordWebhook({
-        content: `📅 **Новое событие** — ${escapeHtml(clansCache[currentClan]?.name || '')}`,
-        embeds: [{
-            title: title,
-            description: `${desc || ''}\n\n**Дата:** ${$('evDate')?.value ? new Date($('evDate').value).toLocaleString('ru-RU') : '—'}`,
-            color: 0x7db9ff,
-            timestamp: new Date().toISOString()
-        }]
-    });
     ['evTitle','evDate','evDesc'].forEach(id => { const el = $(id); if (el) el.value = ''; });
     flashStatusEl(statusEl, '✔ Добавлено', '#6ee7a7');
     renderEvents();
@@ -1720,15 +1715,6 @@ on('clanRequestSubmit', 'click', async () => {
     if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
     msg.textContent = '✔ Заявка отправлена! Владелец рассмотрит её.';
     msg.style.color = '#6ee7a7';
-    await sendDiscordWebhook({
-        content: '📨 **Заявка на создание гильдии**',
-        embeds: [{
-            title: val('crName'),
-            description: `**Глава:** ${val('crLeaderNick') || '—'}\n**От:** ${val('crRequesterNick')}\n**Email:** ${val('crEmail') || '—'}\n**Discord:** ${val('crDiscord') || '—'}\n\n**Описание:** ${val('crDesc') || '—'}`,
-            color: 0xffd479,
-            timestamp: new Date().toISOString()
-        }]
-    });
     setTimeout(closeClanRequestModal, 1800);
 });
 async function renderClanRequestsAdmin() {
@@ -2044,15 +2030,6 @@ on('tm-submit', 'click', async () => {
     updateTradeFormTotal();
     setTradeStatus('✅ Заявка опубликована!', 'success');
     renderTrades();
-    await sendDiscordWebhook({
-        content: `🪙 **Новая заявка на бирже** — ${tradeFormType === 'buy' ? '🛒 Покупка' : '💰 Продажа'}`,
-        embeds: [{
-            title: name,
-            description: `**Гильдия:** ${clansCache[clan]?.name || clan}\n**Цена:** ${price} 🪙\n**Кол-во:** ${qty}\n**Итого:** ${price * qty} 🪙\n**Ник:** ${nickname}${port ? '\n**Порт:** ' + port : ''}${note ? '\n**Примечание:** ' + note : ''}`,
-            color: tradeFormType === 'buy' ? 0x3b82f6 : 0xffd479,
-            timestamp: new Date().toISOString()
-        }]
-    });
 });
 
 /* ============ ПРИНЯТИЕ СДЕЛКИ ============ */
@@ -2162,15 +2139,6 @@ on('applyBtn', 'click', async () => {
     msg.textContent = '✔ Заявка отправлена!'; msg.style.color = '#6ee7a7';
     ['applyNick','applyAge','applyExp','applyContact','applyWhy'].forEach(id => { const el = $(id); if (el) el.value = ''; });
     $('applyClan').value = '';
-    await sendDiscordWebhook({
-        content: '📨 **Новая заявка в гильдию**',
-        embeds: [{
-            title: `Заявка от ${nick}`,
-            description: `**Гильдия:** ${val('applyClan') || '—'}\n**Возраст:** ${val('applyAge') || '—'}\n**Опыт:** ${val('applyExp') || '—'}\n**Связь:** ${val('applyContact') || '—'}\n\n**Причина:** ${why}`,
-            color: 0x3b82f6,
-            timestamp: new Date().toISOString()
-        }]
-    });
 });
 
 /* ============ FAQ ============ */
@@ -2553,11 +2521,10 @@ function renderContacts() {
     if (!clans.length) { container.innerHTML = '<div class="empty">Гильдий пока нет</div>'; return; }
     clans.forEach(clan => {
         const card = document.createElement('div');
-        card.className = 'contact-card contact-card-enhanced';
+        card.className = 'contact-card';
         const hasLink = clan.discord && clan.discord.trim();
         const hasPhone = clan.phone && clan.phone.trim();
         const hasLeader = clan.leader_nick && clan.leader_nick.trim();
-        const hasLink = clan.discord && clan.discord.trim();
         card.innerHTML = `
             <img src="${escapeHtml(getClanImage(clan))}" alt="${escapeHtml(clan.name)}" class="${isClanUsingFlag(clan) ? 'clan-flag' : ''}">
             <div class="contact-info">
@@ -2677,7 +2644,7 @@ function updateAdminFields() {
     $('adminCurrentAdminPass').value = clan?.admin_password || '—';
     $('adminNewPass').value = ''; $('adminNewAdminPass').value = '';
     $('adminDiscord').value = clan?.discord || '';
-    $('adminPhone').value = clan?.phone || '';
+    const phoneEl = $('adminPhone'); if (phoneEl) phoneEl.value = clan?.phone || '';
     $('adminNews').value = clan?.news || '';
     $('adminRules').value = clan?.rules || '';
     $('adminNicks').value = clan?.admin_nicks || '';
@@ -2793,7 +2760,7 @@ on('saveNewClan', 'click', async () => {
         password: pass, admin_password: adminPass || null,
         alliance_id: alliance || null,
         discord: val('newClanDiscord').trim() || null,
-            phone: val('newClanPhone').trim() || null,
+        phone: val('newClanPhone').trim() || null,
         image: val('newClanImage').trim() || null,
         flag: val('newClanFlag') || 'neutral',
         leader_nick: val('newClanLeaderNick').trim() || null,
@@ -2805,15 +2772,6 @@ on('saveNewClan', 'click', async () => {
     renderHomeCards(); renderAdminClanSelect(); renderScopeSelects(); renderContacts();
     renderTradeClanSelect(); renderTradeClanFilters(); renderApplyClanSelect(); renderAlliancesAdmin();
     msg.textContent = '✔ Гильдия создана'; msg.style.color = '#6ee7a7';
-    await sendDiscordWebhook({
-        content: '🏰 **Создана новая гильдия**',
-        embeds: [{
-            title: val('newClanName'),
-            description: `ID: ${val('newClanId')}\nГлава: ${val('newClanLeaderNick') || '—'}`,
-            color: 0x6ee7a7,
-            timestamp: new Date().toISOString()
-        }]
-    });
     setTimeout(() => { $('addClanModal').hidden = true; }, 800);
 });
 
@@ -3009,10 +2967,6 @@ function renderNotifications() {
         if (unread > 0) { badge.textContent = unread > 99 ? '99+' : unread; badge.hidden = false; }
         else badge.hidden = true;
     });
-    ['notifBell', 'notifBell2'].forEach(id => {
-        const bell = $(id); if (!bell) return;
-        bell.classList.toggle('has-notif', unread > 0);
-    });
     if (!notifications.length) { list.innerHTML = '<p class="empty" style="padding:20px;text-align:center;">Уведомлений пока нет</p>'; return; }
     const icons = { event: '📅', trade: '🪙', application: '📝', chat: '💬', system: '⚙️' };
     list.innerHTML = notifications.map(n => `
@@ -3054,6 +3008,7 @@ document.addEventListener('click', e => {
 on('notifMarkAllRead', 'click', async () => {
     const nick = getViewerNick(); if (!nick) return;
     await supabase.from('notifications').update({ is_read: true }).eq('user_nickname', nick).eq('is_read', false);
+    ['notifBell', 'notifBell2'].forEach(id => { const b = $(id); if (b) b.classList.remove('has-notif'); });
     loadNotifications();
 });
 
@@ -3284,7 +3239,7 @@ function initRealtime() {
                 notifications.unshift(payload.new);
                 if (notifications.length > 50) notifications.pop();
                 renderNotifications();
-                ['notifBell', 'notifBell2'].forEach(id => { const b = $(id); if (!b) return; b.classList.add('has-notif'); b.style.transform = 'scale(1.15)'; setTimeout(() => b.style.transform = '', 300); });
+                ['notifBell', 'notifBell2'].forEach(id => { const b = $(id); if (!b) return; b.style.transform = 'scale(1.15)'; b.classList.add('has-notif'); setTimeout(() => b.style.transform = '', 300); });
             }).subscribe();
     }
 }
@@ -3308,9 +3263,9 @@ async function loadNews() {
     const container = $('vkNewsList'); if (!container) return;
     container.innerHTML = '<div class="vk-news-loading">Загрузка новостей…</div>';
     const srcLink = $('vkNewsSourceLink');
-    if (srcLink && settingsCache?.news_rss_url) srcLink.href = settingsCache.news_rss_url;
-
     const sourceUrl = settingsCache?.news_rss_url || `https://vk.com/@${VK_DOMAIN}`;
+    if (srcLink) srcLink.href = sourceUrl;
+
     let domain = VK_DOMAIN;
     try {
         const u = new URL(sourceUrl);
@@ -3322,7 +3277,7 @@ async function loadNews() {
     try {
         const rssUrl = `https://vk.com/${domain}?act=rss`;
         const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(rssUrl)}`;
-        const res = await fetch(proxyUrl);
+        const res = await fetch(proxyUrl, { cache: 'no-store' });
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const text = await res.text();
         const parser = new DOMParser();
@@ -3344,13 +3299,14 @@ async function loadNews() {
             const tmp = document.createElement('div');
             tmp.innerHTML = desc;
             const cleanDesc = tmp.textContent.replace(/\s+/g, ' ').trim().slice(0, 200);
-            const card = document.createElement('div');
+            const card = document.createElement('article');
             card.className = 'vk-news-item';
             card.innerHTML = `
-                <div class="vk-news-date">${escapeHtml(date)}</div>
-                <h3 class="vk-news-title">${escapeHtml(title)}</h3>
-                <p class="vk-news-text">${escapeHtml(cleanDesc)}${cleanDesc.length >= 200 ? '…' : ''}</p>
-                <span class="vk-news-read">Читать полностью →</span>`;
+                <div class="vk-news-header"><span class="vk-news-date">📅 ${escapeHtml(date)}</span></div>
+                ${cleanDesc ? `<div class="vk-news-text">${escapeHtml(cleanDesc)}${cleanDesc.length >= 200 ? '…' : ''}</div>` : ''}
+                <div class="vk-news-footer">
+                    <span class="vk-news-read">Читать полностью →</span>
+                </div>`;
             card.addEventListener('click', () => openVkNewsFullscreen({ title, date, link, desc }));
             container.appendChild(card);
         }
@@ -3359,33 +3315,34 @@ async function loadNews() {
         container.innerHTML = `<div class="vk-news-loading">Не удалось загрузить новости. Откройте <a href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener" style="color:var(--accent);">сообщество ВКонтакте →</a></div>`;
     }
 }
+
 function openVkNewsFullscreen(news) {
-    const modal = $('vkNewsModal');
-    if (!modal) return;
+    const modal = $('vkNewsModal'); if (!modal) return;
     const body = $('vkNewsList');
-    if (!body) return;
     modal.classList.add('vk-news-fullscreen');
     modal.hidden = false;
     document.body.style.overflow = 'hidden';
+
     const tmp = document.createElement('div');
     tmp.innerHTML = news.desc;
-    tmp.querySelectorAll('script, style, iframe[src*="ads"], object, embed').forEach(el => el.remove());
+    tmp.querySelectorAll('script, style, object, embed').forEach(el => el.remove());
+
     body.innerHTML = `
         <div class="vk-news-fullscreen-content">
             <div class="vk-news-date" style="margin-bottom:12px;">${escapeHtml(news.date)}</div>
             <h1 style="font-size:28px;margin-bottom:20px;color:var(--text);">${escapeHtml(news.title)}</h1>
             <div class="vk-news-fulltext-body">${tmp.innerHTML}</div>
             <div style="margin-top:28px;padding-top:20px;border-top:1px solid var(--border);">
-                <a href="${escapeHtml(news.link)}" target="_blank" rel="noopener" class="vk-news-read" style="font-size:16px;">Открыть в ВКонтакте →</a>
+                <a href="${escapeHtml(news.link)}" target="_blank" rel="noopener" class="vk-news-link" style="font-size:16px;">Открыть в ВКонтакте →</a>
             </div>
         </div>`;
+
     const closeBtn = $('closeVkNews');
     const restoreFn = () => {
         modal.classList.remove('vk-news-fullscreen');
         modal.hidden = true;
         document.body.style.overflow = '';
         body.innerHTML = '<div class="vk-news-loading">Загрузка…</div>';
-        loadNews();
         closeBtn.removeEventListener('click', restoreFn);
         modal.removeEventListener('click', outsideClickFn);
     };
@@ -3393,11 +3350,11 @@ function openVkNewsFullscreen(news) {
     closeBtn.addEventListener('click', restoreFn);
     modal.addEventListener('click', outsideClickFn);
 }
+
 on('openVkNewsBtn', 'click', openVkNewsModal);
 on('closeVkNews', 'click', closeVkNewsModal);
 on('vkNewsModal', 'click', e => { if (e.target.id === 'vkNewsModal') closeVkNewsModal(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { const m = $('vkNewsModal'); if (m && !m.hidden) closeVkNewsModal(); } });
-
 
 /* ============================================================
    ПАНЕЛЬ ГЛАВЫ КЛАНА
@@ -3632,16 +3589,6 @@ on('leaderAlliancePickerSend', 'click', async () => {
     await createNotification(toClan, 'system', 'Заявка на союз',
         `Гильдия «${clansCache[myClanId]?.name || myClanId}» предлагает союз`, null);
 
-    await sendDiscordWebhook({
-        content: '🤝 **Предложение союза**',
-        embeds: [{
-            title: `${clansCache[myClanId]?.name || '?'} → ${clansCache[toClan]?.name || toClan}`,
-            description: message || 'Без сообщения',
-            color: 0xb48aff,
-            timestamp: new Date().toISOString()
-        }]
-    });
-
     $('leaderAlliancePickerModal').hidden = true;
     renderLeaderAlliances(myClanId);
 });
@@ -3690,7 +3637,5 @@ on('leaderOpenVoiceTop', 'click', () => openChat('voice'));
     setInterval(() => {
         const onlineSection = document.querySelector('.admin-section[data-apanel="online"]');
         if (onlineSection && onlineSection.classList.contains('active') && isAdmin) renderAdminOnlineList();
-        const clanOnlineSection = $('section-online');
-        if (clanOnlineSection && clanOnlineSection.classList.contains('active') && canEditClan(currentClan)) renderClanOnlineList();
     }, 15000);
 })();

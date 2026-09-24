@@ -8,11 +8,13 @@
 </head>
 <body>
 
+    <!-- ГЛАВНАЯ -->
     <div id="screen-home" class="screen">
         <div class="top-right">
             <span id="onlineBadge" class="online-badge" title="Пользователей онлайн">🟢 <b id="onlineCount">0</b></span>
             <button id="openVkNewsBtn" class="icon-btn" title="Новости">📰</button>
             <button id="openGeneralChatBtn" class="icon-btn" title="Общий чат">🌍</button>
+            <button id="openVoiceChatBtn" class="icon-btn" title="Голосовой чат">🎙</button>
             <button id="themeToggle" class="icon-btn" title="Сменить тему">🌓</button>
             <button id="notifBell" class="icon-btn" title="Уведомления">
                 🔔<span id="notifBadge" class="notif-badge" hidden>0</span>
@@ -152,6 +154,7 @@
         </div>
     </div>
 
+    <!-- ОПИСАНИЕ ГИЛЬДИИ -->
     <div id="screen-clan" class="screen" hidden>
         <div class="top-right">
             <button id="themeToggle2" class="icon-btn" title="Сменить тему">🌓</button>
@@ -164,6 +167,7 @@
             <div class="clan-info">
                 <img id="clanInfoLogo" class="clan-info-logo" src="" alt="">
                 <h1 id="clanInfoName" class="clan-info-name"></h1>
+                <p id="clanInfoLeader" class="clan-info-leader" hidden></p>
                 <p id="clanInfoDesc" class="clan-info-desc"></p>
                 <div id="clanInfoNewsWrap" class="clan-info-news-wrap" hidden>
                     <h3>📰 Новости</h3>
@@ -186,6 +190,7 @@
         </div>
     </div>
 
+    <!-- ВНУТРИ ГИЛЬДИИ -->
     <div id="clanView" hidden>
         <header>
             <button id="backBtn" class="back-btn">← Назад</button>
@@ -255,7 +260,7 @@
                         <button id="evAddBtn">➕ Добавить</button>
                         <span id="evStatus"></span>
                     </section>
-                    <p class="hint clan-admin-only" hidden>💡 Название и дата — обязательны. Общее событие может создать только владелец.</p>
+                    <p class="hint clan-admin-only" hidden>💡 Общее событие может создать только владелец сайта.</p>
                     <div id="eventsList" class="events-list"></div>
                 </div>
 
@@ -349,6 +354,7 @@
         </div>
     </div>
 
+    <!-- АДМИН-ПАНЕЛЬ -->
     <div id="screen-admin" class="screen admin-screen" hidden>
         <aside class="admin-sidebar">
             <div class="admin-sidebar-brand"><span class="admin-sidebar-logo">⚙️</span><span class="admin-sidebar-title">Админ-панель</span></div>
@@ -374,10 +380,38 @@
                     <div class="admin-field"><label>Гильдия</label><select id="adminClanSelect"></select></div>
                     <div class="admin-field"><label>Игра</label><select id="adminClanGame"></select></div>
                     <div class="admin-field"><label>Союз</label><select id="adminClanAlliance"></select></div>
-                    <div class="admin-field"><label>Текущий пароль</label><input type="text" id="adminCurrentPass" readonly></div>
-                    <div class="admin-field"><label>Новый пароль гильдии</label><input type="text" id="adminNewPass" placeholder="Оставь пустым, чтобы не менять"></div>
-                    <div class="admin-field"><label>Текущий админ-пароль</label><input type="text" id="adminCurrentAdminPass" readonly></div>
-                    <div class="admin-field"><label>Новый админ-пароль</label><input type="text" id="adminNewAdminPass" placeholder="Оставь пустым, чтобы не менять"></div>
+                    <div class="admin-field">
+                        <label>Текущий пароль</label>
+                        <div class="password-field">
+                            <input type="password" id="adminCurrentPass" readonly>
+                            <button type="button" class="pwd-toggle" data-target="adminCurrentPass" title="Показать">👁</button>
+                        </div>
+                    </div>
+                    <div class="admin-field">
+                        <label>Новый пароль гильдии</label>
+                        <div class="password-field">
+                            <input type="password" id="adminNewPass" placeholder="Оставь пустым, чтобы не менять">
+                            <button type="button" class="pwd-toggle" data-target="adminNewPass" title="Показать">👁</button>
+                        </div>
+                    </div>
+                    <div class="admin-field">
+                        <label>Текущий админ-пароль</label>
+                        <div class="password-field">
+                            <input type="password" id="adminCurrentAdminPass" readonly>
+                            <button type="button" class="pwd-toggle" data-target="adminCurrentAdminPass" title="Показать">👁</button>
+                        </div>
+                    </div>
+                    <div class="admin-field">
+                        <label>Новый админ-пароль</label>
+                        <div class="password-field">
+                            <input type="password" id="adminNewAdminPass" placeholder="Оставь пустым, чтобы не менять">
+                            <button type="button" class="pwd-toggle" data-target="adminNewAdminPass" title="Показать">👁</button>
+                        </div>
+                    </div>
+                    <div class="admin-field">
+                        <label>👑 Ник главы гильдии</label>
+                        <input type="text" id="adminLeaderNick" placeholder="Например: Тайпан56" maxlength="40">
+                    </div>
                     <div class="admin-field"><label>Discord-ссылка</label><input type="text" id="adminDiscord" placeholder="https://discord.gg/xxxxx" maxlength="200"></div>
                     <div class="admin-field"><label>Новости</label><textarea id="adminNews" rows="5"></textarea></div>
                     <div class="admin-field"><label>Логотип (PNG)</label><input type="text" id="adminClanImage" placeholder="images/clan.png" maxlength="200"></div>
@@ -499,12 +533,12 @@
             <section class="admin-section" data-apanel="admins">
                 <h2 class="admin-section-title">👑 Админы сайта</h2>
                 <p class="hint">
-                    <b>👑 Владелец</b> — полный доступ. <b>⚙️ Админ</b> / <b>🛡 Модератор</b> с привязкой к гильдии редактируют только свою и видят союзные.
+                    <b>👑 Владелец</b> — полный доступ. <b>⚙️ Админ</b> / <b>🛡 Модератор</b> с привязкой редактируют только свою гильдию.
                 </p>
 
                 <div class="admin-card owner-only" hidden>
                     <h3 style="font-size:15px;color:#ffd479;margin-bottom:6px;">➕ Добавить админа</h3>
-                    <div class="admin-field"><label>Никнейм *</label><input type="text" id="newSiteAdminNickname" placeholder="Например: MistTime" maxlength="40"></div>
+                    <div class="admin-field"><label>Никнейм *</label><input type="text" id="newSiteAdminNickname" placeholder="MistTime" maxlength="40"></div>
                     <div class="admin-field"><label>Email *</label><input type="email" id="newSiteAdminEmail" placeholder="user@example.com" maxlength="200"></div>
                     <div class="admin-field"><label>Пароль * (от 6 символов)</label><input type="text" id="newSiteAdminPassword" placeholder="Временный пароль" maxlength="80"></div>
                     <div class="admin-field">
@@ -557,6 +591,7 @@
         </main>
     </div>
 
+    <!-- МОДАЛКИ -->
     <div id="clanPassModal" class="modal" hidden>
         <div class="modal-content">
             <h2>🔐 Вход в гильдию</h2>
@@ -635,6 +670,7 @@
             <div class="admin-field"><label>Союз (необязательно)</label><select id="newClanAlliance"></select></div>
             <div class="admin-field"><label>ID (латиница)</label><input type="text" id="newClanId" placeholder="clan3" maxlength="20"></div>
             <div class="admin-field"><label>Название</label><input type="text" id="newClanName" maxlength="60"></div>
+            <div class="admin-field"><label>👑 Ник главы гильдии</label><input type="text" id="newClanLeaderNick" placeholder="Тайпан56" maxlength="40"></div>
             <div class="admin-field"><label>Описание</label><textarea id="newClanDesc" rows="3"></textarea></div>
             <div class="admin-field"><label>Правила</label><textarea id="newClanRules" rows="5"></textarea></div>
             <div class="admin-field"><label>Пароль гильдии</label><input type="text" id="newClanPass"></div>
@@ -666,6 +702,7 @@
             <h2>➕ Заявка на создание гильдии</h2>
             <p class="hint" style="margin:0;">Заполни форму — владелец рассмотрит заявку и создаст гильдию.</p>
             <div class="admin-field"><label>Название гильдии *</label><input type="text" id="crName" maxlength="60" placeholder="Например: Чёрные Паруса"></div>
+            <div class="admin-field"><label>👑 Ник главы гильдии</label><input type="text" id="crLeaderNick" placeholder="Тайпан56" maxlength="40"></div>
             <div class="admin-field"><label>Описание</label><textarea id="crDesc" rows="2" maxlength="500"></textarea></div>
             <div class="admin-field"><label>Правила</label><textarea id="crRules" rows="3" maxlength="2000"></textarea></div>
             <div class="admin-field"><label>Ваш игровой ник *</label><input type="text" id="crRequesterNick" maxlength="32" placeholder="Капитан"></div>
@@ -809,7 +846,7 @@
                 <button class="chat-tab active" data-mode="guild">🏰 Гильдия</button>
                 <button class="chat-tab" data-mode="general">🌍 Общий</button>
                 <button class="chat-tab" data-mode="private" id="chatPrivateTab" hidden>✉️ Личный</button>
-                <button class="chat-tab" data-mode="voice" id="chatVoiceTab" hidden>🎙 Голос</button>
+                <button class="chat-tab" data-mode="voice" id="chatVoiceTab">🎙 Голос</button>
             </div>
             <div class="chat-header-actions">
                 <button id="chatClear" class="chat-clear" title="Очистить чат" hidden>🗑</button>

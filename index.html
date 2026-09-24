@@ -8,7 +8,6 @@
 </head>
 <body>
 
-    <!-- ГЛАВНАЯ -->
     <div id="screen-home" class="screen">
         <div class="top-right">
             <span id="onlineBadge" class="online-badge" title="Пользователей онлайн">🟢 <b id="onlineCount">0</b></span>
@@ -44,7 +43,6 @@
             </div>
             <div id="clanGrid" class="clan-grid"></div>
 
-            <!-- ТОРГОВЛЯ -->
             <section id="homeTradeSection" class="home-trade-section">
                 <h2 class="section-title">🪙 Гильдейский рынок</h2>
                 <div class="trade-market">
@@ -115,7 +113,6 @@
                 </div>
             </section>
 
-            <!-- ЗАЯВКА В ГИЛЬДИЮ -->
             <section id="applySection" class="apply-section">
                 <h2 class="section-title">📝 Подать заявку в гильдию</h2>
                 <div class="apply-card">
@@ -155,7 +152,6 @@
         </div>
     </div>
 
-    <!-- ОПИСАНИЕ ГИЛЬДИИ -->
     <div id="screen-clan" class="screen" hidden>
         <div class="top-right">
             <button id="themeToggle2" class="icon-btn" title="Сменить тему">🌓</button>
@@ -190,7 +186,6 @@
         </div>
     </div>
 
-    <!-- ВНУТРИ ГИЛЬДИИ -->
     <div id="clanView" hidden>
         <header>
             <button id="backBtn" class="back-btn">← Назад</button>
@@ -256,11 +251,11 @@
                         <input type="text" id="evTitle" placeholder="Название события" maxlength="100">
                         <input type="datetime-local" id="evDate">
                         <textarea id="evDesc" placeholder="Описание" rows="2"></textarea>
-                        <select id="evScope"><option value="__shared__">🌐 Общий</option></select>
+                        <select id="evScope"></select>
                         <button id="evAddBtn">➕ Добавить</button>
                         <span id="evStatus"></span>
                     </section>
-                    <p class="hint clan-admin-only" hidden>💡 Название и дата — обязательны.</p>
+                    <p class="hint clan-admin-only" hidden>💡 Название и дата — обязательны. Общее событие может создать только владелец.</p>
                     <div id="eventsList" class="events-list"></div>
                 </div>
 
@@ -294,7 +289,7 @@
                         <input type="text" id="pvpCons3" placeholder="Расходник 3" maxlength="40">
                         <textarea id="pvpCargo" placeholder="Наполнение трюма" rows="1" maxlength="200"></textarea>
                         <textarea id="pvpSpecs" placeholder="Специалисты — Имя | Бонус +5 | Бонус -3" rows="3"></textarea>
-                        <select id="pvpScope"><option value="__shared__">🌐 Общий</option></select>
+                        <select id="pvpScope"></select>
                         <button id="pvpAddBtn">➕ Добавить</button>
                         <span id="pvpStatus"></span>
                     </section>
@@ -315,7 +310,7 @@
                         <input type="text" id="pbCons3" placeholder="Расходник 3" maxlength="40">
                         <textarea id="pbCargo" placeholder="Наполнение трюма" rows="1" maxlength="200"></textarea>
                         <textarea id="pbSpecs" placeholder="Специалисты — Имя | Бонус +5 | Бонус -3" rows="3"></textarea>
-                        <select id="pbScope"><option value="__shared__">🌐 Общий</option></select>
+                        <select id="pbScope"></select>
                         <button id="pbAddBtn">➕ Добавить</button>
                         <span id="pbStatus"></span>
                     </section>
@@ -336,11 +331,9 @@
                     <p class="hint">Формат: <b>номер - ник</b> или просто ник, каждый с новой строки. Если список заполнен — войти смогут только эти ники (и админы).</p>
 
                     <section class="add-form clan-admin-only" hidden style="flex-direction:column; align-items:stretch; gap:10px;">
-                        <p class="hint" style="margin:0;">📂 Загрузи текстовый файл (или CSV) со списком участников. Поддерживаются строки вида «1 - Ник» и просто «Ник».</p>
+                        <p class="hint" style="margin:0;">📂 Загрузи текстовый файл (или CSV) со списком участников.</p>
                         <input type="file" id="membersFileInput" accept=".txt,.csv,text/plain" hidden>
-                        <button type="button" id="membersUploadBtn" class="big-btn secondary" style="align-self:flex-start;">
-                            📂 Загрузить участников из файла
-                        </button>
+                        <button type="button" id="membersUploadBtn" class="big-btn secondary" style="align-self:flex-start;">📂 Загрузить участников из файла</button>
                         <span id="membersUploadStatus" style="color:var(--green);font-size:13px;font-weight:600;"></span>
                     </section>
 
@@ -356,7 +349,6 @@
         </div>
     </div>
 
-    <!-- АДМИН-ПАНЕЛЬ -->
     <div id="screen-admin" class="screen admin-screen" hidden>
         <aside class="admin-sidebar">
             <div class="admin-sidebar-brand"><span class="admin-sidebar-logo">⚙️</span><span class="admin-sidebar-title">Админ-панель</span></div>
@@ -392,11 +384,11 @@
                     <div class="admin-field">
                         <label>Флаг (если нет PNG)</label>
                         <select id="adminClanFlag">
-                            <option value="neutral">⚪ Нейтральный</option>
-                            <option value="pirate">🏴‍☠️ Пиратский</option>
-                            <option value="spain">🇪🇸 Испанский</option>
-                            <option value="england">🏴󠁧󠁢󠁥󠁮󠁧󠁿 Английский</option>
-                            <option value="russia">🇷🇺 Российской империи</option>
+                            <option value="neutral">Нейтральный</option>
+                            <option value="pirate">Пиратский</option>
+                            <option value="spain">Испанский</option>
+                            <option value="england">Английский</option>
+                            <option value="russia">Российской империи</option>
                         </select>
                         <div id="adminClanFlagPreview" class="flag-preview"></div>
                     </div>
@@ -420,8 +412,7 @@
 
             <section class="admin-section" data-apanel="alliances">
                 <h2 class="admin-section-title">🤝 Союзы</h2>
-                <p class="hint">Гильдии одного союза видят данные друг друга. Пароль не нужен — доступ автоматом после входа в любую из них.</p>
-
+                <p class="hint">Гильдии одного союза видят данные друг друга.</p>
                 <div class="admin-card">
                     <h3 style="font-size:15px;color:#ffd479;">➕ Новый союз</h3>
                     <div class="admin-field"><label>ID (латиница)</label><input type="text" id="allyId" placeholder="union1" maxlength="30"></div>
@@ -430,15 +421,13 @@
                     <p id="allyMsg" class="error"></p>
                     <div class="modal-actions"><button id="allyAddBtn">➕ Создать</button></div>
                 </div>
-
                 <div id="alliancesAdminList" class="partners-admin-list"></div>
             </section>
 
             <section class="admin-section" data-apanel="games">
                 <h2 class="admin-section-title">🎮 Управление играми</h2>
-                <p class="hint">Игры, для которых ведутся кланы на сайте</p>
                 <div class="add-form" style="border-style:solid">
-                    <input type="text" id="gameId" placeholder="ID (латиница, напр. wosb)" maxlength="30">
+                    <input type="text" id="gameId" placeholder="ID (латиница)" maxlength="30">
                     <input type="text" id="gameName" placeholder="Название игры *" maxlength="80">
                     <input type="text" id="gameImage" placeholder="Логотип (images/wosb.png)" maxlength="200">
                     <input type="text" id="gameBg" placeholder="Фон (images/bg-wosb.jpg)" maxlength="200">
@@ -450,7 +439,6 @@
 
             <section class="admin-section" data-apanel="partners">
                 <h2 class="admin-section-title">🤝 Партнёры и Реклама</h2>
-                <p class="hint">Для <b>YouTube-ссылок</b> логотип подтягивается автоматически.</p>
                 <div class="admin-card">
                     <div class="admin-field"><label>Название *</label><input type="text" id="partnerName" maxlength="80"></div>
                     <div class="admin-field"><label>Ссылка *</label><input type="text" id="partnerUrl" placeholder="https://..." maxlength="300"></div>
@@ -475,7 +463,6 @@
 
             <section class="admin-section" data-apanel="faq">
                 <h2 class="admin-section-title">❓ FAQ</h2>
-                <p class="hint">Вопросы и ответы на главной</p>
                 <div class="admin-card">
                     <div class="admin-field"><label>Вопрос</label><input type="text" id="faqQ" maxlength="200"></div>
                     <div class="admin-field"><label>Ответ</label><textarea id="faqA" rows="3"></textarea></div>
@@ -486,7 +473,6 @@
 
             <section class="admin-section" data-apanel="tactics">
                 <h2 class="admin-section-title">📖 Тактика боя</h2>
-                <p class="hint">Редактирование разделов тактики. Поддерживается HTML.</p>
                 <div class="admin-card">
                     <div class="admin-field"><label>ID (латиница)</label><input type="text" id="tacId" placeholder="nagib" maxlength="30"></div>
                     <div class="admin-field"><label>Заголовок *</label><input type="text" id="tacTitle" placeholder="Накачка орудий" maxlength="120"></div>
@@ -513,23 +499,14 @@
             <section class="admin-section" data-apanel="admins">
                 <h2 class="admin-section-title">👑 Админы сайта</h2>
                 <p class="hint">
-                    <b>👑 Владелец</b> — полный доступ. <b>⚙️ Админ</b> / <b>🛡 Модератор</b> с привязкой к гильдии видят только свою гильдию и союзные.
+                    <b>👑 Владелец</b> — полный доступ. <b>⚙️ Админ</b> / <b>🛡 Модератор</b> с привязкой к гильдии редактируют только свою и видят союзные.
                 </p>
 
                 <div class="admin-card owner-only" hidden>
                     <h3 style="font-size:15px;color:#ffd479;margin-bottom:6px;">➕ Добавить админа</h3>
-                    <div class="admin-field">
-                        <label>Никнейм *</label>
-                        <input type="text" id="newSiteAdminNickname" placeholder="Например: MistTime" maxlength="40">
-                    </div>
-                    <div class="admin-field">
-                        <label>Email *</label>
-                        <input type="email" id="newSiteAdminEmail" placeholder="user@example.com" maxlength="200">
-                    </div>
-                    <div class="admin-field">
-                        <label>Пароль * (от 6 символов)</label>
-                        <input type="text" id="newSiteAdminPassword" placeholder="Временный пароль" maxlength="80">
-                    </div>
+                    <div class="admin-field"><label>Никнейм *</label><input type="text" id="newSiteAdminNickname" placeholder="Например: MistTime" maxlength="40"></div>
+                    <div class="admin-field"><label>Email *</label><input type="email" id="newSiteAdminEmail" placeholder="user@example.com" maxlength="200"></div>
+                    <div class="admin-field"><label>Пароль * (от 6 символов)</label><input type="text" id="newSiteAdminPassword" placeholder="Временный пароль" maxlength="80"></div>
                     <div class="admin-field">
                         <label>Роль *</label>
                         <select id="newSiteAdminRole">
@@ -539,21 +516,14 @@
                         </select>
                     </div>
                     <p id="siteAdminsMsg" class="error"></p>
-                    <div class="modal-actions">
-                        <button id="addSiteAdminBtn">➕ Создать админа</button>
-                    </div>
+                    <div class="modal-actions"><button id="addSiteAdminBtn">➕ Создать админа</button></div>
                 </div>
 
                 <div class="admin-card">
                     <h3 style="font-size:15px;color:#ffd479;margin-bottom:6px;">🔑 Сменить свой пароль</h3>
-                    <div class="admin-field">
-                        <label>Новый пароль</label>
-                        <input type="text" id="myNewPassword" placeholder="От 6 символов" maxlength="80">
-                    </div>
+                    <div class="admin-field"><label>Новый пароль</label><input type="text" id="myNewPassword" placeholder="От 6 символов" maxlength="80"></div>
                     <p id="myPassMsg" class="error"></p>
-                    <div class="modal-actions">
-                        <button id="changeMyPassBtn">💾 Сменить пароль</button>
-                    </div>
+                    <div class="modal-actions"><button id="changeMyPassBtn">💾 Сменить пароль</button></div>
                 </div>
 
                 <div id="siteAdminsList" class="partners-admin-list"></div>
@@ -567,18 +537,13 @@
 
             <section class="admin-section" data-apanel="settings">
                 <h2 class="admin-section-title">⚙️ Настройки сайта</h2>
-
                 <div class="admin-card">
                     <h3 style="font-size:15px;color:#ffd479;margin-bottom:6px;">📰 Новости ВКонтакте</h3>
-                    <p class="hint" style="margin:0 0 8px;">
-                        Новости загружаются с сообщества <b>worldofseabattle</b> через открытый API VK.
-                    </p>
                     <div class="admin-field">
                         <label>🔗 Ссылка на сообщество</label>
                         <input type="text" id="adminNewsRss" placeholder="https://vk.ru/@worldofseabattle" maxlength="400" value="https://vk.ru/@worldofseabattle">
                     </div>
                 </div>
-
                 <div class="admin-card">
                     <h3 style="font-size:15px;color:#ffd479;margin-bottom:6px;">📨 Discord-оповещения</h3>
                     <div class="admin-field">
@@ -586,14 +551,12 @@
                         <input type="text" id="adminWebhook" placeholder="https://discord.com/api/webhooks/..." maxlength="400">
                     </div>
                 </div>
-
                 <p id="adminSiteMsg" class="error"></p>
                 <div class="modal-actions"><button id="saveSiteSettings">💾 Сохранить</button></div>
             </section>
         </main>
     </div>
 
-    <!-- МОДАЛКИ -->
     <div id="clanPassModal" class="modal" hidden>
         <div class="modal-content">
             <h2>🔐 Вход в гильдию</h2>
@@ -681,11 +644,11 @@
             <div class="admin-field">
                 <label>Флаг (если нет PNG)</label>
                 <select id="newClanFlag">
-                    <option value="neutral">⚪ Нейтральный</option>
-                    <option value="pirate">🏴‍☠️ Пиратский</option>
-                    <option value="spain">🇪🇸 Испанский</option>
-                    <option value="england">🏴󠁧󠁢󠁥󠁮󠁧󠁿 Английский</option>
-                    <option value="russia">🇷🇺 Российской империи</option>
+                    <option value="neutral">Нейтральный</option>
+                    <option value="pirate">Пиратский</option>
+                    <option value="spain">Испанский</option>
+                    <option value="england">Английский</option>
+                    <option value="russia">Российской империи</option>
                 </select>
                 <div id="newClanFlagPreview" class="flag-preview"></div>
             </div>
@@ -714,11 +677,11 @@
             <div class="admin-field">
                 <label>Флаг</label>
                 <select id="crFlag">
-                    <option value="neutral">⚪ Нейтральный</option>
-                    <option value="pirate">🏴‍☠️ Пиратский</option>
-                    <option value="spain">🇪🇸 Испанский</option>
-                    <option value="england">🏴󠁧󠁢󠁥󠁮󠁧󠁿 Английский</option>
-                    <option value="russia">🇷🇺 Российской империи</option>
+                    <option value="neutral">Нейтральный</option>
+                    <option value="pirate">Пиратский</option>
+                    <option value="spain">Испанский</option>
+                    <option value="england">Английский</option>
+                    <option value="russia">Российской империи</option>
                 </select>
             </div>
             <div class="admin-field"><label>Ссылка на логотип (не обязательно)</label><input type="text" id="crImage" maxlength="300" placeholder="images/clan.png"></div>

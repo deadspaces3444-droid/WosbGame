@@ -1,17 +1,15 @@
 import { supabase } from './supabase.js';
 
-console.log('🚀 app.js v1.8.7');
+console.log('🚀 app.js v1.8.8');
 
 const ADMIN_EMAILS_FALLBACK = ['dead_antihrist@mail.ru'];
-const APP_VERSION = '1.8.7';
+const APP_VERSION = '1.8.8';
 
-// Email-ы, которым разрешено менять привязки админов к гильдиям
 const BINDING_OWNERS = [
     'kolibri@wosb.ru',
     'dead_antihrist@mail.ru'
 ];
 
-// Пути к PNG-флагам (положить в images/flags/)
 const CLAN_FLAGS = {
     neutral: 'images/flags/neutral.png',
     pirate:  'images/flags/pirate.png',
@@ -42,6 +40,7 @@ let settingsCache = null, faqCache = [], partnersCache = [], tacticsCache = [], 
 let siteAdminsCache = [];
 let currentSession = null;
 let isOwner = false;
+let isMod = false;
 let siteAdminRole = null;
 let myAdminClanId = null;
 let partnerLogoData = null;
@@ -107,17 +106,29 @@ function canEditBindings() {
 
 /* ============ ПРАВА ============ */
 function canEditClan(clanId) {
+    // Владелец — везде
     if (isOwner) return true;
+
     if (isAdmin) {
+        // С привязкой (admin/mod) — только своя гильдия
         if (myAdminClanId) return clanId === myAdminClanId;
+        // Модератор без привязки — нигде
+        if (isMod) return false;
+        // Админ без привязки — везде
         return true;
     }
+
     if (clanId === currentClan && currentClanIsAdmin) return true;
     return false;
 }
+
 function getMyClanId() { return localStorage.getItem(MY_CLAN_KEY) || null; }
+
 function canAccessClan(clanId) {
+    // Владелец — везде
     if (isOwner) return true;
+
+    // Привязанный админ/модератор — своя + союзные
     if (isAdmin && myAdminClanId) {
         if (clanId === myAdminClanId) return true;
         const my = clansCache[myAdminClanId];
@@ -125,7 +136,11 @@ function canAccessClan(clanId) {
         if (!my || !target || !my.alliance_id) return false;
         return target.alliance_id === my.alliance_id;
     }
+
+    // Админ без привязки — всё
     if (isAdmin) return true;
+
+    // Обычный пользователь — своя + союзные
     const myClan = getMyClanId();
     if (!myClan) return false;
     if (clanId === myClan) return true;
@@ -186,6 +201,7 @@ function recalcIsAdmin() {
     const me = siteAdminsCache.find(r => (r.email || '').toLowerCase() === email);
     isAdmin = !!me;
     isOwner = me?.role === 'owner';
+    isMod = me?.role === 'mod';
     siteAdminRole = me?.role || null;
     myAdminClanId = me?.clan_id || null;
 }
@@ -208,20 +224,14 @@ async function renderSiteAdminsAdmin() {
     let clansList = Object.values(clansCache);
     if (!clansList.length) {
         try {
-            const { data, error } = await supabase
-                .from('clans')
-                .select('id, name')
-                .order('name');
+            const { data, error } = await supabase.from('clans').select('id, name').order('name');
             if (error) throw error;
             clansList = data || [];
             clansList.forEach(c => { clansCache[c.id] = c; });
         } catch (e) {
-            console.warn('Не удалось загрузить гильдии для селекта:', e.message);
+            console.warn('Не удалось загрузить гильдии:', e.message);
             try {
-                const { data } = await supabase
-                    .from('clans_public')
-                    .select('id, name')
-                    .order('name');
+                const { data } = await supabase.from('clans_public').select('id, name').order('name');
                 clansList = data || [];
             } catch (e2) { }
         }
@@ -267,9 +277,7 @@ async function renderSiteAdminsAdmin() {
             : `<span class="role-badge ${role}">${roleLabels[role] || role}</span>`;
 
         const clanHtml = canBind && !isMe
-            ? `<select class="clan-select" data-email="${escapeHtml(email)}">
-                   ${clanOptionsHtml(clanId)}
-               </select>`
+            ? `<select class="clan-select" data-email="${escapeHtml(email)}">${clanOptionsHtml(clanId)}</select>`
             : (clanId && clansCache[clanId]
                 ? `<span class="role-badge admin">🏰 ${escapeHtml(clansCache[clanId].name)}</span>`
                 : `<span class="role-badge mod">🌐 Все гильдии</span>`);
@@ -840,15 +848,25 @@ function renderScopeSelects() {
     ['pvpScope', 'pbScope', 'buildEditScope', 'buildDupScope', 'evScope'].forEach(id => {
         const sel = $(id); if (!sel) return;
         const current = sel.value; sel.innerHTML = '';
-        const opt1 = document.createElement('option');
-        opt1.value = SHARED; opt1.textContent = '🌐 Общий';
-        sel.appendChild(opt1);
+
+        // "Общий" вариант: для событий доступен только владельцу
+        const hideShared = (id === 'evScope' && !isOwner);
+        if (!hideShared) {
+            const opt1 = document.createElement('option');
+            opt1.value = SHARED; opt1.textContent = '🌐 Общий';
+            sel.appendChild(opt1);
+        }
+
         clans.forEach(c => {
             const opt = document.createElement('option');
             opt.value = c.id; opt.textContent = '🏰 ' + c.name; sel.appendChild(opt);
         });
-        if (current && Array.from(sel.options).some(o => o.value === current)) sel.value = current;
-        else if (currentClan && (id === 'pvpScope' || id === 'pbScope' || id === 'evScope')) sel.value = currentClan;
+
+        if (current && Array.from(sel.options).some(o => o.value === current)) {
+            sel.value = current;
+        } else if (currentClan && (id === 'pvpScope' || id === 'pbScope' || id === 'evScope')) {
+            sel.value = currentClan;
+        }
     });
 }
 
@@ -1003,7 +1021,7 @@ function openClan(id, isClanAdminLogin = false) {
     const myClan = getMyClanId();
     const hasAdminPass = localStorage.getItem(CLAN_ADMIN_PASS_KEY) === '1';
     currentClanIsAdmin = isOwner
-        || (isAdmin && !myAdminClanId)
+        || (isAdmin && !myAdminClanId && !isMod)
         || (isAdmin && myAdminClanId === id)
         || isClanAdminLogin
         || (id === myClan && hasAdminPass);
@@ -1396,6 +1414,13 @@ on('evAddBtn', 'click', async () => {
     const statusEl = $('evStatus');
     if (!title) { flashStatusEl(statusEl, 'Введите название', '#ff7a7a'); return; }
     if (!dateStr) { flashStatusEl(statusEl, 'Укажите дату', '#ff7a7a'); return; }
+
+    // Общие события — только владелец
+    if (isShared && !isOwner) {
+        flashStatusEl(statusEl, 'Общие события создаёт только владелец', '#ff7a7a');
+        return;
+    }
+
     if (isAdmin) {
         const { error } = await supabase.from('events').insert({
             clan: clanVal, is_shared: isShared, title, event_date: new Date(dateStr).toISOString(), description: desc || null

@@ -119,7 +119,7 @@ function canEditClan(clanId) {
 
 function getMyClanId() { return localStorage.getItem(MY_CLAN_KEY) || null; }
 
-/** Кто считается «главой гильдии» (модератором) — имеет доступ к панели лидера */
+/** Кто считается главой клана — имеет доступ к панели лидера */
 function getLeaderClanId() {
     return myAdminClanId || getMyClanId() || currentClan || null;
 }
@@ -248,8 +248,8 @@ async function renderSiteAdminsAdmin() {
         }
     }
 
-    const roleLabels = { owner: '👑 Владелец', admin: '⚙️ Админ', mod: '🛡 Модератор' };
-    const roleIcons  = { owner: '👑', admin: '⚙️', mod: '🛡' };
+    const roleLabels = { owner: '👑 Владелец', admin: '⚙️ Админ', mod: '🎖 Глава Клана' };
+    const roleIcons  = { owner: '👑', admin: '⚙️', mod: '🎖' };
 
     const clanOptionsHtml = (selectedId) => {
         if (!clansList.length) return '<option value="">— Нет гильдий —</option>';
@@ -281,7 +281,7 @@ async function renderSiteAdminsAdmin() {
             ? `<select class="role-select" data-email="${escapeHtml(email)}">
                    <option value="owner" ${role === 'owner' ? 'selected' : ''}>👑 Владелец</option>
                    <option value="admin" ${role === 'admin' ? 'selected' : ''}>⚙️ Админ</option>
-                   <option value="mod"   ${role === 'mod'   ? 'selected' : ''}>🛡 Модератор</option>
+                   <option value="mod"   ${role === 'mod'   ? 'selected' : ''}>🎖 Глава Клана</option>
                </select>`
             : `<span class="role-badge ${role}">${roleLabels[role] || role}</span>`;
 
@@ -612,6 +612,7 @@ document.querySelectorAll('.side-item').forEach(btn => {
         else if (section === 'contacts') renderContacts();
         else if (section === 'members') { renderMembers(); renderAdmins(); }
         else if (section === 'applications') renderApplications();
+        else if (section === 'online') renderClanOnlineList();
     });
 });
 
@@ -714,13 +715,14 @@ supabase.auth.onAuthStateChange(async (_e, session) => {
 });
 function applyAdminUI() {
     const setHidden = (id, hidden) => { const el = $(id); if (el) el.hidden = hidden; };
+    const canAccessPanel = isAdmin && !isMod;
     setHidden('adminLoginBtn', isAdmin);
     setHidden('adminLogoutBtn', !isAdmin);
-    setHidden('adminPanelBtn', !isAdmin);
+    setHidden('adminPanelBtn', !canAccessPanel);
     setHidden('adminLogoutBtn2', !isAdmin);
-    setHidden('adminPanelBtn2', !isAdmin);
-    setHidden('adminPanelBtn3', !isAdmin);
-    const label = isAdmin ? (isOwner ? '👑 Владелец' : siteAdminRole === 'mod' ? '🛡 Модератор' : '⚙️ Админ') : '';
+    setHidden('adminPanelBtn2', !canAccessPanel);
+    setHidden('adminPanelBtn3', !canAccessPanel);
+    const label = isAdmin ? (isOwner ? '👑 Владелец' : siteAdminRole === 'mod' ? '🎖 Глава Клана' : '⚙️ Админ') : '';
     ['adminInfo','adminInfo2','adminInfo3'].forEach(id => { const el = $(id); if (el) el.textContent = label; });
     document.querySelectorAll('.admin-only').forEach(el => { el.hidden = !isAdmin; if (!isAdmin) el.style.display = ''; });
     document.querySelectorAll('.add-form.admin-only').forEach(el => { el.style.display = isAdmin ? 'flex' : 'none'; });
@@ -737,7 +739,7 @@ function applyAdminUI() {
     updateLeaderButtonsVisibility();
 }
 function openAdminPage() {
-    if (!isAdmin) return;
+    if (!isAdmin || isMod) return;
     const firstNav = document.querySelector('.admin-nav-item[data-apanel="clans"]');
     if (firstNav) firstNav.click();
     renderAdminClanSelect(); renderSiteFields();
@@ -752,7 +754,8 @@ on('adminPanelBtn3', 'click', openAdminPage);
 
 /* ============ АДМИН: ОНЛАЙН ============ */
 async function renderAdminOnlineList() {
-    const container = $('adminOnlineList'); if (!container || !isAdmin) return;
+    const container = $('adminOnlineList'); if (!container) return;
+    if (!isAdmin && !canEditClan(currentClan)) return;
     container.innerHTML = '<div class="empty">Загрузка…</div>';
     const threshold = new Date(Date.now() - ONLINE_WINDOW_MS).toISOString();
     const { data, error } = await supabase.from('online_users').select('*').gte('last_seen', threshold).order('last_seen', { ascending: false });
@@ -789,6 +792,39 @@ async function renderAdminOnlineList() {
     });
 }
 on('refreshOnlineList', 'click', renderAdminOnlineList);
+
+/* ============ ОНЛАЙН — ДЛЯ ГЛАВЫ КЛАНА ============ */
+async function renderClanOnlineList() {
+    const container = $('clanOnlineList'); if (!container) return;
+    if (!canEditClan(currentClan)) { container.innerHTML = '<div class="empty">Нет доступа</div>'; return; }
+    container.innerHTML = '<div class="empty">Загрузка…</div>';
+    const threshold = new Date(Date.now() - ONLINE_WINDOW_MS).toISOString();
+    const { data, error } = await supabase.from('online_users').select('*').gte('last_seen', threshold).order('last_seen', { ascending: false });
+    if (error) { container.innerHTML = `<div class="empty">Ошибка: ${error.message}</div>`; return; }
+    if (!data?.length) { container.innerHTML = '<div class="empty">Сейчас никого нет</div>'; return; }
+    const me = getViewerNick().toLowerCase();
+    container.innerHTML = '';
+    data.forEach(u => {
+        const nick = u.nickname || '—';
+        const isGuest = nick.startsWith('guest_');
+        const isMe = nick.toLowerCase() === me;
+        const el = document.createElement('div');
+        el.className = 'online-item' + (isGuest ? ' guest' : '') + (isMe ? ' me' : '');
+        el.innerHTML = `
+            <div class="online-icon">${isGuest ? '👤' : isMe ? '⭐' : '🟢'}</div>
+            <div class="online-info">
+                <div class="online-nick">${escapeHtml(nick)}${isMe ? ' <span class="online-me">— вы</span>' : ''}</div>
+                <div class="online-meta">был в сети ${new Date(u.last_seen).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</div>
+            </div>
+            <div class="online-actions">
+                ${!isGuest && !isMe ? `<button class="online-msg-btn" data-nick="${escapeHtml(nick)}">✉️ Написать</button>` : isGuest ? `<span class="online-hint">гость</span>` : ''}
+            </div>`;
+        const msgBtn = el.querySelector('.online-msg-btn');
+        if (msgBtn) msgBtn.addEventListener('click', () => openPrivateChat(msgBtn.dataset.nick));
+        container.appendChild(el);
+    });
+}
+on('clanOnlineRefresh', 'click', renderClanOnlineList);
 
 /* ============ ГИЛЬДИИ ============ */
 async function loadClans() {
@@ -983,7 +1019,7 @@ on('doClanLogin', 'click', async () => {
     localStorage.setItem(CLAN_ADMIN_PASS_KEY, isClanAdminLogin ? '1' : '0');
     localStorage.setItem(MY_CLAN_KEY, pendingClanId);
     $('clanPassModal').hidden = true;
-    await logView(nick, pendingClanId, isClanAdminLogin ? 'вход (админ)' : 'вход');
+    await logView(nick, pendingClanId, isClanAdminLogin ? 'вход (адмирал)' : 'вход');
     sendHeartbeat();
     const tn = $('tm-nickname'); if (tn && !tn.value) tn.value = nick;
     const cid = pendingClanId; pendingClanId = null;
@@ -1341,9 +1377,10 @@ on('doBuildDup', 'click', async () => {
     const clanValue = isShared ? null : scopeVal;
     const msg = $('buildDupMsg'); msg.style.color = '';
     const item = duplicatingBuild;
-    if (!isAdmin) { msg.textContent = 'Только админ сайта'; msg.style.color = '#ff7a7a'; return; }
+    if (!canEditClan(currentClan)) { msg.textContent = 'Нет прав'; msg.style.color = '#ff7a7a'; return; }
+    const clanVal = isShared ? null : currentClan;
     const { error } = await supabase.from('builds').insert({
-        clan: clanValue, is_shared: isShared, type: item.type, rank: item.rank || null, ship_name: item.ship_name,
+        clan: clanVal, is_shared: isShared, type: item.type, rank: item.rank || null, ship_name: item.ship_name,
         upgrades: item.upgrades || null, weapons_small: item.weapons_small || null, weapons_medium: item.weapons_medium || null,
         weapons_large: item.weapons_large || null, consumable1: item.consumable1 || null, consumable2: item.consumable2 || null,
         consumable3: item.consumable3 || null, cargo: item.cargo || null, specialists: item.specialists || null
@@ -1543,11 +1580,38 @@ function renderAdmins() {
     if (!currentClan) return;
     const container = $('adminsList'); if (!container) return;
     const parsed = parseMembersList(clansCache[currentClan]?.admin_nicks || '');
-    if (!parsed.length) { container.innerHTML = '<div class="empty">Список админов пока пуст</div>'; return; }
+    if (!parsed.length) { container.innerHTML = '<div class="empty">Список адмиралов пока пуст</div>'; return; }
     container.innerHTML = parsed.map(m => `
         <div class="member-row admin"><span class="member-num">👑</span><span class="member-name">${escapeHtml(m.name)}</span></div>
     `).join('');
+    const editField = $('clanAdminNicksInput');
+    if (editField) editField.value = clansCache[currentClan]?.admin_nicks || '';
 }
+async function saveClanAdminNicks() {
+    if (!canEditClan(currentClan)) return;
+    const nicks = val('clanAdminNicksInput');
+    const statusEl = $('clanAdminNicksStatus');
+    if (statusEl) { statusEl.textContent = '⏳ Сохранение…'; statusEl.style.color = ''; }
+    try {
+        if (isAdmin && !isMod) {
+            const { error } = await supabase.from('clans').update({ admin_nicks: nicks || null }).eq('id', currentClan);
+            if (error) throw new Error(error.message);
+        } else {
+            const { data: resp, error } = await supabase.rpc('clan_admin_action', {
+                action: 'update', target_table: 'clans', target_clan: currentClan,
+                entered_password: currentClanPass, record_id: currentClan, data: { admin_nicks: nicks || null }
+            });
+            if (error || resp?.error) throw new Error(resp?.error || error.message);
+        }
+        if (clansCache[currentClan]) clansCache[currentClan].admin_nicks = nicks || null;
+        renderAdmins();
+        if (statusEl) { statusEl.textContent = '✔ Сохранено'; statusEl.style.color = '#6ee7a7'; }
+        await logAdminAction('Обновил список адмиралов', clansCache[currentClan]?.name || currentClan);
+    } catch (err) {
+        if (statusEl) { statusEl.textContent = 'Ошибка: ' + err.message; statusEl.style.color = '#ff7a7a'; }
+    }
+}
+on('clanAdminNicksSave', 'click', saveClanAdminNicks);
 on('membersUploadBtn', 'click', () => {
     if (!canEditClan(currentClan)) return;
     const fi = $('membersFileInput'); if (fi) { fi.value = ''; fi.click(); }
@@ -1985,7 +2049,8 @@ on('doAcceptTrade', 'click', async () => {
 /* ============ ЗАЯВКИ В ГИЛЬДИЮ ============ */
 async function renderApplications() {
     const container = $('applicationsList');
-    if (!container || !isAdmin) return;
+    if (!container) return;
+    if (!canEditClan(currentClan)) return;
     container.innerHTML = '<div class="empty">Загрузка…</div>';
     const { data, error } = await supabase.from('applications').select('*').order('created_at', { ascending: false });
     if (error) { container.innerHTML = `<div class="empty">Ошибка: ${error.message}</div>`; return; }
@@ -2440,13 +2505,22 @@ function renderContacts() {
         const card = document.createElement('div');
         card.className = 'contact-card';
         const hasLink = clan.discord && clan.discord.trim();
+        const hasPhone = clan.phone && clan.phone.trim();
+        const hasLeader = clan.leader_nick && clan.leader_nick.trim();
         card.innerHTML = `
             <img src="${escapeHtml(getClanImage(clan))}" alt="${escapeHtml(clan.name)}" class="${isClanUsingFlag(clan) ? 'clan-flag' : ''}">
             <div class="contact-info">
                 <div class="contact-name">${escapeHtml(clan.name)}</div>
+                ${hasLeader ? `<div class="contact-leader">👑 ${escapeHtml(clan.leader_nick)}</div>` : ''}
+                ${hasPhone ? `<div class="contact-phone">${escapeHtml(clan.phone)}</div>` : ''}
                 <div class="contact-discord">${hasLink ? escapeHtml(clan.discord) : 'Ссылка не указана'}</div>
             </div>
-            ${hasLink ? `<a class="contact-btn" href="${escapeHtml(clan.discord)}" target="_blank" rel="noopener">💬 Discord</a>` : `<span class="contact-btn disabled">💬 Нет ссылки</span>`}`;
+            <div class="contact-actions">
+                ${hasLink ? `<a class="contact-btn" href="${escapeHtml(clan.discord)}" target="_blank" rel="noopener">💬 Discord</a>` : `<span class="contact-btn disabled">💬 Нет ссылки</span>`}
+                ${hasLeader ? `<button class="contact-msg-btn" data-nick="${escapeHtml(clan.leader_nick)}">✉️ Написать</button>` : `<span class="contact-msg-btn disabled">✉️ Нет ника</span>`}
+            </div>`;
+        const msgBtn = card.querySelector('.contact-msg-btn');
+        if (msgBtn && hasLeader) msgBtn.addEventListener('click', () => openPrivateChat(msgBtn.dataset.nick));
         container.appendChild(card);
     });
 }
@@ -2552,6 +2626,7 @@ function updateAdminFields() {
     $('adminCurrentAdminPass').value = clan?.admin_password || '—';
     $('adminNewPass').value = ''; $('adminNewAdminPass').value = '';
     $('adminDiscord').value = clan?.discord || '';
+    const phoneEl = $('adminPhone'); if (phoneEl) phoneEl.value = clan?.phone || '';
     $('adminNews').value = clan?.news || '';
     $('adminRules').value = clan?.rules || '';
     $('adminNicks').value = clan?.admin_nicks || '';
@@ -2572,6 +2647,7 @@ on('saveAdminSettings', 'click', async () => {
     const newAdminPass = val('adminNewAdminPass').trim();
     const payload = {
         discord: val('adminDiscord').trim() || null,
+        phone: (val('adminPhone') || '').trim() || null,
         news: val('adminNews') || null,
         rules: val('adminRules'),
         game_id: val('adminClanGame') || null,
@@ -2641,7 +2717,7 @@ on('saveSiteSettings', 'click', async () => {
 
 /* ============ ДОБАВЛЕНИЕ ГИЛЬДИИ ============ */
 on('openAddClan', 'click', () => {
-    ['newClanId','newClanName','newClanDesc','newClanRules','newClanPass','newClanAdminPass','newClanDiscord','newClanImage','newClanBg','newClanLeaderNick'].forEach(id => { const el = $(id); if (el) el.value = ''; });
+    ['newClanId','newClanName','newClanDesc','newClanRules','newClanPass','newClanAdminPass','newClanDiscord','newClanPhone','newClanImage','newClanBg','newClanLeaderNick'].forEach(id => { const el = $(id); if (el) el.value = ''; });
     const flagEl = $('newClanFlag'); if (flagEl) flagEl.value = 'neutral';
     updateFlagPreview('newClanFlag', 'newClanFlagPreview');
     renderNewClanGameSelect(); renderAllianceSelects();
@@ -2666,6 +2742,7 @@ on('saveNewClan', 'click', async () => {
         password: pass, admin_password: adminPass || null,
         alliance_id: alliance || null,
         discord: val('newClanDiscord').trim() || null,
+        phone: (val('newClanPhone') || '').trim() || null,
         image: val('newClanImage').trim() || null,
         flag: val('newClanFlag') || 'neutral',
         leader_nick: val('newClanLeaderNick').trim() || null,
@@ -2925,7 +3002,7 @@ function setChatMode(mode) {
     const leadersTab = $('chatLeadersTab');
     if (leadersTab) leadersTab.hidden = !isClanLeader();
     const voiceTab = $('chatVoiceTab'); if (voiceTab) voiceTab.hidden = false;
-    const clearBtn = $('chatClear'); if (clearBtn) clearBtn.hidden = !isAdmin || mode === 'voice';
+    const clearBtn = $('chatClear'); if (clearBtn) clearBtn.hidden = (!isAdmin && !canEditClan(currentClan)) || mode === 'voice';
     const inputRow = $('chatInputRow'), voiceBox = $('chatVoiceContainer'), msgBox = $('chatMessages');
     if (mode === 'voice') {
         if (inputRow) inputRow.hidden = true;
@@ -3054,7 +3131,7 @@ async function sendChatMessage() {
     input.value = '';
 }
 async function clearChat() {
-    if (!isAdmin) return;
+    if (!isAdmin && !canEditClan(currentClan)) return;
     let label;
     if (chatMode === 'general') label = 'ОБЩИЙ чат';
     else if (chatMode === 'private') label = `личные с «${chatPrivateWith}»`;
@@ -3075,7 +3152,7 @@ async function clearChat() {
     chatMessages = []; renderChatMessages();
 }
 function openChat(mode) {
-    const clearBtn = $('chatClear'); if (clearBtn) clearBtn.hidden = !isAdmin;
+    const clearBtn = $('chatClear'); if (clearBtn) clearBtn.hidden = !isAdmin && !canEditClan(currentClan);
     $('chatPanel').hidden = false;
     if (mode === 'voice') setChatMode('voice');
     else if (mode === 'private' && chatPrivateWith) setChatMode('private');
@@ -3230,7 +3307,7 @@ on('vkNewsModal', 'click', e => { if (e.target.id === 'vkNewsModal') closeVkNews
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { const m = $('vkNewsModal'); if (m && !m.hidden) closeVkNewsModal(); } });
 
 /* ============================================================
-   ПАНЕЛЬ ГЛАВЫ ГИЛЬДИИ (МОДЕРАТОР)
+   ПАНЕЛЬ ГЛАВЫ КЛАНА
    ============================================================ */
 function updateLeaderButtonsVisibility() {
     const show = isClanLeader();
@@ -3509,6 +3586,8 @@ on('leaderOpenVoiceTop', 'click', () => openChat('voice'));
     setTimeout(handleBuildHash, 800);
     setInterval(() => {
         const onlineSection = document.querySelector('.admin-section[data-apanel="online"]');
-        if (onlineSection && onlineSection.classList.contains('active') && isAdmin) renderAdminOnlineList();
+        if (onlineSection && onlineSection.classList.contains('active') && isAdmin && !isMod) renderAdminOnlineList();
+        const clanOnlineSection = $('section-online');
+        if (clanOnlineSection && clanOnlineSection.classList.contains('active') && canEditClan(currentClan)) renderClanOnlineList();
     }, 15000);
 })();

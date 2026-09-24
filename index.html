@@ -28,8 +28,9 @@
 
         <div class="home-wrap">
             <div class="hero-video">
-                <video autoplay muted loop playsinline preload="auto">
-                    <source src="videos/hero.mp4" type="video/mp4">
+                <video autoplay muted loop playsinline preload="auto" poster="videoshero.jpg">
+                    <source src="videoshero.mp4" type="video/mp4" onerror="console.error('❌ Не удалось загрузить videoshero.mp4. Проверь: 1) файл лежит рядом с index.html; 2) имя точно videoshero.mp4; 3) кодек H.264')">
+                    Ваш браузер не поддерживает видео.
                 </video>
                 <div class="hero-overlay"></div>
                 <div class="hero-text">

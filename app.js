@@ -1,9 +1,9 @@
 import { supabase } from './supabase.js';
 
-console.log('🚀 app.js v1.9.2');
+console.log('🚀 app.js v1.9.3');
 
 const ADMIN_EMAILS_FALLBACK = ['dead_antihrist@mail.ru'];
-const APP_VERSION = '1.9.2';
+const APP_VERSION = '1.9.3';
 
 const BINDING_OWNERS = [
     'kolibri@wosb.ru',
@@ -45,6 +45,8 @@ let isMod = false;
 let siteAdminRole = null;
 let myAdminClanId = null;
 let partnerLogoData = null;
+let clanLogoData = null;
+let newClanLogoData = null;
 let currentGame = null, currentClan = null;
 let currentClanIsAdmin = false, currentClanPass = null;
 let pendingClanId = null, currentTab = 'enemies';
@@ -93,14 +95,58 @@ function colorFromString(str) {
     const hue = Math.abs(h) % 360;
     return `linear-gradient(135deg, hsl(${hue}, 55%, 45%), hsl(${hue}, 55%, 30%))`;
 }
+
+/** Определяет, использует ли гильдия флаг (нет кастомного лого) */
+function isClanUsingFlag(clan) {
+    return !(clan && clan.image && String(clan.image).trim());
+}
+
+/** Возвращает URL картинки лого (файл, ссылка или флаг) */
 function getClanImage(clan) {
     if (clan && clan.image && String(clan.image).trim()) return clan.image;
     const flag = clan?.flag || 'neutral';
     return CLAN_FLAGS[flag] || CLAN_FLAGS.neutral;
 }
-function isClanUsingFlag(clan) {
-    return !(clan && clan.image && String(clan.image).trim());
+
+/** Определяет, видео ли это (mp4/webm) — нужно рендерить через <video> */
+function isVideoMedia(url) {
+    if (!url) return false;
+    const s = String(url).toLowerCase();
+    if (s.startsWith('data:video/')) return true;
+    const clean = s.split('?')[0].split('#')[0];
+    return clean.endsWith('.mp4') || clean.endsWith('.webm');
 }
+
+/**
+ * Рендерит HTML-тег логотипа клана.
+ * size: 'card' | 'info' | 'icon' | 'alliance' | 'contact'
+ */
+function renderClanLogoHtml(clan, size = 'card') {
+    const url = getClanImage(clan);
+    const useFlag = isClanUsingFlag(clan);
+    const useVideo = isVideoMedia(url) && !useFlag;
+    const flagClass = useFlag ? ' clan-flag' : '';
+    const nameAttr = escapeHtml(clan.name || '');
+
+    if (useVideo) {
+        // Рендер через <video>
+        const classMap = {
+            card: ``, info: ``, icon: `clan-icon-small`,
+            alliance: ``, contact: ``
+        };
+        const cls = classMap[size] || '';
+        return `<video autoplay muted loop playsinline preload="metadata" class="${cls}${flagClass}" data-clan-logo="1"><source src="${escapeHtml(url)}" type="video/mp4"><source src="${escapeHtml(url)}" type="video/webm"></video>`;
+    }
+
+    // Обычная картинка (JPG/PNG/GIF/WebP/SVG/base64)
+    const classMap = {
+        card: ``, info: ``, icon: `clan-icon-small`,
+        alliance: ``, contact: ``
+    };
+    const cls = (classMap[size] || '') + flagClass;
+    return `<img src="${escapeHtml(url)}" alt="${nameAttr}" class="${cls}" onerror="this.style.display='none'">`;
+}
+
 function canEditBindings() {
     const myEmail = (currentSession?.user?.email || '').toLowerCase();
     return BINDING_OWNERS.map(e => e.toLowerCase()).includes(myEmail);
@@ -606,6 +652,95 @@ function renderAlliancesAdmin() {
     });
 }
 
+/* ============ ЗАГРУЗКА ЛОГОТИПОВ ГИЛЬДИЙ ============ */
+// Админка — загрузка файла
+on('adminClanImagePick', 'click', () => { const f = $('adminClanImageFile'); if (f) f.click(); });
+on('adminClanImageFile', 'change', async (e) => {
+    const file = e.target.files[0]; if (!file) return;
+    try {
+        // Проверка размера файла (5 МБ)
+        if (file.size > 5 * 1024 * 1024) {
+            alert('Файл слишком большой. Максимум 5 МБ.\nДля видео/GIF лучше использовать ссылку.');
+            return;
+        }
+        // Видео — читаем как data URL (без сжатия)
+        if (file.type.startsWith('video/')) {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                clanLogoData = ev.target.result;
+                $('adminClanImagePreviewImg').src = ''; // превью для видео не покажем в <img>
+                $('adminClanImagePreview').hidden = false;
+                $('adminClanImageName').textContent = file.name + ' (видео)';
+                const inp = $('adminClanImage'); if (inp) inp.value = '';
+            };
+            reader.readAsDataURL(file);
+            return;
+        }
+        // Картинка или GIF — сжимаем только если это НЕ gif (gif теряет анимацию)
+        if (file.type === 'image/gif' || file.type === 'image/webp') {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                clanLogoData = ev.target.result;
+                $('adminClanImagePreviewImg').src = clanLogoData;
+                $('adminClanImagePreview').hidden = false;
+                $('adminClanImageName').textContent = file.name;
+                const inp = $('adminClanImage'); if (inp) inp.value = '';
+            };
+            reader.readAsDataURL(file);
+            return;
+        }
+        // Обычная картинка — сжимаем
+        clanLogoData = await compressLogo(file, 256, 0.9);
+        $('adminClanImagePreviewImg').src = clanLogoData;
+        $('adminClanImagePreview').hidden = false;
+        $('adminClanImageName').textContent = file.name;
+        const inp = $('adminClanImage'); if (inp) inp.value = '';
+    } catch (err) { alert('Не удалось обработать: ' + err.message); }
+});
+on('adminClanImageClear', 'click', () => {
+    clanLogoData = null;
+    const fi = $('adminClanImageFile'); if (fi) fi.value = '';
+    const prev = $('adminClanImagePreview'); if (prev) prev.hidden = true;
+    const nm = $('adminClanImageName'); if (nm) nm.textContent = '';
+});
+
+// Модалка «Новая гильдия» — загрузка файла
+on('newClanImagePick', 'click', () => { const f = $('newClanImageFile'); if (f) f.click(); });
+on('newClanImageFile', 'change', async (e) => {
+    const file = e.target.files[0]; if (!file) return;
+    try {
+        if (file.size > 5 * 1024 * 1024) {
+            alert('Файл слишком большой. Максимум 5 МБ.');
+            return;
+        }
+        if (file.type.startsWith('video/') || file.type === 'image/gif' || file.type === 'image/webp') {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                newClanLogoData = ev.target.result;
+                if (!file.type.startsWith('video/')) {
+                    $('newClanImagePreviewImg').src = newClanLogoData;
+                }
+                $('newClanImagePreview').hidden = false;
+                $('newClanImageName').textContent = file.name + (file.type.startsWith('video/') ? ' (видео)' : '');
+                const inp = $('newClanImage'); if (inp) inp.value = '';
+            };
+            reader.readAsDataURL(file);
+            return;
+        }
+        newClanLogoData = await compressLogo(file, 256, 0.9);
+        $('newClanImagePreviewImg').src = newClanLogoData;
+        $('newClanImagePreview').hidden = false;
+        $('newClanImageName').textContent = file.name;
+        const inp = $('newClanImage'); if (inp) inp.value = '';
+    } catch (err) { alert('Не удалось обработать: ' + err.message); }
+});
+on('newClanImageClear', 'click', () => {
+    newClanLogoData = null;
+    const fi = $('newClanImageFile'); if (fi) fi.value = '';
+    const prev = $('newClanImagePreview'); if (prev) prev.hidden = true;
+    const nm = $('newClanImageName'); if (nm) nm.textContent = '';
+});
+
 /* ============ САЙДБАР ГИЛЬДИИ ============ */
 document.querySelectorAll('.side-item').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -873,13 +1008,10 @@ function renderHomeCards() {
 
         if (!accessible) btn.classList.add('locked');
 
-        const imgSrc = getClanImage(clan);
-        const useFlag = isClanUsingFlag(clan);
-
         btn.dataset.clan = clan.id;
         btn.innerHTML = `
             ${accessible ? '' : '<span class="clan-lock">🔒</span>'}
-            <img src="${escapeHtml(imgSrc)}" alt="${escapeHtml(clan.name)}" class="${useFlag ? 'clan-flag' : ''}" onerror="this.style.display='none'">
+            ${renderClanLogoHtml(clan, 'card')}
             <span class="clan-name">${escapeHtml(clan.name)}</span>
             <span class="clan-desc">${escapeHtml(clan.description || '')}</span>
             <span class="clan-more">${accessible ? 'Подробнее →' : 'Только описание →'}</span>`;
@@ -948,10 +1080,10 @@ function openClanInfo(id, opts = {}) {
         }
     }
 
-    const logoEl = $('clanInfoLogo');
-    if (logoEl) {
-        logoEl.src = getClanImage(clan);
-        logoEl.className = 'clan-info-logo' + (isClanUsingFlag(clan) ? ' clan-flag' : '');
+    // Логотип — может быть img или video
+    const logoWrap = $('clanInfoLogoWrap');
+    if (logoWrap) {
+        logoWrap.innerHTML = renderClanLogoHtml(clan, 'info');
     }
 
     const newsWrap = $('clanInfoNewsWrap');
@@ -1057,9 +1189,7 @@ function updateAllianceBar() {
     members.forEach(c => {
         const btn = document.createElement('button');
         btn.className = 'alliance-chip';
-        const imgSrc = getClanImage(c);
-        const useFlag = isClanUsingFlag(c);
-        btn.innerHTML = `<img src="${escapeHtml(imgSrc)}" alt="" class="${useFlag ? 'clan-flag' : ''}" onerror="this.style.display='none'"> ${escapeHtml(c.name)}`;
+        btn.innerHTML = renderClanLogoHtml(c, 'alliance') + ' ' + escapeHtml(c.name);
         btn.addEventListener('click', () => openClan(c.id, false));
         list.appendChild(btn);
     });
@@ -1097,11 +1227,10 @@ function openClan(id, isClanAdminLogin = false) {
     if (!currentClanIsAdmin) currentClanPass = null;
 
     const titleEl = $('clanTitle'); if (titleEl) titleEl.textContent = clan.name;
-    const iconEl = $('clanIcon');
-    if (iconEl) {
-        iconEl.src = getClanImage(clan);
-        iconEl.alt = clan.name;
-        iconEl.className = 'clan-icon-small' + (isClanUsingFlag(clan) ? ' clan-flag' : '');
+    // Иконка клана в шапке — img или video
+    const iconWrap = $('clanIconWrap');
+    if (iconWrap) {
+        iconWrap.innerHTML = renderClanLogoHtml(clan, 'icon');
     }
     showScreen('lists');
     document.querySelectorAll('.side-item').forEach(b => b.classList.toggle('active', b.dataset.section === 'lists'));
@@ -2522,7 +2651,7 @@ function renderContacts() {
         const hasPhone = clan.phone && clan.phone.trim();
         const hasLeader = clan.leader_nick && clan.leader_nick.trim();
         card.innerHTML = `
-            <img src="${escapeHtml(getClanImage(clan))}" alt="${escapeHtml(clan.name)}" class="${isClanUsingFlag(clan) ? 'clan-flag' : ''}">
+            ${renderClanLogoHtml(clan, 'contact')}
             <div class="contact-info">
                 <div class="contact-name">${escapeHtml(clan.name)}</div>
                 ${hasLeader ? `<div class="contact-leader">👑 ${escapeHtml(clan.leader_nick)}</div>` : ''}
@@ -2645,7 +2774,27 @@ function updateAdminFields() {
     $('adminRules').value = clan?.rules || '';
     $('adminNicks').value = clan?.admin_nicks || '';
     $('adminMembers').value = clan?.members_list || '';
-    const imgEl = $('adminClanImage'); if (imgEl) imgEl.value = clan?.image || '';
+
+    // Логотип — превью существующего
+    const imgEl = $('adminClanImage');
+    const previewWrap = $('adminClanImagePreview');
+    const previewImg = $('adminClanImagePreviewImg');
+    const nameEl = $('adminClanImageName');
+    const fileEl = $('adminClanImageFile');
+    if (fileEl) fileEl.value = '';
+    if (clan?.image && clan.image.startsWith('data:')) {
+        clanLogoData = clan.image;
+        if (imgEl) imgEl.value = '';
+        if (previewImg) previewImg.src = clan.image.startsWith('data:image/') ? clan.image : '';
+        if (previewWrap) previewWrap.hidden = false;
+        if (nameEl) nameEl.textContent = clan.image.startsWith('data:video/') ? 'Загруженное видео' : 'Загруженный файл';
+    } else {
+        clanLogoData = null;
+        if (imgEl) imgEl.value = clan?.image || '';
+        if (previewWrap) previewWrap.hidden = true;
+        if (nameEl) nameEl.textContent = '';
+    }
+
     const flagEl = $('adminClanFlag'); if (flagEl) flagEl.value = clan?.flag || 'neutral';
     updateFlagPreview('adminClanFlag', 'adminClanFlagPreview');
     const leaderEl = $('adminLeaderNick');
@@ -2659,6 +2808,8 @@ on('saveAdminSettings', 'click', async () => {
     const msg = $('adminPanelMsg');
     const newPass = val('adminNewPass').trim();
     const newAdminPass = val('adminNewAdminPass').trim();
+    // Приоритет: загруженный файл (base64) → ссылка/путь
+    const finalImage = clanLogoData || val('adminClanImage').trim() || null;
     const payload = {
         discord: val('adminDiscord').trim() || null,
         phone: val('adminPhone').trim() || null,
@@ -2668,7 +2819,7 @@ on('saveAdminSettings', 'click', async () => {
         alliance_id: val('adminClanAlliance') || null,
         admin_nicks: val('adminNicks') || null,
         members_list: val('adminMembers') || null,
-        image: val('adminClanImage').trim() || null,
+        image: finalImage,
         flag: val('adminClanFlag') || 'neutral',
         leader_nick: val('adminLeaderNick').trim() || null,
         updated_at: new Date().toISOString()
@@ -2731,11 +2882,16 @@ on('saveSiteSettings', 'click', async () => {
 
 /* ============ ДОБАВЛЕНИЕ ГИЛЬДИИ ============ */
 on('openAddClan', 'click', () => {
-    ['newClanId','newClanName','newClanDesc','newClanRules','newClanPass','newClanAdminPass','newClanDiscord','newClanImage','newClanBg','newClanLeaderNick'].forEach(id => { const el = $(id); if (el) el.value = ''; });
+    ['newClanId','newClanName','newClanDesc','newClanRules','newClanPass','newClanAdminPass','newClanDiscord','newClanImage','newClanBg','newClanLeaderNick','newClanPhone'].forEach(id => { const el = $(id); if (el) el.value = ''; });
     const flagEl = $('newClanFlag'); if (flagEl) flagEl.value = 'neutral';
     updateFlagPreview('newClanFlag', 'newClanFlagPreview');
     renderNewClanGameSelect(); renderAllianceSelects();
     $('newClanAlliance').value = ''; $('addClanMsg').textContent = '';
+    // Сброс логотипа
+    newClanLogoData = null;
+    const _p = $('newClanImagePreview'); if (_p) _p.hidden = true;
+    const _n = $('newClanImageName'); if (_n) _n.textContent = '';
+    const _f = $('newClanImageFile'); if (_f) _f.value = '';
     $('addClanModal').hidden = false; $('newClanId').focus();
 });
 on('cancelAddClan', 'click', () => { $('addClanModal').hidden = true; });
@@ -2750,6 +2906,7 @@ on('saveNewClan', 'click', async () => {
     if (!id || !name || !pass) { msg.textContent = 'ID, название и пароль обязательны'; msg.style.color = '#ff7a7a'; return; }
     if (!game) { msg.textContent = 'Выберите игру'; msg.style.color = '#ff7a7a'; return; }
     if (clansCache[id]) { msg.textContent = 'ID занят'; msg.style.color = '#ff7a7a'; return; }
+    const finalImage = newClanLogoData || val('newClanImage').trim() || null;
     const payload = {
         id, name, game_id: game,
         description: val('newClanDesc').trim(), rules: val('newClanRules'),
@@ -2757,7 +2914,7 @@ on('saveNewClan', 'click', async () => {
         alliance_id: alliance || null,
         discord: val('newClanDiscord').trim() || null,
         phone: val('newClanPhone').trim() || null,
-        image: val('newClanImage').trim() || null,
+        image: finalImage,
         flag: val('newClanFlag') || 'neutral',
         leader_nick: val('newClanLeaderNick').trim() || null,
         bg: val('newClanBg').trim() || 'images/bg-main.jpg'

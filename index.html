@@ -19,6 +19,7 @@
             <button id="notifBell" class="icon-btn" title="Уведомления">
                 🔔<span id="notifBadge" class="notif-badge" hidden>0</span>
             </button>
+            <button id="leaderPanelBtn" class="icon-btn" hidden title="Панель главы гильдии">🎖</button>
             <span id="adminInfo"></span>
             <button id="adminPanelBtn" hidden title="Админ-панель">⚙️</button>
             <button id="adminLoginBtn">🔐 Админ</button>
@@ -52,7 +53,6 @@
                         <h3 class="tm-title">📣 Биржа заявок</h3>
                         <span class="tm-subtitle">World of Sea Battle</span>
                     </header>
-
                     <div class="tm-counters">
                         <div class="tm-counter buy">
                             <div class="tm-ci">🛒</div>
@@ -71,7 +71,6 @@
                             </div>
                         </div>
                     </div>
-
                     <div class="tm-layout">
                         <section class="tm-panel">
                             <h4 class="tm-panel-title">📝 Новая заявка</h4>
@@ -93,7 +92,6 @@
                             <button id="tm-submit" class="tm-btn-gold">Опубликовать заявку</button>
                             <p id="tm-status" class="tm-status"></p>
                         </section>
-
                         <section class="tm-panel">
                             <h4 class="tm-panel-title">📋 Доска заявок</h4>
                             <div class="tm-filters">
@@ -158,6 +156,7 @@
     <div id="screen-clan" class="screen" hidden>
         <div class="top-right">
             <button id="themeToggle2" class="icon-btn" title="Сменить тему">🌓</button>
+            <button id="leaderPanelBtn2" class="icon-btn" hidden title="Панель главы гильдии">🎖</button>
             <span id="adminInfo2"></span>
             <button id="adminPanelBtn2" hidden>⚙️</button>
             <button id="adminLogoutBtn2" hidden>🚪 Выйти</button>
@@ -199,6 +198,7 @@
                 <span id="adminInfo3"></span>
                 <button id="themeToggle3" class="icon-btn" title="Сменить тему">🌓</button>
                 <button id="notifBell2" class="icon-btn" title="Уведомления">🔔<span id="notifBadge2" class="notif-badge" hidden>0</span></button>
+                <button id="leaderPanelBtn3" class="icon-btn" hidden title="Панель главы гильдии">🎖</button>
                 <button id="adminPanelBtn3" hidden>⚙️</button>
                 <a id="downloadBtn" class="icon-btn" href="https://github.com/Flowseal/zapret-discord-youtube/releases/download/1.10.3/zapret-discord-youtube-1.10.3.rar" target="_blank" rel="noopener" title="Скачать zapret">⬇️</a>
                 <button id="bgChangeBtn" class="icon-btn admin-only" hidden title="Сменить фон">🎨</button>
@@ -329,11 +329,11 @@
 
                 <div id="section-members" class="clan-section">
                     <h2>👑 Админы гильдии</h2>
-                    <p class="hint">Список формируется в админ-панели сайта. Если твой ник в этом списке — ты получаешь права редактирования гильдии.</p>
+                    <p class="hint">Список формируется в админ-панели сайта.</p>
                     <div id="adminsList" class="members-list"></div>
 
                     <h2 style="margin-top:28px;">👥 Список участников гильдии</h2>
-                    <p class="hint">Формат: <b>номер - ник</b> или просто ник, каждый с новой строки. Если список заполнен — войти смогут только эти ники (и админы).</p>
+                    <p class="hint">Формат: <b>номер - ник</b> или просто ник, каждый с новой строки.</p>
 
                     <section class="add-form clan-admin-only" hidden style="flex-direction:column; align-items:stretch; gap:10px;">
                         <p class="hint" style="margin:0;">📂 Загрузи текстовый файл (или CSV) со списком участников.</p>
@@ -350,6 +350,70 @@
                     <p class="hint">Все заявки, отправленные через форму на главной</p>
                     <div id="applicationsList" class="applications-list"></div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ПАНЕЛЬ ГЛАВЫ ГИЛЬДИИ -->
+    <div id="screen-leader" class="screen" hidden>
+        <div class="top-right">
+            <button id="themeToggle4" class="icon-btn" title="Сменить тему">🌓</button>
+            <button id="leaderOpenChatTop" class="icon-btn" title="Чат глав">💬</button>
+            <button id="leaderOpenVoiceTop" class="icon-btn" title="Голосовой">🎙</button>
+        </div>
+        <button id="leaderBackBtn" class="back-btn">← На главную</button>
+
+        <div class="home-wrap" style="padding-top:120px;">
+            <h1 class="section-title">🎖 Панель главы гильдии</h1>
+            <p class="hint" style="text-align:center;font-size:14px;">
+                Гильдия: <b id="leaderClanName">—</b>
+            </p>
+
+            <section class="apply-section">
+                <h2 class="section-title">📅 Общие события владельца</h2>
+                <p class="hint" style="text-align:center;">Нажми «Принять участие», чтобы присоединить событие к своей гильдии.</p>
+                <div id="leaderEventsList" class="events-list" style="width:100%;max-width:900px;"></div>
+            </section>
+
+            <section class="apply-section">
+                <h2 class="section-title">🤝 Союзы</h2>
+                <div class="modal-actions" style="justify-content:center;margin-bottom:16px;">
+                    <button id="leaderOfferAllianceBtn" class="big-btn primary">➕ Предложить союз другой гильдии</button>
+                </div>
+
+                <h3 style="color:var(--blue);margin:12px 0 8px;">📥 Входящие заявки</h3>
+                <div id="leaderAllianceIncoming" class="applications-list" style="width:100%;max-width:900px;"></div>
+
+                <h3 style="color:var(--blue);margin:20px 0 8px;">📤 Исходящие заявки</h3>
+                <div id="leaderAllianceOutgoing" class="applications-list" style="width:100%;max-width:900px;"></div>
+            </section>
+
+            <section class="apply-section" style="margin-bottom:60px;">
+                <h2 class="section-title">💬 Связь глав</h2>
+                <div class="modal-actions" style="justify-content:center;">
+                    <button id="leaderOpenChatBtn" class="big-btn primary">💬 Чат глав</button>
+                    <button id="leaderOpenVoiceBtn" class="big-btn primary">🎙 Голосовой чат глав</button>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <div id="leaderAlliancePickerModal" class="modal" hidden>
+        <div class="modal-content">
+            <h2>🤝 Предложить союз</h2>
+            <p class="hint" style="margin:0;">Выбери гильдию, которой хочешь предложить союз.</p>
+            <div class="admin-field">
+                <label>Гильдия</label>
+                <select id="leaderAlliancePickerSelect"></select>
+            </div>
+            <div class="admin-field">
+                <label>Сообщение (необязательно)</label>
+                <textarea id="leaderAlliancePickerMsg" rows="3" maxlength="300" placeholder="Расскажите о своей гильдии..."></textarea>
+            </div>
+            <p id="leaderAlliancePickerError" class="error"></p>
+            <div class="modal-actions">
+                <button id="leaderAlliancePickerSend">📨 Отправить</button>
+                <button id="leaderAlliancePickerCancel" class="secondary">Отмена</button>
             </div>
         </div>
     </div>
@@ -446,7 +510,6 @@
 
             <section class="admin-section" data-apanel="alliances">
                 <h2 class="admin-section-title">🤝 Союзы</h2>
-                <p class="hint">Гильдии одного союза видят данные друг друга.</p>
                 <div class="admin-card">
                     <h3 style="font-size:15px;color:#ffd479;">➕ Новый союз</h3>
                     <div class="admin-field"><label>ID (латиница)</label><input type="text" id="allyId" placeholder="union1" maxlength="30"></div>
@@ -463,8 +526,8 @@
                 <div class="add-form" style="border-style:solid">
                     <input type="text" id="gameId" placeholder="ID (латиница)" maxlength="30">
                     <input type="text" id="gameName" placeholder="Название игры *" maxlength="80">
-                    <input type="text" id="gameImage" placeholder="Логотип (images/wosb.png)" maxlength="200">
-                    <input type="text" id="gameBg" placeholder="Фон (images/bg-wosb.jpg)" maxlength="200">
+                    <input type="text" id="gameImage" placeholder="Логотип" maxlength="200">
+                    <input type="text" id="gameBg" placeholder="Фон" maxlength="200">
                     <button id="gameAddBtn">➕ Добавить</button>
                     <span id="gameStatus"></span>
                 </div>
@@ -472,7 +535,7 @@
             </section>
 
             <section class="admin-section" data-apanel="partners">
-                <h2 class="admin-section-title">🤝 Партнёры и Реклама</h2>
+                <h2 class="admin-section-title">🤝 Партнёры</h2>
                 <div class="admin-card">
                     <div class="admin-field"><label>Название *</label><input type="text" id="partnerName" maxlength="80"></div>
                     <div class="admin-field"><label>Ссылка *</label><input type="text" id="partnerUrl" placeholder="https://..." maxlength="300"></div>
@@ -521,7 +584,6 @@
 
             <section class="admin-section" data-apanel="online">
                 <h2 class="admin-section-title">👥 Кто сейчас на сайте</h2>
-                <p class="hint">Обновляется автоматически каждые 15 секунд.</p>
                 <div class="modal-actions" style="margin-bottom:12px">
                     <button id="refreshOnlineList" class="secondary">🔄 Обновить</button>
                 </div>
@@ -730,6 +792,22 @@
         </div>
     </div>
 
+    <div id="allianceRequestModal" class="modal" hidden>
+        <div class="modal-content">
+            <h2>🤝 Предложить союз</h2>
+            <p id="allianceRequestTarget" class="auth-clan-name"></p>
+            <div class="admin-field">
+                <label>Сообщение (необязательно)</label>
+                <textarea id="allianceRequestMsg" rows="3" maxlength="300" placeholder="Расскажите о своей гильдии..."></textarea>
+            </div>
+            <p id="allianceRequestError" class="error"></p>
+            <div class="modal-actions">
+                <button id="doAllianceRequest">📨 Отправить предложение</button>
+                <button id="cancelAllianceRequest" class="secondary">Отмена</button>
+            </div>
+        </div>
+    </div>
+
     <div id="allyEditModal" class="modal" hidden>
         <div class="modal-content admin-panel-wide">
             <h2>✏️ Редактировать союз</h2>
@@ -845,6 +923,7 @@
             <div class="chat-tabs">
                 <button class="chat-tab active" data-mode="guild">🏰 Гильдия</button>
                 <button class="chat-tab" data-mode="general">🌍 Общий</button>
+                <button class="chat-tab" data-mode="leaders" id="chatLeadersTab" hidden>🎖 Главы</button>
                 <button class="chat-tab" data-mode="private" id="chatPrivateTab" hidden>✉️ Личный</button>
                 <button class="chat-tab" data-mode="voice" id="chatVoiceTab">🎙 Голос</button>
             </div>

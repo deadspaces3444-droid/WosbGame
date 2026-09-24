@@ -1,5 +1,5 @@
 /* ============================================================
-   WosbGame v1.9.2 — style.css
+   WosbGame v1.9.3 — style.css
 ============================================================ */
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -428,13 +428,15 @@ a.icon-btn:hover {
     box-shadow: 0 14px 0 rgba(0, 0, 0, .15), 0 20px 50px rgba(0, 0, 0, .5), 0 0 40px var(--accent-glow);
 }
 .clan-card:active { transform: translateY(-2px); }
-.clan-card img {
+.clan-card img,
+.clan-card video {
     width: 100px; height: 100px;
     object-fit: contain;
     filter: drop-shadow(0 6px 16px var(--shadow));
     transition: transform .3s ease;
 }
-.clan-card:hover img { transform: scale(1.08); }
+.clan-card:hover img,
+.clan-card:hover video { transform: scale(1.08); }
 .clan-card .clan-name { font-size: 20px; font-weight: 700; color: var(--text); }
 .clan-card .clan-desc { font-size: 13px; line-height: 1.5; color: var(--muted); }
 .clan-card .clan-more {
@@ -469,7 +471,8 @@ a.icon-btn:hover {
 }
 
 /* ============ ФЛАГИ-ЗАГЛУШКИ ============ */
-.clan-card img.clan-flag {
+.clan-card img.clan-flag,
+.clan-card video.clan-flag {
     object-fit: contain;
     width: 100px;
     height: 100px;
@@ -478,7 +481,8 @@ a.icon-btn:hover {
     border-radius: 8px;
     box-shadow: 0 6px 16px var(--shadow), inset 0 0 0 1px var(--border);
 }
-.clan-info-logo.clan-flag {
+.clan-info-logo-wrap img.clan-flag,
+.clan-info-logo-wrap video.clan-flag {
     object-fit: contain;
     padding: 12px;
     background: var(--panel-2);
@@ -486,26 +490,63 @@ a.icon-btn:hover {
     box-shadow: 0 8px 24px var(--shadow), inset 0 0 0 2px var(--border);
     animation: logoFloat 3s ease-in-out infinite;
 }
-.clan-icon-small.clan-flag {
+.clan-icon-wrap img.clan-flag,
+.clan-icon-wrap video.clan-flag {
     object-fit: contain;
     padding: 3px;
     background: var(--panel-2);
     border-radius: 4px;
     box-shadow: inset 0 0 0 1px var(--border);
 }
-.alliance-chip img.clan-flag {
+.alliance-chip img.clan-flag,
+.alliance-chip video.clan-flag {
     object-fit: contain;
     padding: 2px;
     background: var(--panel-2);
     border-radius: 3px;
     box-shadow: inset 0 0 0 1px var(--border);
 }
-.contact-card img.clan-flag {
+.contact-card img.clan-flag,
+.contact-card video.clan-flag {
     object-fit: contain;
     padding: 6px;
     background: var(--panel-2);
     border-radius: 8px;
     box-shadow: inset 0 0 0 1px var(--border);
+}
+
+/* Логотип в карточке — базовое оформление */
+.clan-info-logo-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 140px;
+    height: 140px;
+    margin: 0 auto;
+}
+.clan-info-logo-wrap img,
+.clan-info-logo-wrap video {
+    width: 140px;
+    height: 140px;
+    object-fit: contain;
+    filter: drop-shadow(0 8px 24px var(--shadow));
+    animation: logoFloat 3s ease-in-out infinite;
+}
+
+.clan-icon-wrap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+}
+.clan-icon-wrap img,
+.clan-icon-wrap video {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+    border-radius: 6px;
 }
 
 /* Превью флага в модалках */
@@ -745,12 +786,6 @@ a.icon-btn:hover {
     box-shadow: 0 12px 0 rgba(0, 0, 0, .15), 0 20px 60px var(--shadow);
     text-align: center;
 }
-.clan-info-logo {
-    width: 140px; height: 140px;
-    object-fit: contain;
-    filter: drop-shadow(0 8px 24px var(--shadow));
-    animation: logoFloat 3s ease-in-out infinite;
-}
 @keyframes logoFloat {
     0%, 100% { transform: translateY(0); }
     50%      { transform: translateY(-8px); }
@@ -830,7 +865,6 @@ a.icon-btn:hover {
     min-width: 0; overflow: hidden;
     text-overflow: ellipsis; white-space: nowrap;
 }
-.clan-icon-small { width: 32px; height: 32px; object-fit: contain; border-radius: 6px; flex-shrink: 0; }
 #clanView .back-btn { position: static; flex-shrink: 0; margin: 0; }
 #clanView .top-right { position: static; flex-shrink: 0; margin: 0; }
 .clan-layout {
@@ -919,7 +953,8 @@ a.icon-btn:hover {
     box-shadow: 0 3px 0 rgba(0, 0, 0, .3), inset 0 1px 0 var(--inset-light);
     transition: all .15s cubic-bezier(.4, 0, .2, 1);
 }
-.alliance-chip img {
+.alliance-chip img,
+.alliance-chip video {
     width: 22px; height: 22px;
     object-fit: contain;
     border-radius: 4px;
@@ -1179,7 +1214,8 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
 .contacts-list { display: flex; flex-direction: column; gap: 12px; }
 .contact-card { display: flex; align-items: center; gap: 16px; padding: 16px 20px; background: linear-gradient(180deg, var(--panel-3) 0%, var(--panel) 100%); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 3px 0 rgba(0, 0, 0, .2), 0 5px 14px rgba(0, 0, 0, .25); transition: all .25s; flex-wrap: wrap; }
 .contact-card:hover { transform: translateY(-3px); border-color: #5865F2; box-shadow: 0 6px 0 rgba(0, 0, 0, .15), 0 10px 24px rgba(0, 0, 0, .3), 0 0 24px rgba(88, 101, 242, .4); }
-.contact-card img { width: 56px; height: 56px; object-fit: contain; border-radius: 8px; flex-shrink: 0; }
+.contact-card img,
+.contact-card video { width: 56px; height: 56px; object-fit: contain; border-radius: 8px; flex-shrink: 0; }
 .contact-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .contact-name { font-size: 16px; font-weight: 700; color: var(--text); }
 .contact-discord { font-size: 12px; color: var(--muted); word-break: break-all; }
@@ -1709,74 +1745,23 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
 .pwd-toggle { padding: 8px 12px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; color: var(--muted); font-size: 14px; font-family: inherit; transition: all .15s; flex-shrink: 0; }
 .pwd-toggle:hover { color: var(--text); border-color: var(--accent); background: var(--panel-3); }
 
-/* ============ ПАНЕЛЬ ГЛАВЫ ГИЛЬДИИ (МОДЕРАТОР) ============ */
-#screen-leader {
-    min-height: 100vh;
-    padding-bottom: 60px;
-}
-#screen-leader .home-wrap {
-    max-width: 1100px;
-    margin: 0 auto;
-    padding: 100px 20px 40px;
-    gap: 26px;
-    align-items: stretch;
-}
-#screen-leader .section-title {
-    text-align: left;
-    padding-left: 14px;
-    border-left: 4px solid var(--gold);
-    font-size: 20px;
-    margin: 26px 0 14px;
-    text-shadow: none;
-    padding-bottom: 0;
-}
+/* ============ ПАНЕЛЬ ГЛАВЫ ГИЛЬДИИ ============ */
+#screen-leader { min-height: 100vh; padding-bottom: 60px; }
+#screen-leader .home-wrap { max-width: 1100px; margin: 0 auto; padding: 100px 20px 40px; gap: 26px; align-items: stretch; }
+#screen-leader .section-title { text-align: left; padding-left: 14px; border-left: 4px solid var(--gold); font-size: 20px; margin: 26px 0 14px; text-shadow: none; padding-bottom: 0; }
 #screen-leader .section-title::after { display: none; }
-#screen-leader .apply-section {
-    max-width: 100%;
-    width: 100%;
-    background: linear-gradient(180deg, var(--panel-3) 0%, var(--panel) 100%);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 20px 24px;
-    box-shadow: 0 6px 0 rgba(0, 0, 0, .2), 0 10px 28px var(--shadow);
-}
+#screen-leader .apply-section { max-width: 100%; width: 100%; background: linear-gradient(180deg, var(--panel-3) 0%, var(--panel) 100%); border: 1px solid var(--border); border-radius: 16px; padding: 20px 24px; box-shadow: 0 6px 0 rgba(0, 0, 0, .2), 0 10px 28px var(--shadow); }
 #screen-leader .apply-section .section-title { margin-top: 0; }
 #screen-leader .apply-section .hint { margin: 0; text-align: center; }
 #screen-leader #leaderClanName { color: var(--gold); }
 #screen-leader .big-btn { white-space: nowrap; }
 #leaderAlliancePickerModal .modal-content { max-width: 480px; }
 
-/* Кнопка «Принять участие» в общих событиях */
-#leaderEventsList .event-actions button {
-    width: auto;
-    padding: 8px 16px;
-    background: linear-gradient(180deg, var(--accent) 0%, var(--accent-hover) 100%);
-    color: #fff;
-    border-color: var(--accent);
-    font-weight: 700;
-    font-size: 12px;
-    border-radius: 8px;
-    white-space: nowrap;
-}
-#leaderEventsList .event-actions button:hover {
-    transform: translateY(-2px);
-    filter: brightness(1.1);
-    box-shadow: 0 5px 0 rgba(0, 0, 0, .3), 0 8px 16px rgba(0, 0, 0, .3), 0 0 16px var(--accent-glow);
-    background: linear-gradient(180deg, var(--accent) 0%, var(--accent-hover) 100%);
-    color: #fff;
-}
-#leaderEventsList .event-actions button.ghost {
-    background: linear-gradient(180deg, var(--panel-3) 0%, var(--panel) 100%);
-    color: var(--green);
-    border: 1px solid var(--green);
-}
-#leaderEventsList .event-actions button.ghost:hover {
-    background: linear-gradient(180deg, var(--green) 0%, var(--green-dim) 100%);
-    color: #fff;
-    box-shadow: 0 5px 0 rgba(0, 0, 0, .3), 0 0 16px rgba(110, 231, 167, .5);
-}
+#leaderEventsList .event-actions button { width: auto; padding: 8px 16px; background: linear-gradient(180deg, var(--accent) 0%, var(--accent-hover) 100%); color: #fff; border-color: var(--accent); font-weight: 700; font-size: 12px; border-radius: 8px; white-space: nowrap; }
+#leaderEventsList .event-actions button:hover { transform: translateY(-2px); filter: brightness(1.1); box-shadow: 0 5px 0 rgba(0, 0, 0, .3), 0 8px 16px rgba(0, 0, 0, .3), 0 0 16px var(--accent-glow); }
+#leaderEventsList .event-actions button.ghost { background: linear-gradient(180deg, var(--panel-3) 0%, var(--panel) 100%); color: var(--green); border: 1px solid var(--green); }
+#leaderEventsList .event-actions button.ghost:hover { background: linear-gradient(180deg, var(--green) 0%, var(--green-dim) 100%); color: #fff; box-shadow: 0 5px 0 rgba(0, 0, 0, .3), 0 0 16px rgba(110, 231, 167, .5); }
 
-/* Входящие/исходящие заявки союза */
 #leaderAllianceIncoming .application-card.pending { border-left-color: var(--gold); }
 #leaderAllianceOutgoing .application-card { border-left-color: var(--accent); }
 
@@ -1807,11 +1792,12 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
     .section-title { font-size: 20px; }
     .clan-grid { grid-template-columns: 1fr; gap: 16px; }
     .clan-card { min-height: auto; padding: 20px; }
-    .clan-card img { width: 80px; height: 80px; }
+    .clan-card img, .clan-card video { width: 80px; height: 80px; }
     .back-btn { position: static; margin-bottom: 12px; }
     .clan-info-wrap { padding: 10px 0 30px; min-height: auto; }
     .clan-info { padding: 26px 20px; border-radius: 16px; }
-    .clan-info-logo { width: 110px; height: 110px; }
+    .clan-info-logo-wrap { width: 110px; height: 110px; }
+    .clan-info-logo-wrap img, .clan-info-logo-wrap video { width: 110px; height: 110px; }
     .clan-info-name { font-size: 22px; }
     #clanView header { flex-direction: column; gap: 12px; align-items: stretch; text-align: left; margin-bottom: 20px; }
     #clanView header h1 { font-size: 20px; justify-content: flex-start; gap: 8px; order: -1; }
@@ -1850,10 +1836,10 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
     .alliance-bar { padding: 10px 14px; gap: 8px; }
     .alliance-bar-label { font-size: 12px; }
     .alliance-chip { padding: 6px 10px; font-size: 12px; }
-    .alliance-chip img { width: 18px; height: 18px; }
+    .alliance-chip img, .alliance-chip video { width: 18px; height: 18px; }
     .clans-header { gap: 10px; }
     .clans-add-btn { width: 40px; height: 40px; font-size: 20px; }
-    .clan-card img.clan-flag { width: 80px; height: 80px; padding: 6px; }
+    .clan-card img.clan-flag, .clan-card video.clan-flag { width: 80px; height: 80px; padding: 6px; }
     #screen-leader .home-wrap { padding: 80px 10px 30px; gap: 18px; }
     #screen-leader .apply-section { padding: 16px 14px; }
     #leaderEventsList .event-actions button { padding: 7px 12px; font-size: 11px; }

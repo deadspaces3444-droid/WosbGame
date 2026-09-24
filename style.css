@@ -1796,3 +1796,53 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
         transition-duration: .01ms !important;
     }
 }
+
+/* ============ КОНТАКТЫ — РАСШИРЕНИЕ ============ */
+.contact-phone {
+    font-size: 13px;
+    color: var(--green);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+.contact-phone::before { content: '📞'; }
+.contact-leader {
+    font-size: 12px;
+    color: var(--gold);
+    font-weight: 600;
+}
+.contact-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+}
+.contact-msg-btn {
+    padding: 10px 16px;
+    background: linear-gradient(180deg, var(--accent) 0%, var(--accent-hover) 100%);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 14px;
+    font-family: inherit;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 3px 0 rgba(0, 0, 0, .3), 0 4px 12px rgba(59, 130, 246, .3);
+    transition: all .15s;
+}
+.contact-msg-btn:hover { transform: translateY(-2px); filter: brightness(1.1); }
+.contact-msg-btn:active { transform: translateY(1px); }
+.contact-msg-btn.disabled {
+    background: var(--border);
+    color: var(--muted);
+    cursor: not-allowed;
+    pointer-events: none;
+    opacity: .6;
+    box-shadow: none;
+}
+.contact-card { flex-wrap: wrap; }
+.online-hint { font-size: 12px; color: var(--muted); }

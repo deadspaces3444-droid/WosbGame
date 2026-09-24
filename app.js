@@ -186,6 +186,21 @@ async function logAdminAction(action, target = null, details = null) {
         });
     } catch (e) { }
 }
+
+async function sendDiscordWebhook(payload) {
+    try {
+        const webhookUrl = settingsCache?.discord_webhook;
+        if (!webhookUrl || !webhookUrl.trim()) return;
+        const res = await fetch(webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if (!res.ok) console.warn('Discord webhook error:', res.status);
+    } catch (e) {
+        console.warn('Discord webhook failed:', e.message);
+    }
+}
 async function logView(nickname, clanId, page) {
     if (!nickname) return;
     try { await supabase.from('view_history').insert({ nickname, clan_id: clanId, page }); } catch (e) { }
@@ -612,7 +627,7 @@ document.querySelectorAll('.side-item').forEach(btn => {
         else if (section === 'contacts') renderContacts();
         else if (section === 'members') { renderMembers(); renderAdmins(); }
         else if (section === 'applications') renderApplications();
-        else if (section === 'online') renderClanOnlineList();
+            else if (section === 'online') renderClanOnlineList();
     });
 });
 
@@ -734,7 +749,7 @@ function applyAdminUI() {
         el.style.display = canEditClan(currentClan) ? 'flex' : 'none';
     });
     document.querySelectorAll('.owner-only').forEach(el => { el.hidden = !isOwner; });
-    const clearBtn = $('chatClear'); if (clearBtn) clearBtn.hidden = !isAdmin;
+    const clearBtn = $('chatClear'); if (clearBtn) clearBtn.hidden = !isAdmin && !canEditClan(currentClan);
     renderAll();
     updateLeaderButtonsVisibility();
 }
@@ -824,7 +839,6 @@ async function renderClanOnlineList() {
         container.appendChild(el);
     });
 }
-on('clanOnlineRefresh', 'click', renderClanOnlineList);
 
 /* ============ ГИЛЬДИИ ============ */
 async function loadClans() {
@@ -1378,9 +1392,8 @@ on('doBuildDup', 'click', async () => {
     const msg = $('buildDupMsg'); msg.style.color = '';
     const item = duplicatingBuild;
     if (!canEditClan(currentClan)) { msg.textContent = 'Нет прав'; msg.style.color = '#ff7a7a'; return; }
-    const clanVal = isShared ? null : currentClan;
     const { error } = await supabase.from('builds').insert({
-        clan: clanVal, is_shared: isShared, type: item.type, rank: item.rank || null, ship_name: item.ship_name,
+        clan: clanValue, is_shared: isShared, type: item.type, rank: item.rank || null, ship_name: item.ship_name,
         upgrades: item.upgrades || null, weapons_small: item.weapons_small || null, weapons_medium: item.weapons_medium || null,
         weapons_large: item.weapons_large || null, consumable1: item.consumable1 || null, consumable2: item.consumable2 || null,
         consumable3: item.consumable3 || null, cargo: item.cargo || null, specialists: item.specialists || null
@@ -1487,6 +1500,15 @@ on('evAddBtn', 'click', async () => {
         if (error || resp?.error) { flashStatusEl(statusEl, 'Ошибка: ' + (resp?.error || error.message), '#ff7a7a'); return; }
     }
     await logAdminAction('Добавил событие', title);
+    await sendDiscordWebhook({
+        content: `📅 **Новое событие** — ${escapeHtml(clansCache[currentClan]?.name || '')}`,
+        embeds: [{
+            title: title,
+            description: `${desc || ''}\n\n**Дата:** ${$('evDate')?.value ? new Date($('evDate').value).toLocaleString('ru-RU') : '—'}`,
+            color: 0x7db9ff,
+            timestamp: new Date().toISOString()
+        }]
+    });
     ['evTitle','evDate','evDesc'].forEach(id => { const el = $(id); if (el) el.value = ''; });
     flashStatusEl(statusEl, '✔ Добавлено', '#6ee7a7');
     renderEvents();
@@ -1587,6 +1609,7 @@ function renderAdmins() {
     const editField = $('clanAdminNicksInput');
     if (editField) editField.value = clansCache[currentClan]?.admin_nicks || '';
 }
+
 async function saveClanAdminNicks() {
     if (!canEditClan(currentClan)) return;
     const nicks = val('clanAdminNicksInput');
@@ -1697,6 +1720,15 @@ on('clanRequestSubmit', 'click', async () => {
     if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
     msg.textContent = '✔ Заявка отправлена! Владелец рассмотрит её.';
     msg.style.color = '#6ee7a7';
+    await sendDiscordWebhook({
+        content: '📨 **Заявка на создание гильдии**',
+        embeds: [{
+            title: val('crName'),
+            description: `**Глава:** ${val('crLeaderNick') || '—'}\n**От:** ${val('crRequesterNick')}\n**Email:** ${val('crEmail') || '—'}\n**Discord:** ${val('crDiscord') || '—'}\n\n**Описание:** ${val('crDesc') || '—'}`,
+            color: 0xffd479,
+            timestamp: new Date().toISOString()
+        }]
+    });
     setTimeout(closeClanRequestModal, 1800);
 });
 async function renderClanRequestsAdmin() {
@@ -2012,6 +2044,15 @@ on('tm-submit', 'click', async () => {
     updateTradeFormTotal();
     setTradeStatus('✅ Заявка опубликована!', 'success');
     renderTrades();
+    await sendDiscordWebhook({
+        content: `🪙 **Новая заявка на бирже** — ${tradeFormType === 'buy' ? '🛒 Покупка' : '💰 Продажа'}`,
+        embeds: [{
+            title: name,
+            description: `**Гильдия:** ${clansCache[clan]?.name || clan}\n**Цена:** ${price} 🪙\n**Кол-во:** ${qty}\n**Итого:** ${price * qty} 🪙\n**Ник:** ${nickname}${port ? '\n**Порт:** ' + port : ''}${note ? '\n**Примечание:** ' + note : ''}`,
+            color: tradeFormType === 'buy' ? 0x3b82f6 : 0xffd479,
+            timestamp: new Date().toISOString()
+        }]
+    });
 });
 
 /* ============ ПРИНЯТИЕ СДЕЛКИ ============ */
@@ -2121,6 +2162,15 @@ on('applyBtn', 'click', async () => {
     msg.textContent = '✔ Заявка отправлена!'; msg.style.color = '#6ee7a7';
     ['applyNick','applyAge','applyExp','applyContact','applyWhy'].forEach(id => { const el = $(id); if (el) el.value = ''; });
     $('applyClan').value = '';
+    await sendDiscordWebhook({
+        content: '📨 **Новая заявка в гильдию**',
+        embeds: [{
+            title: `Заявка от ${nick}`,
+            description: `**Гильдия:** ${val('applyClan') || '—'}\n**Возраст:** ${val('applyAge') || '—'}\n**Опыт:** ${val('applyExp') || '—'}\n**Связь:** ${val('applyContact') || '—'}\n\n**Причина:** ${why}`,
+            color: 0x3b82f6,
+            timestamp: new Date().toISOString()
+        }]
+    });
 });
 
 /* ============ FAQ ============ */
@@ -2503,10 +2553,11 @@ function renderContacts() {
     if (!clans.length) { container.innerHTML = '<div class="empty">Гильдий пока нет</div>'; return; }
     clans.forEach(clan => {
         const card = document.createElement('div');
-        card.className = 'contact-card';
+        card.className = 'contact-card contact-card-enhanced';
         const hasLink = clan.discord && clan.discord.trim();
         const hasPhone = clan.phone && clan.phone.trim();
         const hasLeader = clan.leader_nick && clan.leader_nick.trim();
+        const hasLink = clan.discord && clan.discord.trim();
         card.innerHTML = `
             <img src="${escapeHtml(getClanImage(clan))}" alt="${escapeHtml(clan.name)}" class="${isClanUsingFlag(clan) ? 'clan-flag' : ''}">
             <div class="contact-info">
@@ -2626,7 +2677,7 @@ function updateAdminFields() {
     $('adminCurrentAdminPass').value = clan?.admin_password || '—';
     $('adminNewPass').value = ''; $('adminNewAdminPass').value = '';
     $('adminDiscord').value = clan?.discord || '';
-    const phoneEl = $('adminPhone'); if (phoneEl) phoneEl.value = clan?.phone || '';
+    $('adminPhone').value = clan?.phone || '';
     $('adminNews').value = clan?.news || '';
     $('adminRules').value = clan?.rules || '';
     $('adminNicks').value = clan?.admin_nicks || '';
@@ -2647,7 +2698,7 @@ on('saveAdminSettings', 'click', async () => {
     const newAdminPass = val('adminNewAdminPass').trim();
     const payload = {
         discord: val('adminDiscord').trim() || null,
-        phone: (val('adminPhone') || '').trim() || null,
+        phone: val('adminPhone').trim() || null,
         news: val('adminNews') || null,
         rules: val('adminRules'),
         game_id: val('adminClanGame') || null,
@@ -2717,7 +2768,7 @@ on('saveSiteSettings', 'click', async () => {
 
 /* ============ ДОБАВЛЕНИЕ ГИЛЬДИИ ============ */
 on('openAddClan', 'click', () => {
-    ['newClanId','newClanName','newClanDesc','newClanRules','newClanPass','newClanAdminPass','newClanDiscord','newClanPhone','newClanImage','newClanBg','newClanLeaderNick'].forEach(id => { const el = $(id); if (el) el.value = ''; });
+    ['newClanId','newClanName','newClanDesc','newClanRules','newClanPass','newClanAdminPass','newClanDiscord','newClanImage','newClanBg','newClanLeaderNick'].forEach(id => { const el = $(id); if (el) el.value = ''; });
     const flagEl = $('newClanFlag'); if (flagEl) flagEl.value = 'neutral';
     updateFlagPreview('newClanFlag', 'newClanFlagPreview');
     renderNewClanGameSelect(); renderAllianceSelects();
@@ -2742,7 +2793,7 @@ on('saveNewClan', 'click', async () => {
         password: pass, admin_password: adminPass || null,
         alliance_id: alliance || null,
         discord: val('newClanDiscord').trim() || null,
-        phone: (val('newClanPhone') || '').trim() || null,
+            phone: val('newClanPhone').trim() || null,
         image: val('newClanImage').trim() || null,
         flag: val('newClanFlag') || 'neutral',
         leader_nick: val('newClanLeaderNick').trim() || null,
@@ -2754,6 +2805,15 @@ on('saveNewClan', 'click', async () => {
     renderHomeCards(); renderAdminClanSelect(); renderScopeSelects(); renderContacts();
     renderTradeClanSelect(); renderTradeClanFilters(); renderApplyClanSelect(); renderAlliancesAdmin();
     msg.textContent = '✔ Гильдия создана'; msg.style.color = '#6ee7a7';
+    await sendDiscordWebhook({
+        content: '🏰 **Создана новая гильдия**',
+        embeds: [{
+            title: val('newClanName'),
+            description: `ID: ${val('newClanId')}\nГлава: ${val('newClanLeaderNick') || '—'}`,
+            color: 0x6ee7a7,
+            timestamp: new Date().toISOString()
+        }]
+    });
     setTimeout(() => { $('addClanModal').hidden = true; }, 800);
 });
 
@@ -2948,6 +3008,10 @@ function renderNotifications() {
         const badge = $(id); if (!badge) return;
         if (unread > 0) { badge.textContent = unread > 99 ? '99+' : unread; badge.hidden = false; }
         else badge.hidden = true;
+    });
+    ['notifBell', 'notifBell2'].forEach(id => {
+        const bell = $(id); if (!bell) return;
+        bell.classList.toggle('has-notif', unread > 0);
     });
     if (!notifications.length) { list.innerHTML = '<p class="empty" style="padding:20px;text-align:center;">Уведомлений пока нет</p>'; return; }
     const icons = { event: '📅', trade: '🪙', application: '📝', chat: '💬', system: '⚙️' };
@@ -3220,7 +3284,7 @@ function initRealtime() {
                 notifications.unshift(payload.new);
                 if (notifications.length > 50) notifications.pop();
                 renderNotifications();
-                ['notifBell', 'notifBell2'].forEach(id => { const b = $(id); if (!b) return; b.style.transform = 'scale(1.15)'; setTimeout(() => b.style.transform = '', 300); });
+                ['notifBell', 'notifBell2'].forEach(id => { const b = $(id); if (!b) return; b.classList.add('has-notif'); b.style.transform = 'scale(1.15)'; setTimeout(() => b.style.transform = '', 300); });
             }).subscribe();
     }
 }
@@ -3232,10 +3296,12 @@ function closeRealtime() {
 /* ============ НОВОСТИ ============ */
 function openVkNewsModal() {
     const modal = $('vkNewsModal'); if (!modal) return;
+    modal.classList.remove('vk-news-fullscreen');
     modal.hidden = false; document.body.style.overflow = 'hidden'; loadNews();
 }
 function closeVkNewsModal() {
     const modal = $('vkNewsModal'); if (!modal) return;
+    modal.classList.remove('vk-news-fullscreen');
     modal.hidden = true; document.body.style.overflow = '';
 }
 async function loadNews() {
@@ -3243,68 +3309,95 @@ async function loadNews() {
     container.innerHTML = '<div class="vk-news-loading">Загрузка новостей…</div>';
     const srcLink = $('vkNewsSourceLink');
     if (srcLink && settingsCache?.news_rss_url) srcLink.href = settingsCache.news_rss_url;
-    const apiUrl = `https://api.vk.com/method/wall.get?domain=${encodeURIComponent(VK_DOMAIN)}&count=${VK_POSTS_COUNT}&v=${VK_API_VERSION}`;
-    const proxies = [
-        u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
-        u => 'https://corsproxy.io/?' + encodeURIComponent(u),
-        u => 'https://thingproxy.freeboard.io/fetch/' + u
-    ];
-    let json = null, lastError = null;
-    for (const make of proxies) {
-        try {
-            const res = await fetch(make(apiUrl), { cache: 'no-store' });
-            if (!res.ok) continue;
-            const data = await res.json();
-            if (data && data.response) { json = data; break; }
-            if (data && data.error) lastError = data.error.error_msg || 'VK API error';
-        } catch (e) { lastError = e.message; }
+
+    const sourceUrl = settingsCache?.news_rss_url || `https://vk.com/@${VK_DOMAIN}`;
+    let domain = VK_DOMAIN;
+    try {
+        const u = new URL(sourceUrl);
+        if (u.pathname.startsWith('/@')) domain = u.pathname.slice(2);
+        else if (u.pathname.startsWith('/club')) domain = 'club' + u.pathname.replace('/club', '');
+        else if (u.pathname.startsWith('/public')) domain = 'public' + u.pathname.replace('/public', '');
+    } catch (e) { }
+
+    try {
+        const rssUrl = `https://vk.com/${domain}?act=rss`;
+        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(rssUrl)}`;
+        const res = await fetch(proxyUrl);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const text = await res.text();
+        const parser = new DOMParser();
+        const xml = parser.parseFromString(text, 'text/xml');
+        const items = xml.querySelectorAll('item');
+        if (!items.length) {
+            container.innerHTML = '<div class="vk-news-loading">Новостей не найдено. Проверьте ссылку на сообщество в настройках.</div>';
+            return;
+        }
+        container.innerHTML = '';
+        const count = Math.min(items.length, VK_POSTS_COUNT);
+        for (let i = 0; i < count; i++) {
+            const item = items[i];
+            const title = item.querySelector('title')?.textContent || 'Без заголовка';
+            const link = item.querySelector('link')?.textContent || '#';
+            const pubDate = item.querySelector('pubDate')?.textContent || '';
+            const desc = item.querySelector('description')?.textContent || '';
+            const date = pubDate ? new Date(pubDate).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+            const tmp = document.createElement('div');
+            tmp.innerHTML = desc;
+            const cleanDesc = tmp.textContent.replace(/\s+/g, ' ').trim().slice(0, 200);
+            const card = document.createElement('div');
+            card.className = 'vk-news-item';
+            card.innerHTML = `
+                <div class="vk-news-date">${escapeHtml(date)}</div>
+                <h3 class="vk-news-title">${escapeHtml(title)}</h3>
+                <p class="vk-news-text">${escapeHtml(cleanDesc)}${cleanDesc.length >= 200 ? '…' : ''}</p>
+                <span class="vk-news-read">Читать полностью →</span>`;
+            card.addEventListener('click', () => openVkNewsFullscreen({ title, date, link, desc }));
+            container.appendChild(card);
+        }
+    } catch (err) {
+        console.warn('VK news error:', err);
+        container.innerHTML = `<div class="vk-news-loading">Не удалось загрузить новости. Откройте <a href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener" style="color:var(--accent);">сообщество ВКонтакте →</a></div>`;
     }
-    if (!json) {
-        container.innerHTML = `<div class="vk-news-error">Не удалось загрузить новости.<br>${lastError ? escapeHtml(lastError) : ''}</div>`;
-        return;
-    }
-    const posts = json.response?.items || [];
-    if (!posts.length) { container.innerHTML = '<div class="vk-news-empty">Новостей пока нет</div>'; return; }
-    container.innerHTML = '';
-    posts.forEach(post => container.appendChild(createVkNewsCard(post)));
 }
-function createVkNewsCard(post) {
-    const card = document.createElement('article');
-    card.className = 'vk-news-item';
-    const date = new Date(post.date * 1000);
-    const dateStr = date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
-    let text = post.text || '';
-    const isLong = text.length > 1000;
-    const displayText = isLong ? text.substring(0, 1000) + '…' : text;
-    const postLink = `https://vk.com/wall${post.owner_id}_${post.id}`;
-    let photosHtml = '';
-    const photos = [];
-    if (post.attachments) {
-        post.attachments.forEach(att => {
-            if (att.type === 'photo' && att.photo) {
-                const sizes = att.photo.sizes || [];
-                const suitable = sizes.filter(s => s.width <= 1300).sort((a, b) => b.width - a.width)[0];
-                const best = suitable || sizes.sort((a, b) => b.width - a.width)[0];
-                if (best) photos.push(best.url);
-            }
-        });
-    }
-    if (photos.length) photosHtml = `<div class="vk-news-attachments">${photos.slice(0, 2).map(url => `<img class="vk-news-photo" src="${escapeHtml(url)}" alt="" loading="lazy" onerror="this.style.display='none'">`).join('')}</div>`;
-    const likes = post.likes?.count || 0;
-    card.innerHTML = `
-        <div class="vk-news-header"><span class="vk-news-date">📅 ${dateStr}</span></div>
-        ${displayText ? `<div class="vk-news-text">${escapeHtml(displayText)}</div>` : ''}
-        ${photosHtml}
-        <div class="vk-news-footer">
-            <span class="vk-news-likes">❤️ ${likes}</span>
-            <a class="vk-news-link" href="${escapeHtml(postLink)}" target="_blank" rel="noopener">Читать полностью →</a>
+function openVkNewsFullscreen(news) {
+    const modal = $('vkNewsModal');
+    if (!modal) return;
+    const body = $('vkNewsList');
+    if (!body) return;
+    modal.classList.add('vk-news-fullscreen');
+    modal.hidden = false;
+    document.body.style.overflow = 'hidden';
+    const tmp = document.createElement('div');
+    tmp.innerHTML = news.desc;
+    tmp.querySelectorAll('script, style, iframe[src*="ads"], object, embed').forEach(el => el.remove());
+    body.innerHTML = `
+        <div class="vk-news-fullscreen-content">
+            <div class="vk-news-date" style="margin-bottom:12px;">${escapeHtml(news.date)}</div>
+            <h1 style="font-size:28px;margin-bottom:20px;color:var(--text);">${escapeHtml(news.title)}</h1>
+            <div class="vk-news-fulltext-body">${tmp.innerHTML}</div>
+            <div style="margin-top:28px;padding-top:20px;border-top:1px solid var(--border);">
+                <a href="${escapeHtml(news.link)}" target="_blank" rel="noopener" class="vk-news-read" style="font-size:16px;">Открыть в ВКонтакте →</a>
+            </div>
         </div>`;
-    return card;
+    const closeBtn = $('closeVkNews');
+    const restoreFn = () => {
+        modal.classList.remove('vk-news-fullscreen');
+        modal.hidden = true;
+        document.body.style.overflow = '';
+        body.innerHTML = '<div class="vk-news-loading">Загрузка…</div>';
+        loadNews();
+        closeBtn.removeEventListener('click', restoreFn);
+        modal.removeEventListener('click', outsideClickFn);
+    };
+    const outsideClickFn = (e) => { if (e.target === modal) restoreFn(); };
+    closeBtn.addEventListener('click', restoreFn);
+    modal.addEventListener('click', outsideClickFn);
 }
 on('openVkNewsBtn', 'click', openVkNewsModal);
 on('closeVkNews', 'click', closeVkNewsModal);
 on('vkNewsModal', 'click', e => { if (e.target.id === 'vkNewsModal') closeVkNewsModal(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { const m = $('vkNewsModal'); if (m && !m.hidden) closeVkNewsModal(); } });
+
 
 /* ============================================================
    ПАНЕЛЬ ГЛАВЫ КЛАНА
@@ -3539,6 +3632,16 @@ on('leaderAlliancePickerSend', 'click', async () => {
     await createNotification(toClan, 'system', 'Заявка на союз',
         `Гильдия «${clansCache[myClanId]?.name || myClanId}» предлагает союз`, null);
 
+    await sendDiscordWebhook({
+        content: '🤝 **Предложение союза**',
+        embeds: [{
+            title: `${clansCache[myClanId]?.name || '?'} → ${clansCache[toClan]?.name || toClan}`,
+            description: message || 'Без сообщения',
+            color: 0xb48aff,
+            timestamp: new Date().toISOString()
+        }]
+    });
+
     $('leaderAlliancePickerModal').hidden = true;
     renderLeaderAlliances(myClanId);
 });
@@ -3586,7 +3689,7 @@ on('leaderOpenVoiceTop', 'click', () => openChat('voice'));
     setTimeout(handleBuildHash, 800);
     setInterval(() => {
         const onlineSection = document.querySelector('.admin-section[data-apanel="online"]');
-        if (onlineSection && onlineSection.classList.contains('active') && isAdmin && !isMod) renderAdminOnlineList();
+        if (onlineSection && onlineSection.classList.contains('active') && isAdmin) renderAdminOnlineList();
         const clanOnlineSection = $('section-online');
         if (clanOnlineSection && clanOnlineSection.classList.contains('active') && canEditClan(currentClan)) renderClanOnlineList();
     }, 15000);

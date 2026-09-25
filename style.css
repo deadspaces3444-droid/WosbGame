@@ -1491,3 +1491,37 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
         transition-duration: .01ms !important;
     }
 }
+/* ════════════════════════════════════════════════════════════════════════
+   v2.3.0 — Сворачиваемый Гильдейский рынок на главной
+   ════════════════════════════════════════════════════════════════════════ */
+.tm-toggle {
+    margin-left: auto;
+    width: 34px;
+    height: 34px;
+    background: transparent;
+    border: 1px solid var(--tm-border);
+    color: var(--tm-muted);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+    font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all .2s;
+}
+.tm-toggle:hover {
+    color: var(--tm-gold-light);
+    border-color: var(--tm-gold-light);
+    transform: translateY(-1px);
+}
+.trade-market.collapsed .tm-body {
+    display: none;
+}
+.trade-market.collapsed .tm-toggle {
+    transform: rotate(180deg);
+}
+.trade-market.collapsed .tm-topbar {
+    margin-bottom: 0;
+    padding-bottom: 10px;
+}

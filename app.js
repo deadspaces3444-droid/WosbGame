@@ -4,7 +4,6 @@ console.log('🚀 app.js v2.1.0');
 
 const ADMIN_EMAILS_FALLBACK = ['dead_antihrist@mail.ru'];
 const APP_VERSION = '2.1.0';
-
 const BINDING_OWNERS = ['kolibri@wosb.ru', 'dead_antihrist@mail.ru'];
 
 const CLAN_FLAGS = {
@@ -42,13 +41,8 @@ let settingsCache = null, faqCache = [], partnersCache = [], tacticsCache = [], 
 let shipsCache = [];
 let siteAdminsCache = [];
 let currentSession = null;
-let isOwner = false;
-let isMod = false;
-let siteAdminRole = null;
-let myAdminClanId = null;
-let partnerLogoData = null;
-let clanLogoData = null;
-let newClanLogoData = null;
+let isOwner = false, isMod = false, siteAdminRole = null, myAdminClanId = null;
+let partnerLogoData = null, clanLogoData = null, newClanLogoData = null;
 let currentGame = null, currentClan = null;
 let currentClanIsAdmin = false, currentClanPass = null;
 let pendingClanId = null, currentTab = 'enemies';
@@ -59,31 +53,25 @@ let tradeFormType = 'buy', tradeFilterType = 'all', tradeFilterCat = 'all', trad
 let tradeSort = 'new', tradeStatusFilter = 'active';
 let tradeOnlyShips = false;
 let editingTradeId = null;
-let shipsFilterLevel = 'all';
-let shipsFilterType = 'all';
-let shipsSort = 'level-desc';
+let shipsFilterLevel = 'all', shipsFilterType = 'all', shipsSort = 'level-desc';
 let heartbeatTimer = null;
 let chatChannel = null, onlineChannel = null, notifChannel = null;
 let chatMessages = [], notifications = [];
-let chatMode = 'guild', chatPrivateWith = null, voiceActive = false;
-let voiceRoomOverride = null;
+let chatMode = 'guild', chatPrivateWith = null, voiceActive = false, voiceRoomOverride = null;
 
-// Ресурсы
 let resourcesCache = [];
 let pricingSaveTimers = {};
 let editingResourceId = null;
-
-// Рецепты и скидки
 let recipesCache = [];
 let discountsCache = [];
 
-// Карта
 let mapSettings = null;
 let currentMapView = 'detailed';
 let mapFsZoom = 1, mapFsX = 0, mapFsY = 0, mapFsDragging = false;
 let mapFsDragStart = null;
-let mapDetailedData = null;
-let mapCleanData = null;
+let mapDetailedData = null, mapCleanData = null;
+
+let factionsCache = [], portsCache = [], ranksCache = [];
 
 const $ = id => document.getElementById(id);
 function on(id, event, handler, opts) {
@@ -752,6 +740,7 @@ document.querySelectorAll('.admin-nav-item').forEach(btn => {
         if (panel === 'resources') renderPricingGrid();
         if (panel === 'shipcost') { renderRecipeShipSelect(); renderRecipeRows(); renderDiscountsAdmin(); }
         if (panel === 'map') renderMapAdmin();
+        if (panel === 'ports') { renderFactionsAdmin(); renderPortsAdmin(); renderRanksAdmin(); fillPortFactionSelect(); }
     });
 });
 on('adminBackHome', 'click', () => { currentClan = null; showScreen('home'); });
@@ -859,6 +848,7 @@ function fillShipSelects() {
     }
     if (builderHomeCtrl) builderHomeCtrl.fillTargetShip();
     if (builderClanCtrl) builderClanCtrl.fillTargetShip();
+    fillScShipSelect();
 }
 on('pvpShip', 'change', e => {
     const opt = e.target.selectedOptions[0]; const img = $('pvpShipPreview');
@@ -885,7 +875,6 @@ function renderAdminShips() {
     });
 }
 on('reloadShipsBtn', 'click', loadShips);
-
 /* ============================================================
    КАЛЬКУЛЯТОР СБОРКИ КОРАБЛЯ
    ============================================================ */
@@ -912,7 +901,6 @@ function createShipBuilder(prefix) {
         recalc: prefix ? prefix + 'Recalc2' : 'builderRecalc',
         copy: prefix ? prefix + 'Copy2' : 'builderCopy'
     };
-
     const state = { rows: [], counter: 0, ctx: prefix ? 'clan' : 'home' };
 
     function fillTargetShip() {
@@ -928,12 +916,10 @@ function createShipBuilder(prefix) {
         });
         if (cur) sel.value = cur;
     }
-
     function addRow() {
         state.counter++;
         state.rows.push({ id: state.counter, category: 'resource', name: '', qty: 1 });
     }
-
     function computeAvg(name) {
         const lower = (name || '').trim().toLowerCase();
         if (!lower) return null;
@@ -941,7 +927,6 @@ function createShipBuilder(prefix) {
         if (!res) return null;
         return Number(res.price) || 0;
     }
-
     function updateRowImage(rowId) {
         const row = state.rows.find(x => x.id === rowId); if (!row) return;
         const img = document.querySelector(`#${ids.tbody} .builder-row-img[data-id="${rowId}"]`);
@@ -951,7 +936,6 @@ function createShipBuilder(prefix) {
         if (res && res.image_url) { img.src = res.image_url; img.hidden = false; }
         else { img.hidden = true; img.src = ''; }
     }
-
     function renderRows() {
         const tbody = $(ids.tbody); if (!tbody) return;
         tbody.innerHTML = '';
@@ -983,7 +967,6 @@ function createShipBuilder(prefix) {
             tr.appendChild(tdName); tr.appendChild(tdQty); tr.appendChild(tdAvg); tr.appendChild(tdTotal); tr.appendChild(tdDel);
             tbody.appendChild(tr);
         });
-
         let dl = document.getElementById('builderSuggestions_' + state.ctx);
         if (!dl) {
             dl = document.createElement('datalist');
@@ -992,7 +975,6 @@ function createShipBuilder(prefix) {
         }
         const unique = [...new Set(resourcesCache.map(r => r.name))].sort();
         dl.innerHTML = unique.map(n => `<option value="${escapeHtml(n)}">`).join('');
-
         tbody.querySelectorAll('.builder-cat').forEach(el => {
             el.addEventListener('change', e => {
                 const r = state.rows.find(x => x.id === parseInt(e.target.dataset.id));
@@ -1018,11 +1000,9 @@ function createShipBuilder(prefix) {
                 renderRows(); recalc();
             });
         });
-
         state.rows.forEach(r => updateRowImage(r.id));
         recalc();
     }
-
     function recalc() {
         let found = 0, totalRows = 0, grand = 0;
         state.rows.forEach(row => {
@@ -1055,9 +1035,7 @@ function createShipBuilder(prefix) {
         if (elPr) elPr.textContent = `${found} / ${totalRows}`;
         if (elTt) elTt.textContent = Math.round(grand).toLocaleString('ru-RU') + ' 🪙';
     }
-
     function updateSummary() { recalc(); }
-
     function copyResult() {
         if (!state.rows.length) { alert('Список пуст'); return; }
         const target = $(ids.targetSel)?.value || '';
@@ -1078,7 +1056,6 @@ function createShipBuilder(prefix) {
             () => prompt('Скопируйте вручную:', text)
         );
     }
-
     function bind() {
         on(ids.addRow, 'click', () => { addRow(); renderRows(); });
         on(ids.clear, 'click', () => {
@@ -1098,25 +1075,19 @@ function createShipBuilder(prefix) {
             else img.hidden = true;
         });
     }
-
     function init() {
         bind();
         if (!state.rows.length) addRow();
         fillTargetShip();
         renderRows();
     }
-
     function refresh() {
         fillTargetShip();
         renderRows();
     }
-
     return { init, refresh, recalc, fillTargetShip, state };
 }
-
-let builderHomeCtrl = null;
-let builderClanCtrl = null;
-
+let builderHomeCtrl = null, builderClanCtrl = null;
 function initShipBuilders() {
     builderHomeCtrl = createShipBuilder('');
     builderHomeCtrl.init();
@@ -1849,6 +1820,7 @@ async function deleteBuild(id, type) {
     await logAdminAction(`Удалил билд ${type.toUpperCase()}`, null, `id: ${id}`);
     renderBuilds(type);
 }
+
 /* ============ СОБЫТИЯ ============ */
 async function renderEvents() {
     if (!currentClan) return;
@@ -2936,7 +2908,6 @@ on('tacAddBtn', 'click', async () => {
     flashStatusEl(statusEl, '✔ Добавлено', '#6ee7a7');
     await loadTactics();
 });
-
 /* ============================================================
    РЕСУРСЫ — СПРАВОЧНИК И РЕДАКТОР ЦЕН
    ============================================================ */
@@ -2953,7 +2924,6 @@ async function loadResourcePrices() {
     if (builderHomeCtrl) builderHomeCtrl.refresh();
     if (builderClanCtrl) builderClanCtrl.refresh();
 }
-
 function renderPricingGrid() {
     const grid = $('pricingGrid'); if (!grid) return;
     if (!resourcesCache.length) { grid.innerHTML = '<div class="pricing-empty">Пока нет ресурсов. Нажми «📥 Импорт базового набора».</div>'; return; }
@@ -2998,7 +2968,6 @@ function renderPricingGrid() {
     grid.querySelectorAll('.pricing-card-del').forEach(btn => btn.addEventListener('click', () => deleteResourcePrice(btn.dataset.id)));
     grid.querySelectorAll('.pricing-card-edit').forEach(btn => btn.addEventListener('click', () => openResourceEditModal(btn.dataset.id)));
 }
-
 async function saveResourcePrice(id, rawPrice) {
     const price = parseFloat(rawPrice) || 0;
     const status = $('pricingStatus');
@@ -3012,7 +2981,6 @@ async function saveResourcePrice(id, rawPrice) {
     renderResourcePricesHome();
     renderShipCostPublic();
 }
-
 async function deleteResourcePrice(id) {
     const r = resourcesCache.find(x => x.id === id);
     if (!r) return;
@@ -3022,7 +2990,6 @@ async function deleteResourcePrice(id) {
     await logAdminAction('Удалил ресурс', r.name);
     await loadResourcePrices();
 }
-
 function openResourceEditModal(id) {
     const r = id ? resourcesCache.find(x => x.id === id) : null;
     editingResourceId = r ? r.id : null;
@@ -3042,7 +3009,6 @@ function openResourceEditModal(id) {
     $('resourceEditModal').hidden = false;
     $('re-name').focus();
 }
-
 on('pricingAddBtn', 'click', () => openResourceEditModal(null));
 on('re-cancel', 'click', () => { $('resourceEditModal').hidden = true; editingResourceId = null; });
 on('resourceEditModal', 'click', e => { if (e.target.id === 'resourceEditModal') { $('resourceEditModal').hidden = true; editingResourceId = null; } });
@@ -3094,7 +3060,6 @@ on('re-save', 'click', async () => {
     $('resourceEditModal').hidden = true; editingResourceId = null;
     await loadResourcePrices();
 });
-
 const RESOURCE_PRESET = [
     ['wood','Дерево','WOOD','🪵','images/resources/wood.png',3.9,10],
     ['iron','Железо','IRON','⛓','images/resources/iron.png',12,20],
@@ -3119,7 +3084,6 @@ const RESOURCE_PRESET = [
     ['salt','Соль','SALT','🧂','images/resources/salt.png',0,210],
     ['copper_ingot','Медный слиток','CU INGOT','🟧','images/resources/copper_ingot.png',0,220]
 ];
-
 on('pricingPresetBtn', 'click', async () => {
     if (!confirm('Загрузить базовый набор из 22 ресурсов? Существующие с такими ID будут перезаписаны.')) return;
     const btn = $('pricingPresetBtn'); btn.disabled = true; btn.textContent = '⏳…';
@@ -3134,7 +3098,6 @@ on('pricingPresetBtn', 'click', async () => {
     await loadResourcePrices();
     alert(`✔ Загружено ${count} из ${RESOURCE_PRESET.length}`);
 });
-
 on('pricingAuto', 'change', async (e) => {
     const on = e.target.checked; const msg = $('pricingAutoMsg');
     if (!on) { if (msg) msg.textContent = ''; return; }
@@ -3161,9 +3124,7 @@ on('pricingAuto', 'change', async (e) => {
     renderPricingGrid(); renderResourcePricesHome();
     if (msg) { msg.textContent = `✔ обновлено ${updated}`; msg.style.color = '#6ee7a7'; setTimeout(() => msg.textContent = '', 3000); }
 });
-
 on('pricingCollapse', 'click', () => { const p = $('pricingPanel'); if (p) p.classList.toggle('collapsed'); });
-
 function renderResourcePricesHome() {
     const tbody = $('res-tbody'); if (!tbody) return;
     const q = ($('res-search')?.value || '').trim().toLowerCase();
@@ -3222,10 +3183,9 @@ async function loadDiscounts() {
 function fillScCities() {
     const sel = $('sc-city'); if (!sel) return;
     const cur = sel.value;
-    const cities = [...new Set(discountsCache.map(d => d.city).filter(Boolean))].sort();
     sel.innerHTML = '<option value="">— Не указан —</option>' +
-        cities.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
-    if (cur && cities.includes(cur)) sel.value = cur;
+        portsCache.map(p => `<option value="${escapeHtml(p.name)}">${escapeHtml(p.name)}</option>`).join('');
+    if (cur && portsCache.some(p => p.name === cur)) sel.value = cur;
 }
 function fillScShipSelect() {
     const sel = $('sc-ship'); if (!sel) return;
@@ -3237,6 +3197,13 @@ function fillScShipSelect() {
         o.dataset.image = s.image_url || '';
         sel.appendChild(o);
     });
+    if (cur) sel.value = cur;
+}
+function fillScFactionSelect() {
+    const sel = $('sc-faction'); if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">— Не указана —</option>' +
+        factionsCache.filter(f => f.type !== 'neutral').map(f => `<option value="${escapeHtml(f.name)}">${escapeHtml(f.name)}</option>`).join('');
     if (cur) sel.value = cur;
 }
 function getActiveDiscounts(city, faction) {
@@ -3265,7 +3232,6 @@ function renderShipCostPublic() {
     const opt = sel.selectedOptions[0];
     if (img && opt?.dataset.image) { img.src = opt.dataset.image; img.hidden = false; }
     else if (img) img.hidden = true;
-
     const recipe = recipesCache.filter(r => r.ship_id === shipName);
     if (!recipe.length) {
         if (empty) { empty.hidden = false; empty.textContent = 'Для этого корабля рецепт не задан.'; }
@@ -3274,7 +3240,6 @@ function renderShipCostPublic() {
     }
     if (empty) empty.hidden = true;
     if (content) content.hidden = false;
-
     const tbody = $('sc-tbody'); if (!tbody) return;
     tbody.innerHTML = '';
     let baseSum = 0;
@@ -3295,17 +3260,14 @@ function renderShipCostPublic() {
             <td class="sc-sum">${Math.round(sum).toLocaleString('ru-RU')} 🪙</td>`;
         tbody.appendChild(tr);
     });
-
     const city = val('sc-city');
     const faction = val('sc-faction');
     const active = getActiveDiscounts(city, faction);
     const dl = $('sc-discounts-list');
     const block = document.querySelector('.sc-discounts');
     if (dl) {
-        if (!active.length) {
-            if (block) block.hidden = true;
-            dl.innerHTML = '';
-        } else {
+        if (!active.length) { if (block) block.hidden = true; dl.innerHTML = ''; }
+        else {
             if (block) block.hidden = false;
             dl.innerHTML = active.map(d => `
                 <div class="sc-disc-row">
@@ -3320,7 +3282,6 @@ function renderShipCostPublic() {
                 </div>`).join('');
         }
     }
-
     const totalPercent = active.reduce((s, d) => s + (Number(d.value) || 0), 0);
     const discountSum = baseSum * totalPercent / 100;
     const finalSum = Math.max(0, baseSum - discountSum);
@@ -3332,7 +3293,6 @@ function renderShipCostPublic() {
 on('sc-ship', 'change', renderShipCostPublic);
 on('sc-city', 'change', renderShipCostPublic);
 on('sc-faction', 'change', renderShipCostPublic);
-
 function renderRecipeShipSelect() {
     const sel = $('recipe-ship'); if (!sel) return;
     const cur = sel.value;
@@ -3350,10 +3310,7 @@ function renderRecipeRows() {
     if (!ship) { container.innerHTML = '<p class="hint" style="margin:0;">Выберите корабль — появятся его компоненты.</p>'; return; }
     const rows = recipesCache.filter(r => r.ship_id === ship).sort((a, b) => (a.sort_order||0) - (b.sort_order||0));
     container.innerHTML = '';
-    if (!rows.length) {
-        container.innerHTML = '<p class="hint" style="margin:0;">Рецепт пуст. Нажмите «➕ Добавить ресурс».</p>';
-        return;
-    }
+    if (!rows.length) { container.innerHTML = '<p class="hint" style="margin:0;">Рецепт пуст. Нажмите «➕ Добавить ресурс».</p>'; return; }
     rows.forEach(r => addRecipeRowUI(r.resource_id, r.quantity, r.id));
 }
 function addRecipeRowUI(resourceId = '', qty = 1, id = null) {
@@ -3419,7 +3376,6 @@ on('recipe-save', 'click', async () => {
     msg.textContent = '✔ Рецепт сохранён'; msg.style.color = '#6ee7a7';
     await loadRecipes();
 });
-
 function renderDiscountsAdmin() {
     const container = $('discounts-list'); if (!container) return;
     container.innerHTML = '';
@@ -3459,13 +3415,35 @@ function renderDiscountsAdmin() {
         container.appendChild(el);
     });
 }
+function onDiscountTypeChange() {
+    const type = val('disc-type');
+    const cityField = $('disc-city-field');
+    const factionField = $('disc-faction-field');
+    if (cityField) cityField.hidden = type !== 'city';
+    if (factionField) factionField.hidden = type !== 'faction';
+}
+on('disc-type', 'change', onDiscountTypeChange);
+function fillDiscountCitySelect() {
+    const sel = $('disc-city-select'); if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">— Не выбран —</option>' +
+        portsCache.map(p => `<option value="${escapeHtml(p.name)}">${escapeHtml(p.name)}</option>`).join('');
+    if (cur && portsCache.some(p => p.name === cur)) sel.value = cur;
+}
+function fillDiscountFactionSelect() {
+    const sel = $('disc-faction-select'); if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">— Не выбрана —</option>' +
+        factionsCache.map(f => `<option value="${escapeHtml(f.name)}">${escapeHtml(f.name)}</option>`).join('');
+    if (cur) sel.value = cur;
+}
 on('disc-add', 'click', async () => {
     const msg = $('disc-msg'); msg.textContent = '';
     const name = val('disc-name').trim();
     const type = val('disc-type');
     const value = parseFloat(val('disc-value')) || 0;
-    const city = val('disc-city').trim() || null;
-    const faction = val('disc-faction').trim() || null;
+    const city = val('disc-city-select') || null;
+    const faction = val('disc-faction-select') || null;
     const dateFrom = val('disc-from') || null;
     const dateTo = val('disc-to') || null;
     const note = val('disc-note').trim() || null;
@@ -3483,7 +3461,7 @@ on('disc-add', 'click', async () => {
     if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
     await logAdminAction('Добавил скидку', name, `${type} −${value}%`);
     msg.textContent = '✔ Скидка добавлена'; msg.style.color = '#6ee7a7';
-    ['disc-name','disc-city','disc-faction','disc-from','disc-to','disc-note'].forEach(i => { const el = $(i); if (el) el.value = ''; });
+    ['disc-name','disc-city-select','disc-faction-select','disc-from','disc-to','disc-note'].forEach(i => { const el = $(i); if (el) el.value = ''; });
     $('disc-value').value = 5;
     await loadDiscounts();
 });
@@ -3513,9 +3491,7 @@ function renderMapPreview() {
     const titleEl = $('map-title'); if (titleEl) titleEl.textContent = urls.title;
     const noteEl  = $('map-note');  if (noteEl)  noteEl.textContent = urls.note;
     const img = $('map-preview-img'); if (!img) return;
-    document.querySelectorAll('.map-view-btn').forEach(b => {
-        b.classList.toggle('active', b.dataset.view === currentMapView);
-    });
+    document.querySelectorAll('.map-view-btn').forEach(b => b.classList.toggle('active', b.dataset.view === currentMapView));
     const src = currentMapView === 'clean' ? urls.clean : urls.detailed;
     img.src = src || '';
     img.onerror = () => {
@@ -3552,7 +3528,6 @@ function setMapFsZoom(z) {
     applyMapFsTransform();
 }
 function resetMapFs() { mapFsZoom = 1; mapFsX = 0; mapFsY = 0; applyMapFsTransform(); }
-
 on('map-open', 'click', openMapFullscreen);
 on('map-preview', 'click', openMapFullscreen);
 document.querySelectorAll('.map-view-btn').forEach(btn => {
@@ -3572,10 +3547,7 @@ on('map-fs-close', 'click', closeMapFullscreen);
 on('map-fs-zoom-in', 'click', () => setMapFsZoom(mapFsZoom + 0.25));
 on('map-fs-zoom-out', 'click', () => setMapFsZoom(mapFsZoom - 0.25));
 on('map-fs-reset', 'click', resetMapFs);
-on('map-fs-stage', 'wheel', e => {
-    e.preventDefault();
-    setMapFsZoom(mapFsZoom + (e.deltaY < 0 ? 0.15 : -0.15));
-}, { passive: false });
+on('map-fs-stage', 'wheel', e => { e.preventDefault(); setMapFsZoom(mapFsZoom + (e.deltaY < 0 ? 0.15 : -0.15)); }, { passive: false });
 on('map-fs-stage', 'mousedown', e => {
     if (mapFsZoom <= 1) return;
     mapFsDragging = true;
@@ -3600,7 +3572,6 @@ document.addEventListener('keydown', e => {
         if (fs && !fs.hidden) closeMapFullscreen();
     }
 });
-
 function renderMapAdmin() {
     const urls = getMapUrls();
     const t = $('map-title-input'); if (t) t.value = urls.title;
@@ -3685,6 +3656,198 @@ on('map-save', 'click', async () => {
     await loadMapSettings();
 });
 
+/* ============================================================
+   ФРАКЦИИ / ПОРТЫ / РАНГИ
+   ============================================================ */
+async function loadFactions() {
+    const { data, error } = await supabase.from('factions').select('*').order('sort_order');
+    if (error) { factionsCache = []; return; }
+    factionsCache = data || [];
+    renderFactionsAdmin();
+    fillPortFactionSelect();
+    fillDiscountFactionSelect();
+    fillScFactionSelect();
+}
+async function loadPorts() {
+    const { data, error } = await supabase.from('ports').select('*').order('sort_order').order('name');
+    if (error) { portsCache = []; return; }
+    portsCache = data || [];
+    renderPortsAdmin();
+    fillDiscountCitySelect();
+    fillScCities();
+}
+async function loadRanks() {
+    const { data, error } = await supabase.from('ship_ranks').select('*').order('rank', { ascending: false });
+    if (error) { ranksCache = []; return; }
+    ranksCache = data || [];
+    renderRanksAdmin();
+}
+function renderFactionsAdmin() {
+    const container = $('factions-admin-list'); if (!container) return;
+    container.innerHTML = '';
+    if (!factionsCache.length) { container.innerHTML = '<div class="empty">Нет фракций</div>'; return; }
+    const typeLabels = { military: '⚔️ Военная', trade: '💰 Торговая', pirate: '☠️ Пиратская', neutral: '🕊 Нейтральная' };
+    factionsCache.forEach(f => {
+        const el = document.createElement('div');
+        el.className = 'partners-admin-item';
+        el.innerHTML = `
+            <div class="logo-mini" style="background:${escapeHtml(f.color || '#8a93a3')}22;color:${escapeHtml(f.color || '#8a93a3')};"><span>🏴</span></div>
+            <div class="txt">
+                <b style="color:${escapeHtml(f.color || 'var(--text)')}">${escapeHtml(f.name)}</b>
+                <span style="color:var(--muted);font-size:11px;">${typeLabels[f.type] || f.type}${f.description ? ' · ' + escapeHtml(f.description) : ''}</span>
+            </div>
+            <div class="actions">
+                <button class="edit" title="Редактировать">✏️</button>
+            </div>`;
+        el.querySelector('.edit').addEventListener('click', () => openFactionEditModal(f));
+        container.appendChild(el);
+    });
+}
+function renderPortsAdmin() {
+    const container = $('ports-admin-list'); if (!container) return;
+    container.innerHTML = '';
+    if (!portsCache.length) { container.innerHTML = '<div class="empty">Нет портов</div>'; return; }
+    const typeLabels = { city: '🏙 Город', port: '⚓ Порт', neutral_bay: '🕊 Нейтральная', pirate_bay: '☠️ Пиратская' };
+    portsCache.forEach(p => {
+        const faction = factionsCache.find(f => f.id === p.faction_id);
+        const el = document.createElement('div');
+        el.className = 'partners-admin-item';
+        el.innerHTML = `
+            <div class="logo-mini"><span>${p.type === 'pirate_bay' ? '☠️' : p.type === 'neutral_bay' ? '🕊' : p.type === 'city' ? '🏙' : '⚓'}</span></div>
+            <div class="txt">
+                <b>${escapeHtml(p.name)}</b>
+                <span style="color:var(--muted);font-size:11px;">
+                    ${typeLabels[p.type] || p.type}
+                    ${faction ? ' · ' + escapeHtml(faction.name) : ''}
+                    ${p.can_be_captured ? ' · ⚔️ захватываемый' : ' · 🔒 не захватывается'}
+                    ${p.region ? ' · 📍 ' + escapeHtml(p.region) : ''}
+                </span>
+                ${p.note ? `<span style="color:var(--muted);font-size:11px;font-style:italic;">${escapeHtml(p.note)}</span>` : ''}
+            </div>
+            <div class="actions">
+                <button class="edit" title="Редактировать">✏️</button>
+                <button class="delete" title="Удалить">🗑</button>
+            </div>`;
+        el.querySelector('.edit').addEventListener('click', () => openPortEditModal(p));
+        el.querySelector('.txt b').addEventListener('dblclick', () => openPortEditModal(p));
+        el.querySelector('.delete').addEventListener('click', async () => {
+            if (!confirm(`Удалить порт «${p.name}»?`)) return;
+            await supabase.from('ports').delete().eq('id', p.id);
+            await loadPorts();
+        });
+        container.appendChild(el);
+    });
+}
+function renderRanksAdmin() {
+    const container = $('ranks-admin-list'); if (!container) return;
+    container.innerHTML = '';
+    if (!ranksCache.length) { container.innerHTML = '<div class="empty">Нет данных о рангах</div>'; return; }
+    ranksCache.forEach(r => {
+        const el = document.createElement('div');
+        el.className = 'partners-admin-item';
+        el.innerHTML = `
+            <div class="logo-mini"><span>${ROMAN[r.rank] || r.rank}</span></div>
+            <div class="txt">
+                <b>${escapeHtml(r.name)}</b>
+                <span style="color:var(--muted);font-size:11px;">
+                    Мин. уровень: ${r.min_level || '—'}
+                    ${r.requires_blueprint ? ' · 📜 нужен чертёж' : ''}
+                    ${r.note ? ' · ' + escapeHtml(r.note) : ''}
+                </span>
+            </div>`;
+        container.appendChild(el);
+    });
+}
+function fillPortFactionSelect() {
+    const sel = $('port-faction'); if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">— Без фракции —</option>' +
+        factionsCache.map(f => `<option value="${escapeHtml(f.id)}">${escapeHtml(f.name)}</option>`).join('');
+    if (cur) sel.value = cur;
+}
+function openPortEditModal(port) {
+    if (!port) return;
+    $('portEditTitle').textContent = '✏️ Редактировать порт';
+    $('pe-id').value = port.id;
+    $('pe-name').value = port.name || '';
+    $('pe-type').value = port.type || 'city';
+    $('pe-region').value = port.region || '';
+    $('pe-note').value = port.note || '';
+    $('pe-capturable').checked = port.can_be_captured !== false;
+    const sel = $('pe-faction');
+    sel.innerHTML = '<option value="">— Без фракции —</option>' +
+        factionsCache.map(f => `<option value="${escapeHtml(f.id)}" ${f.id === port.faction_id ? 'selected' : ''}>${escapeHtml(f.name)}</option>`).join('');
+    $('pe-msg').textContent = '';
+    $('portEditModal').hidden = false;
+    $('pe-name').focus();
+}
+on('pe-cancel', 'click', () => { $('portEditModal').hidden = true; });
+on('portEditModal', 'click', e => { if (e.target.id === 'portEditModal') $('portEditModal').hidden = true; });
+on('pe-save', 'click', async () => {
+    const id = $('pe-id').value;
+    const name = val('pe-name').trim();
+    const type = val('pe-type');
+    const factionId = val('pe-faction') || null;
+    const region = val('pe-region').trim() || null;
+    const capturable = $('pe-capturable').checked;
+    const note = val('pe-note').trim() || null;
+    const msg = $('pe-msg'); msg.textContent = '';
+    if (!name) { msg.textContent = 'Укажи название'; msg.style.color = '#ff7a7a'; return; }
+    if (portsCache.some(p => p.name === name && String(p.id) !== String(id))) { msg.textContent = 'Порт с таким именем уже есть'; msg.style.color = '#ff7a7a'; return; }
+    const { error } = await supabase.from('ports').update({ name, type, faction_id: factionId, region, can_be_captured: capturable, note }).eq('id', id);
+    if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
+    await logAdminAction('Обновил порт', name);
+    $('portEditModal').hidden = true;
+    await loadPorts();
+});
+function openFactionEditModal(faction) {
+    if (!faction) return;
+    $('factionEditTitle').textContent = '✏️ Редактировать фракцию';
+    $('fe-id').value = faction.id;
+    $('fe-name').value = faction.name || '';
+    $('fe-type').value = faction.type || 'military';
+    $('fe-color').value = faction.color || '';
+    $('fe-desc').value = faction.description || '';
+    $('fe-msg').textContent = '';
+    $('factionEditModal').hidden = false;
+    $('fe-name').focus();
+}
+on('fe-cancel', 'click', () => { $('factionEditModal').hidden = true; });
+on('factionEditModal', 'click', e => { if (e.target.id === 'factionEditModal') $('factionEditModal').hidden = true; });
+on('fe-save', 'click', async () => {
+    const id = $('fe-id').value;
+    const name = val('fe-name').trim();
+    const type = val('fe-type');
+    const color = val('fe-color').trim() || null;
+    const desc = val('fe-desc').trim() || null;
+    const msg = $('fe-msg'); msg.textContent = '';
+    if (!name) { msg.textContent = 'Укажи название'; msg.style.color = '#ff7a7a'; return; }
+    const { error } = await supabase.from('factions').update({ name, type, color, description: desc }).eq('id', id);
+    if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
+    await logAdminAction('Обновил фракцию', name);
+    $('factionEditModal').hidden = true;
+    await loadFactions();
+    await loadPorts();
+});
+on('port-add', 'click', async () => {
+    const msg = $('port-msg'); msg.textContent = '';
+    const name = val('port-name').trim();
+    const type = val('port-type');
+    const factionId = val('port-faction') || null;
+    const region = val('port-region').trim() || null;
+    const capturable = $('port-capturable').checked;
+    const note = val('port-note').trim() || null;
+    if (!name) { msg.textContent = 'Укажи название'; msg.style.color = '#ff7a7a'; return; }
+    if (portsCache.some(p => p.name === name)) { msg.textContent = 'Такой порт уже есть'; msg.style.color = '#ff7a7a'; return; }
+    const { error } = await supabase.from('ports').insert({ name, type, faction_id: factionId, region, can_be_captured: capturable, note, sort_order: (portsCache.length + 1) * 10 });
+    if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
+    msg.textContent = '✔ Порт добавлен'; msg.style.color = '#6ee7a7';
+    ['port-name','port-region','port-note'].forEach(i => { const el = $(i); if (el) el.value = ''; });
+    $('port-capturable').checked = true;
+    await loadPorts();
+});
+on('ranks-reload', 'click', loadRanks);
+
 /* ============ АДМИН: СОЮЗЫ / НАСТРОЙКИ / СТАТИСТИКА ============ */
 on('allyAddBtn', 'click', async () => {
     const id = val('allyId').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
@@ -3758,7 +3921,7 @@ async function loadStats() {
     } catch (err) { }
 }
 
-/* ============ КОНТАКТЫ / ИГРЫ / АДМИН ГИЛЬДИИ ============ */
+/* ============ КОНТАКТЫ / ИГРЫ ============ */
 function renderContacts() {
     const container = $('contactsList'); if (!container) return;
     container.innerHTML = '';
@@ -4800,10 +4963,15 @@ on('leaderOpenVoiceTop', 'click', () => openChat('voice', { room: 'wosb_leaders_
     await loadTactics();
     await loadShips();
     await loadResourcePrices();
+    await loadFactions();
+    await loadPorts();
+    await loadRanks();
     await loadRecipes();
     await loadDiscounts();
     await loadMapSettings();
     fillScShipSelect();
+    fillScFactionSelect();
+    fillScCities();
     currentMapView = (mapSettings?.default_view) || 'detailed';
     await loadStats();
     initTradeCategorySelect();
@@ -4817,6 +4985,7 @@ on('leaderOpenVoiceTop', 'click', () => openChat('voice', { room: 'wosb_leaders_
     applyAdminUI();
     updateFlagPreview('newClanFlag', 'newClanFlagPreview');
     updateFlagPreview('adminClanFlag', 'adminClanFlagPreview');
+    onDiscountTypeChange();
     const lastClan = localStorage.getItem(LAST_CLAN_KEY);
     if (lastClan && isUnlocked() && clansCache[lastClan]) {
         openClan(lastClan, localStorage.getItem(CLAN_ADMIN_PASS_KEY) === '1');

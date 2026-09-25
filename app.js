@@ -75,7 +75,7 @@ let factionsCache = [], portsCache = [], ranksCache = [];
 
 const $ = id => document.getElementById(id);
 function on(id, event, handler, opts) {
-    const el = document.getElementById(id);
+    const el = $(id);
     if (!el) return false;
     el.addEventListener(event, handler, opts);
     return true;
@@ -2909,8 +2909,16 @@ on('tacAddBtn', 'click', async () => {
     await loadTactics();
 });
 /* ============================================================
-   РЕСУРСЫ — СПРАВОЧНИК И РЕДАКТОР ЦЕН
+   РЕСУРСЫ — СПРАВОЧНИК С ГРУППАМИ
    ============================================================ */
+const PRICING_GROUPS = [
+    { id: 'raw',       name: '🪵 Сырьё',         cls: 'pricing-group-raw' },
+    { id: 'processed', name: '⚙️ Обработанные',  cls: 'pricing-group-processed' },
+    { id: 'consum',    name: '🧪 Расходники',    cls: 'pricing-group-consum' },
+    { id: 'valuable',  name: '💎 Ценности',      cls: 'pricing-group-valuable' },
+    { id: 'other',     name: '📦 Прочее',        cls: 'pricing-group-other' }
+];
+
 async function loadResourcePrices() {
     const { data, error } = await supabase
         .from('resource_prices')
@@ -2918,38 +2926,77 @@ async function loadResourcePrices() {
         .order('sort_order', { ascending: true })
         .order('name', { ascending: true });
     if (error) { console.warn('resource_prices load error:', error.message); resourcesCache = []; }
-    else { resourcesCache = data || []; }
+    else resourcesCache = data || [];
     renderPricingGrid();
     renderResourcePricesHome();
     if (builderHomeCtrl) builderHomeCtrl.refresh();
     if (builderClanCtrl) builderClanCtrl.refresh();
 }
 function renderPricingGrid() {
-    const grid = $('pricingGrid'); if (!grid) return;
-    if (!resourcesCache.length) { grid.innerHTML = '<div class="pricing-empty">Пока нет ресурсов. Нажми «📥 Импорт базового набора».</div>'; return; }
-    grid.innerHTML = '';
-    resourcesCache.forEach(r => {
-        const iconHtml = r.image_url
-            ? `<img src="${escapeHtml(r.image_url)}" alt="" onerror="this.parentNode.innerHTML='${escapeHtml(r.icon || '📦')}'">`
-            : (r.icon || '📦');
-        const latin = (r.name_latin || r.id || '').toUpperCase();
-        const card = document.createElement('div');
-        card.className = 'pricing-card';
-        card.dataset.id = r.id;
-        card.innerHTML = `
-            <button class="pricing-card-del" data-id="${escapeHtml(r.id)}" title="Удалить">✕</button>
-            <button class="pricing-card-edit" data-id="${escapeHtml(r.id)}" title="Редактировать">✏️</button>
-            <div class="pricing-card-head">
-                <span class="pricing-card-icon">${iconHtml}</span>
-                <span class="pricing-card-name">${escapeHtml(r.name)} <span class="latin">(${escapeHtml(latin)})</span></span>
-            </div>
-            <div class="pricing-card-price">
-                <span class="pricing-card-prefix">G</span>
-                <input type="number" class="pricing-card-input" data-id="${escapeHtml(r.id)}" value="${Number(r.price) || 0}" min="0" step="1">
-            </div>`;
-        grid.appendChild(card);
+    const container = $('pricingGroups'); if (!container) return;
+    const q = ($('pricing-search')?.value || '').trim().toLowerCase();
+    let list = resourcesCache.slice();
+    if (q) list = list.filter(r =>
+        (r.name || '').toLowerCase().includes(q) ||
+        (r.name_latin || '').toLowerCase().includes(q) ||
+        (r.id || '').toLowerCase().includes(q)
+    );
+    if (!list.length) {
+        container.innerHTML = `<div class="pricing-empty">${q ? 'Ничего не найдено' : 'Пока нет ресурсов. Нажми «📥 Импорт базового набора».'}</div>`;
+        return;
+    }
+    const byGroup = {};
+    PRICING_GROUPS.forEach(g => { byGroup[g.id] = []; });
+    list.forEach(r => {
+        const gid = r.group_name || 'other';
+        (byGroup[gid] || (byGroup[gid] = [])).push(r);
     });
-    grid.querySelectorAll('.pricing-card-input').forEach(inp => {
+    container.innerHTML = '';
+    PRICING_GROUPS.forEach(g => {
+        const items = byGroup[g.id] || [];
+        if (!items.length) return;
+        const section = document.createElement('section');
+        section.className = 'pricing-group ' + g.cls;
+        const title = document.createElement('h3');
+        title.className = 'pricing-group-title';
+        title.innerHTML = `${g.name} <span class="count">· ${items.length}</span>`;
+        section.appendChild(title);
+        const grid = document.createElement('div');
+        grid.className = 'pricing-grid';
+        items.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0) || (a.name || '').localeCompare(b.name || ''));
+        items.forEach(r => {
+            const iconHtml = r.image_url
+                ? `<img src="${escapeHtml(r.image_url)}" alt="" onerror="this.parentNode.innerHTML='${escapeHtml(r.icon || '📦')}'">`
+                : (r.icon || '📦');
+            const latin = (r.name_latin || r.id || '').toUpperCase();
+            const card = document.createElement('div');
+            card.className = 'pricing-card';
+            card.dataset.id = r.id;
+            card.innerHTML = `
+                <div class="pricing-card-head">
+                    <span class="pricing-card-icon">${iconHtml}</span>
+                    <span class="pricing-card-name">
+                        <span class="main">${escapeHtml(r.name)}</span>
+                        <span class="latin">${escapeHtml(latin)}</span>
+                    </span>
+                </div>
+                <div class="pricing-card-price">
+                    <span class="pricing-card-prefix">G</span>
+                    <input type="number" class="pricing-card-input"
+                           data-id="${escapeHtml(r.id)}"
+                           value="${Number(r.price) || 0}"
+                           min="0" step="1">
+                </div>
+                <div class="pricing-card-actions">
+                    <button class="pricing-card-btn edit" data-id="${escapeHtml(r.id)}" title="Редактировать">✏️ Изменить</button>
+                    <button class="pricing-card-btn del" data-id="${escapeHtml(r.id)}" title="Удалить">🗑</button>
+                </div>`;
+            grid.appendChild(card);
+        });
+        section.appendChild(grid);
+        container.appendChild(section);
+    });
+    container.querySelectorAll('.pricing-card-input').forEach(inp => {
         inp.addEventListener('input', e => {
             const id = e.target.dataset.id;
             clearTimeout(pricingSaveTimers[id]);
@@ -2965,8 +3012,12 @@ function renderPricingGrid() {
             }
         });
     });
-    grid.querySelectorAll('.pricing-card-del').forEach(btn => btn.addEventListener('click', () => deleteResourcePrice(btn.dataset.id)));
-    grid.querySelectorAll('.pricing-card-edit').forEach(btn => btn.addEventListener('click', () => openResourceEditModal(btn.dataset.id)));
+    container.querySelectorAll('.pricing-card-btn.del').forEach(btn =>
+        btn.addEventListener('click', () => deleteResourcePrice(btn.dataset.id))
+    );
+    container.querySelectorAll('.pricing-card-btn.edit').forEach(btn =>
+        btn.addEventListener('click', () => openResourceEditModal(btn.dataset.id))
+    );
 }
 async function saveResourcePrice(id, rawPrice) {
     const price = parseFloat(rawPrice) || 0;
@@ -2998,6 +3049,7 @@ function openResourceEditModal(id) {
     $('re-id').disabled = !!r;
     $('re-name').value = r?.name || '';
     $('re-latin').value = r?.name_latin || '';
+    $('re-group').value = r?.group_name || 'raw';
     $('re-price').value = r?.price ?? 0;
     $('re-icon').value = r?.icon || '📦';
     $('re-image-url').value = (r?.image_url && !r.image_url.startsWith('data:')) ? r.image_url : '';
@@ -3041,55 +3093,64 @@ on('re-save', 'click', async () => {
     const id = (editingResourceId || val('re-id').trim().toLowerCase().replace(/[^a-z0-9_-]/g, ''));
     const name = val('re-name').trim();
     const latin = (val('re-latin').trim() || id).toUpperCase();
+    const group = val('re-group') || 'raw';
     const price = parseFloat(val('re-price')) || 0;
     const icon = val('re-icon').trim() || '📦';
     const urlField = val('re-image-url').trim();
-    const image = urlField || $('re-image-url').dataset.dataUrl || (editingResourceId ? resourcesCache.find(x => x.id === editingResourceId)?.image_url : null);
+    const image = urlField || $('re-image-url').dataset.dataUrl ||
+                  (editingResourceId ? resourcesCache.find(x => x.id === editingResourceId)?.image_url : null);
     if (!id) { msg.textContent = 'Укажи ID'; msg.style.color = '#ff7a7a'; return; }
     if (!name) { msg.textContent = 'Укажи название'; msg.style.color = '#ff7a7a'; return; }
     const payload = {
-        id, name, name_latin: latin, icon, image_url: image, price, category: 'resource',
+        id, name, name_latin: latin, group_name: group,
+        icon, image_url: image, price, category: 'resource',
         sort_order: resourcesCache.find(x => x.id === id)?.sort_order ?? (resourcesCache.length + 1) * 10,
-        updated_at: new Date().toISOString(), updated_by: getViewerNick() || 'admin'
+        updated_at: new Date().toISOString(),
+        updated_by: getViewerNick() || 'admin'
     };
     let error;
     if (editingResourceId) ({ error } = await supabase.from('resource_prices').update(payload).eq('id', id));
     else ({ error } = await supabase.from('resource_prices').insert(payload));
     if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
     await logAdminAction(editingResourceId ? 'Обновил ресурс' : 'Добавил ресурс', name);
-    $('resourceEditModal').hidden = true; editingResourceId = null;
+    $('resourceEditModal').hidden = true;
+    editingResourceId = null;
     await loadResourcePrices();
 });
 const RESOURCE_PRESET = [
-    ['wood','Дерево','WOOD','🪵','images/resources/wood.png',3.9,10],
-    ['iron','Железо','IRON','⛓','images/resources/iron.png',12,20],
-    ['fabric','Ткань','FABRIC','🧵','images/resources/fabric.png',3.5,30],
-    ['resin','Смола','RESIN','🛢','images/resources/resin.png',54,40],
-    ['coal','Уголь','COAL','⚫','images/resources/coal.png',25.5,50],
-    ['volcanic_ore','Вулк. руда','VOLCANIC ORE','🪨','images/resources/volcanic_ore.png',370,60],
-    ['copper','Медь','COPPER','🟠','images/resources/plate.png',65,70],
-    ['rum','Ром','RUM','🥃','images/resources/rum.png',13.5,80],
-    ['beam','Балка','BEAM','🪵','images/resources/beam.png',779,90],
-    ['canvas','Парус','CANVAS','🧶','images/resources/canvas.png',230,100],
-    ['bulkhead','Переборка','BULKHEAD','🛡','images/resources/bulkhead.png',1120,110],
-    ['plate','Плита','PLATE','🔩','images/resources/plate.png',1500,120],
-    ['bronze','Бронза','BRONZE','🥉','images/resources/bronze.png',1150,130],
-    ['wreckage','Обломки','WRECKAGE','📦','images/resources/pouch.png',100,140],
-    ['battle_mark','Боевая метка','BATTLE MARK','🎖','images/resources/bronze.png',755,150],
-    ['blueprint_fragment','Фрагмент чертежа','BL. FRAGMENT','📜','images/resources/blueprint_fragment.png',18400,160],
-    ['blueprint_imp','Имп. чертёж','IMP. BLUE','📜','images/resources/blueprint.png',2000000,170],
-    ['escudo','Эскудо','ESCUDO','🪙','images/resources/escudo.png',4000,180],
-    ['pirate_token','Пиратский жетон','PIR. TOKEN','☠️','images/resources/pirate_token.png',0,190],
-    ['license','Лицензия','CONST. LICE','📃','images/resources/license.png',550000,200],
-    ['salt','Соль','SALT','🧂','images/resources/salt.png',0,210],
-    ['copper_ingot','Медный слиток','CU INGOT','🟧','images/resources/copper_ingot.png',0,220]
+    ['wood','Дерево','WOOD','🪵','images/resources/wood.png',3.9,10,'raw'],
+    ['iron','Железо','IRON','⛓','images/resources/iron.png',12,20,'raw'],
+    ['fabric','Ткань','FABRIC','🧵','images/resources/fabric.png',3.5,30,'raw'],
+    ['resin','Смола','RESIN','🛢','images/resources/resin.png',54,40,'raw'],
+    ['coal','Уголь','COAL','⚫','images/resources/coal.png',25.5,50,'raw'],
+    ['volcanic_ore','Вулк. руда','VOLCANIC ORE','🪨','images/resources/volcanic_ore.png',370,60,'raw'],
+    ['copper','Медь','COPPER','🟠','images/resources/plate.png',65,70,'processed'],
+    ['beam','Балка','BEAM','🪵','images/resources/beam.png',779,90,'processed'],
+    ['canvas','Парус','CANVAS','🧶','images/resources/canvas.png',230,100,'processed'],
+    ['bulkhead','Переборка','BULKHEAD','🛡','images/resources/bulkhead.png',1120,110,'processed'],
+    ['plate','Плита','PLATE','🔩','images/resources/plate.png',1500,120,'processed'],
+    ['bronze','Бронза','BRONZE','🥉','images/resources/bronze.png',1150,130,'processed'],
+    ['rum','Ром','RUM','🥃','images/resources/rum.png',13.5,80,'consum'],
+    ['salt','Соль','SALT','🧂','images/resources/salt.png',0,210,'consum'],
+    ['wreckage','Обломки','WRECKAGE','📦','images/resources/pouch.png',100,140,'valuable'],
+    ['battle_mark','Боевая метка','BATTLE MARK','🎖','images/resources/bronze.png',755,150,'valuable'],
+    ['blueprint_fragment','Фрагмент чертежа','BL. FRAGMENT','📜','images/resources/blueprint_fragment.png',18400,160,'valuable'],
+    ['blueprint_imp','Имп. чертёж','IMP. BLUE','📜','images/resources/blueprint.png',2000000,170,'valuable'],
+    ['escudo','Эскудо','ESCUDO','🪙','images/resources/escudo.png',4000,180,'valuable'],
+    ['pirate_token','Пиратский жетон','PIR. TOKEN','☠️','images/resources/pirate_token.png',0,190,'valuable'],
+    ['license','Лицензия','CONST. LICE','📃','images/resources/license.png',550000,200,'valuable'],
+    ['copper_ingot','Медный слиток','CU INGOT','🟧','images/resources/copper_ingot.png',0,220,'processed']
 ];
 on('pricingPresetBtn', 'click', async () => {
     if (!confirm('Загрузить базовый набор из 22 ресурсов? Существующие с такими ID будут перезаписаны.')) return;
     const btn = $('pricingPresetBtn'); btn.disabled = true; btn.textContent = '⏳…';
     let count = 0;
-    for (const [id, name, latin, icon, image_url, price, sort] of RESOURCE_PRESET) {
-        const payload = { id, name, name_latin: latin, icon, image_url, price, category: 'resource', sort_order: sort, updated_at: new Date().toISOString(), updated_by: 'preset' };
+    for (const [id, name, latin, icon, image_url, price, sort, group] of RESOURCE_PRESET) {
+        const payload = {
+            id, name, name_latin: latin, icon, image_url, price,
+            category: 'resource', sort_order: sort, group_name: group || 'raw',
+            updated_at: new Date().toISOString(), updated_by: 'preset'
+        };
         const { error } = await supabase.from('resource_prices').upsert(payload, { onConflict: 'id' });
         if (!error) count++;
     }
@@ -3124,7 +3185,8 @@ on('pricingAuto', 'change', async (e) => {
     renderPricingGrid(); renderResourcePricesHome();
     if (msg) { msg.textContent = `✔ обновлено ${updated}`; msg.style.color = '#6ee7a7'; setTimeout(() => msg.textContent = '', 3000); }
 });
-on('pricingCollapse', 'click', () => { const p = $('pricingPanel'); if (p) p.classList.toggle('collapsed'); });
+on('pricingCollapse', 'click', () => { const p = document.querySelector('.pricing-panel'); if (p) p.classList.toggle('collapsed'); });
+on('pricing-search', 'input', renderPricingGrid);
 function renderResourcePricesHome() {
     const tbody = $('res-tbody'); if (!tbody) return;
     const q = ($('res-search')?.value || '').trim().toLowerCase();

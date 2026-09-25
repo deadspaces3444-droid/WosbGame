@@ -45,70 +45,7 @@
             </div>
             <div id="clanGrid" class="clan-grid"></div>
 
-            <!-- 🗺 КАРТА -->
-            <section id="mapSection" class="home-trade-section">
-                <h2 class="section-title">🗺 Карта мира</h2>
-                <div class="map-panel">
-                    <header class="map-topbar">
-                        <div class="map-title" id="map-title">World of Sea Battle — Карта</div>
-                        <div class="map-controls">
-                            <div class="map-views" id="map-views">
-                                <button class="map-view-btn active" data-view="detailed">📍 С маркерами</button>
-                                <button class="map-view-btn" data-view="clean">🧭 Чистая</button>
-                            </div>
-                            <button id="map-open" class="map-btn" title="Открыть на весь экран">⛶</button>
-                        </div>
-                    </header>
-                    <div class="map-preview" id="map-preview">
-                        <img id="map-preview-img" src="" alt="Карта" draggable="false">
-                        <div class="map-preview-hint">🔍 Нажми, чтобы открыть на весь экран</div>
-                    </div>
-                    <footer class="map-footer">
-                        <span id="map-note" class="map-note"></span>
-                        <span class="map-hint">💡 Колёсико — приблизить, ЛКМ — перетащить, Esc — выйти</span>
-                    </footer>
-                </div>
-            </section>
-
-            <!-- 🔨 СТОИМОСТЬ ПОСТРОЙКИ -->
-            <section id="shipCostSection" class="home-trade-section">
-                <h2 class="section-title">🔨 Стоимость постройки корабля</h2>
-                <div class="sc-panel">
-                    <header class="sc-topbar">
-                        <div class="sc-pick">
-                            <label>🚢 Корабль:</label>
-                            <select id="sc-ship"><option value="">— Выберите корабль —</option></select>
-                            <img id="sc-ship-img" class="sc-ship-img" src="" alt="" hidden>
-                        </div>
-                        <div class="sc-pick">
-                            <label>⚓ Город:</label>
-                            <select id="sc-city"><option value="">— Не указан —</option></select>
-                            <label style="margin-left:12px;">🏴 Фракция:</label>
-                            <select id="sc-faction"><option value="">— Не указана —</option></select>
-                        </div>
-                    </header>
-                    <div id="sc-empty" class="sc-empty">Выберите корабль, чтобы увидеть стоимость постройки.</div>
-                    <div id="sc-content" hidden>
-                        <div class="sc-table-wrap">
-                            <table class="sc-table">
-                                <thead><tr><th>Ресурс</th><th>Кол-во</th><th>Цена за ед.</th><th>Сумма</th></tr></thead>
-                                <tbody id="sc-tbody"></tbody>
-                            </table>
-                        </div>
-                        <div class="sc-discounts">
-                            <h4>💸 Применённые скидки</h4>
-                            <div id="sc-discounts-list" class="sc-discounts-list"></div>
-                        </div>
-                        <footer class="sc-footer">
-                            <div class="sc-total-row"><span class="sc-label">Базовая стоимость:</span><span id="sc-base" class="sc-value">0 🪙</span></div>
-                            <div class="sc-total-row sc-discount-row"><span class="sc-label">Скидки:</span><span id="sc-discounts-sum" class="sc-value">−0 🪙</span></div>
-                            <div class="sc-total-row sc-final-row"><span class="sc-label">💰 Итого:</span><span id="sc-final" class="sc-value">0 🪙</span></div>
-                        </footer>
-                    </div>
-                </div>
-            </section>
-
-            <!-- 🪙 РЫНОК -->
+            <!-- 🪙 РЫНОК (СВОРАЧИВАЕМЫЙ) -->
             <section id="homeTradeSection" class="home-trade-section">
                 <h2 class="section-title">🪙 Гильдейский рынок</h2>
                 <div class="trade-market">
@@ -116,154 +53,98 @@
                         <h3 class="tm-title">📣 Биржа заявок</h3>
                         <span class="tm-subtitle">World of Sea Battle</span>
                         <span id="tm-my-counter" class="tm-my-counter" title="Ваши активные заявки">👤 Мои: <b>0</b></span>
+                        <button id="tmToggle" class="tm-toggle" title="Свернуть">⌃</button>
                     </header>
-                    <div class="tm-counters">
-                        <div class="tm-counter buy">
-                            <div class="tm-ci">🛒</div>
-                            <div class="tm-cb">
-                                <span class="tm-cl">Золото на покупку</span>
-                                <span class="tm-cv" id="tm-counter-buy-gold">0 🪙</span>
-                                <span class="tm-cs" id="tm-counter-buy-sub">0 заявок</span>
+                    <div id="tradeMarketBody" class="tm-body">
+                        <div class="tm-counters">
+                            <div class="tm-counter buy">
+                                <div class="tm-ci">🛒</div>
+                                <div class="tm-cb">
+                                    <span class="tm-cl">Золото на покупку</span>
+                                    <span class="tm-cv" id="tm-counter-buy-gold">0 🪙</span>
+                                    <span class="tm-cs" id="tm-counter-buy-sub">0 заявок</span>
+                                </div>
+                            </div>
+                            <div class="tm-counter sell">
+                                <div class="tm-ci">💰</div>
+                                <div class="tm-cb">
+                                    <span class="tm-cl">Золото на продажу</span>
+                                    <span class="tm-cv" id="tm-counter-sell-gold">0 🪙</span>
+                                    <span class="tm-cs" id="tm-counter-sell-sub">0 заявок</span>
+                                </div>
                             </div>
                         </div>
-                        <div class="tm-counter sell">
-                            <div class="tm-ci">💰</div>
-                            <div class="tm-cb">
-                                <span class="tm-cl">Золото на продажу</span>
-                                <span class="tm-cv" id="tm-counter-sell-gold">0 🪙</span>
-                                <span class="tm-cs" id="tm-counter-sell-sub">0 заявок</span>
-                            </div>
+                        <div class="tm-layout">
+                            <section class="tm-panel">
+                                <h4 class="tm-panel-title">📝 Новая заявка</h4>
+                                <div class="tm-type-switch">
+                                    <div class="tm-type-btn buy active" data-type="buy">🛒 Покупка</div>
+                                    <div class="tm-type-btn sell" data-type="sell">💰 Продажа</div>
+                                </div>
+                                <div class="tm-fg"><label>Гильдия</label><select id="tm-clan"></select></div>
+                                <div class="tm-fg"><label>Категория</label><select id="tm-category"></select></div>
+                                <div class="tm-fg tm-ship-picker" id="tm-ship-picker" hidden>
+                                    <label>Корабль из справочника</label>
+                                    <select id="tm-ship-select"><option value="">— Выберите корабль —</option></select>
+                                    <div id="tm-ship-preview" class="tm-ship-preview" hidden>
+                                        <img id="tm-ship-preview-img" src="" alt="">
+                                        <div id="tm-ship-preview-info" class="tm-ship-preview-info"></div>
+                                    </div>
+                                </div>
+                                <div class="tm-fg"><label>Название *</label><input type="text" id="tm-name" maxlength="60" placeholder="Например: Дубовые доски"></div>
+                                <div class="tm-frow">
+                                    <div class="tm-fg"><label>Цена за ед. *</label><input type="number" id="tm-price" min="1" step="1" placeholder="0"></div>
+                                    <div class="tm-fg"><label>Количество *</label><input type="number" id="tm-qty" min="1" step="1" value="1"></div>
+                                </div>
+                                <div class="tm-fg"><label>Итого золота</label><input type="text" id="tm-total" readonly value="0 🪙"></div>
+                                <div class="tm-fg"><label>Порт (необязательно)</label><input type="text" id="tm-port" maxlength="60" placeholder="Порт-Рояль"></div>
+                                <div class="tm-fg"><label>Ваш ник *</label><input type="text" id="tm-nickname" maxlength="32" placeholder="Капитан"></div>
+                                <div class="tm-fg"><label>Примечание</label><textarea id="tm-note" maxlength="140"></textarea></div>
+                                <button id="tm-submit" class="tm-btn-gold">Опубликовать заявку</button>
+                                <p id="tm-status" class="tm-status"></p>
+                            </section>
+                            <section class="tm-panel">
+                                <h4 class="tm-panel-title">📋 Доска заявок</h4>
+                                <div class="tm-filters">
+                                    <input type="search" id="tm-search" placeholder="🔍 Поиск по названию, нику, порту...">
+                                    <select id="tm-sort" class="tm-sort-select">
+                                        <option value="new">🆕 Сначала новые</option>
+                                        <option value="price-asc">💲 Цена ↑</option>
+                                        <option value="price-desc">💲 Цена ↓</option>
+                                        <option value="qty-desc">📦 Кол-во ↓</option>
+                                        <option value="my-first">👤 Сначала мои</option>
+                                    </select>
+                                    <div class="tm-filter-row" id="tm-status-filters">
+                                        <span class="tm-chip active" data-status="active">🟢 Активные</span>
+                                        <span class="tm-chip" data-status="done">✅ Завершённые</span>
+                                        <span class="tm-chip" data-status="all">📋 Все</span>
+                                    </div>
+                                    <div class="tm-filter-row" id="tm-clan-filters"></div>
+                                    <div class="tm-filter-row" id="tm-type-filters">
+                                        <span class="tm-chip active" data-type="all">Все</span>
+                                        <span class="tm-chip buy" data-type="buy">🛒 Покупка</span>
+                                        <span class="tm-chip sell" data-type="sell">💰 Продажа</span>
+                                    </div>
+                                    <div class="tm-filter-row" id="tm-cat-filters"></div>
+                                    <div class="tm-filter-row">
+                                        <label class="tm-mine-check"><input type="checkbox" id="tm-only-mine"> Только мои заявки</label>
+                                        <label class="tm-mine-check"><input type="checkbox" id="tm-only-ships"> 🚢 Только корабли</label>
+                                    </div>
+                                </div>
+                                <div id="tm-listings" class="tm-listings"></div>
+                            </section>
                         </div>
-                    </div>
-                    <div class="tm-layout">
-                        <section class="tm-panel">
-                            <h4 class="tm-panel-title">📝 Новая заявка</h4>
-                            <div class="tm-type-switch">
-                                <div class="tm-type-btn buy active" data-type="buy">🛒 Покупка</div>
-                                <div class="tm-type-btn sell" data-type="sell">💰 Продажа</div>
-                            </div>
-                            <div class="tm-fg"><label>Гильдия</label><select id="tm-clan"></select></div>
-                            <div class="tm-fg"><label>Категория</label><select id="tm-category"></select></div>
-                            <div class="tm-fg tm-ship-picker" id="tm-ship-picker" hidden>
-                                <label>Корабль из справочника</label>
-                                <select id="tm-ship-select"><option value="">— Выберите корабль —</option></select>
-                                <div id="tm-ship-preview" class="tm-ship-preview" hidden>
-                                    <img id="tm-ship-preview-img" src="" alt="">
-                                    <div id="tm-ship-preview-info" class="tm-ship-preview-info"></div>
-                                </div>
-                            </div>
-                            <div class="tm-fg"><label>Название *</label><input type="text" id="tm-name" maxlength="60" placeholder="Например: Дубовые доски"></div>
-                            <div class="tm-frow">
-                                <div class="tm-fg"><label>Цена за ед. *</label><input type="number" id="tm-price" min="1" step="1" placeholder="0"></div>
-                                <div class="tm-fg"><label>Количество *</label><input type="number" id="tm-qty" min="1" step="1" value="1"></div>
-                            </div>
-                            <div class="tm-fg"><label>Итого золота</label><input type="text" id="tm-total" readonly value="0 🪙"></div>
-                            <div class="tm-fg"><label>Порт (необязательно)</label><input type="text" id="tm-port" maxlength="60" placeholder="Порт-Рояль"></div>
-                            <div class="tm-fg"><label>Ваш ник *</label><input type="text" id="tm-nickname" maxlength="32" placeholder="Капитан"></div>
-                            <div class="tm-fg"><label>Примечание</label><textarea id="tm-note" maxlength="140"></textarea></div>
-                            <button id="tm-submit" class="tm-btn-gold">Опубликовать заявку</button>
-                            <p id="tm-status" class="tm-status"></p>
-                        </section>
-                        <section class="tm-panel">
-                            <h4 class="tm-panel-title">📋 Доска заявок</h4>
-                            <div class="tm-filters">
-                                <input type="search" id="tm-search" placeholder="🔍 Поиск по названию, нику, порту...">
-                                <select id="tm-sort" class="tm-sort-select">
-                                    <option value="new">🆕 Сначала новые</option>
-                                    <option value="price-asc">💲 Цена ↑</option>
-                                    <option value="price-desc">💲 Цена ↓</option>
-                                    <option value="qty-desc">📦 Кол-во ↓</option>
-                                    <option value="my-first">👤 Сначала мои</option>
-                                </select>
-                                <div class="tm-filter-row" id="tm-status-filters">
-                                    <span class="tm-chip active" data-status="active">🟢 Активные</span>
-                                    <span class="tm-chip" data-status="done">✅ Завершённые</span>
-                                    <span class="tm-chip" data-status="all">📋 Все</span>
-                                </div>
-                                <div class="tm-filter-row" id="tm-clan-filters"></div>
-                                <div class="tm-filter-row" id="tm-type-filters">
-                                    <span class="tm-chip active" data-type="all">Все</span>
-                                    <span class="tm-chip buy" data-type="buy">🛒 Покупка</span>
-                                    <span class="tm-chip sell" data-type="sell">💰 Продажа</span>
-                                </div>
-                                <div class="tm-filter-row" id="tm-cat-filters"></div>
-                                <div class="tm-filter-row">
-                                    <label class="tm-mine-check"><input type="checkbox" id="tm-only-mine"> Только мои заявки</label>
-                                    <label class="tm-mine-check"><input type="checkbox" id="tm-only-ships"> 🚢 Только корабли</label>
-                                </div>
-                            </div>
-                            <div id="tm-listings" class="tm-listings"></div>
-                        </section>
                     </div>
                 </div>
             </section>
 
-            <!-- 📦 РЕСУРСЫ -->
-            <section id="resourcesSection" class="home-trade-section">
-                <h2 class="section-title">📦 Ресурсы — справочник цен</h2>
-                <div class="res-panel">
-                    <header class="res-topbar">
-                        <h3 class="res-title">Базовые цены на ресурсы</h3>
-                        <div class="res-controls">
-                            <input type="search" id="res-search" class="res-search" placeholder="🔍 Поиск ресурса...">
-                            <select id="res-sort" class="res-sort">
-                                <option value="name-asc">🔤 Название А→Я</option>
-                                <option value="name-desc">🔤 Название Я→А</option>
-                                <option value="price-asc">💰 Цена ↑</option>
-                                <option value="price-desc">💰 Цена ↓</option>
-                                <option value="updated-desc">🕐 Недавно обновлённые</option>
-                            </select>
-                            <button id="res-refresh" class="res-refresh" title="Обновить">🔄</button>
-                        </div>
-                    </header>
-                    <div class="res-table-wrap">
-                        <table class="res-table">
-                            <thead><tr><th>Ресурс</th><th>Цена</th><th>Обновлено</th></tr></thead>
-                            <tbody id="res-tbody"><tr><td colspan="3" class="res-empty">Загрузка…</td></tr></tbody>
-                        </table>
-                    </div>
-                    <footer class="res-footer">
-                        <span>💡 Цены задаются вручную в админ-панели</span>
-                        <span id="res-updated" class="res-updated"></span>
-                    </footer>
-                </div>
+            <!-- ❓ FAQ -->
+            <section class="faq-section">
+                <h2 class="section-title">❓ Часто задаваемые вопросы</h2>
+                <div id="faqList" class="faq-list"></div>
             </section>
 
-            <!-- 🔧 СБОРКА -->
-            <section id="shipBuilderSection" class="home-trade-section">
-                <h2 class="section-title">🔧 Калькулятор сборки корабля</h2>
-                <div class="builder-panel">
-                    <header class="builder-topbar">
-                        <div class="builder-target">
-                            <label>🎯 Собираю корабль:</label>
-                            <select id="builderTargetShip"><option value="">— Не выбран —</option></select>
-                            <img id="builderTargetImg" class="builder-target-img" src="" alt="" hidden>
-                        </div>
-                        <div class="builder-actions-top">
-                            <button id="builderAddRow" class="builder-btn primary">➕ Добавить компонент</button>
-                            <button id="builderClear" class="builder-btn secondary">🗑 Очистить</button>
-                        </div>
-                    </header>
-                    <div class="builder-table-wrap">
-                        <table class="builder-table">
-                            <thead><tr><th style="width:35%">Компонент</th><th style="width:15%">Кол-во</th><th style="width:20%">Средняя цена</th><th style="width:20%">Итого</th><th style="width:10%"></th></tr></thead>
-                            <tbody id="builderRows"></tbody>
-                        </table>
-                    </div>
-                    <footer class="builder-footer">
-                        <div class="builder-summary">
-                            <div class="builder-stat"><span class="builder-stat-label">Позиций</span><span class="builder-stat-value" id="builderCountPositions">0</span></div>
-                            <div class="builder-stat"><span class="builder-stat-label">Найдено цен</span><span class="builder-stat-value" id="builderCountPrices">0 / 0</span></div>
-                            <div class="builder-stat builder-stat-total"><span class="builder-stat-label">💰 Средняя стоимость корабля</span><span class="builder-stat-value" id="builderTotal">0 🪙</span></div>
-                        </div>
-                        <div class="builder-actions-bottom">
-                            <button id="builderRecalc" class="builder-btn primary">🔄 Пересчитать</button>
-                            <button id="builderCopy" class="builder-btn secondary">📋 Скопировать результат</button>
-                        </div>
-                    </footer>
-                </div>
-            </section>
-
+            <!-- 📝 ПОДАТЬ ЗАЯВКУ -->
             <section id="applySection" class="apply-section">
                 <h2 class="section-title">📝 Подать заявку в гильдию</h2>
                 <div class="apply-card">
@@ -281,16 +162,13 @@
                 </div>
             </section>
 
-            <section class="faq-section">
-                <h2 class="section-title">❓ Часто задаваемые вопросы</h2>
-                <div id="faqList" class="faq-list"></div>
-            </section>
-
+            <!-- 🤝 ПАРТНЁРЫ -->
             <section id="partnersSection" class="promo-section" hidden>
                 <h2 class="section-title">🤝 Партнёры и Реклама</h2>
                 <div id="partnersList" class="partners-list"></div>
             </section>
 
+            <!-- 🙏 БЛАГОДАРНОСТИ -->
             <section class="thanks-section">
                 <h2 class="section-title">🙏 Благодарности</h2>
                 <div class="thanks-card">
@@ -372,6 +250,9 @@
                 <button class="side-item" data-section="pb"><span class="side-ico">🛡</span><span>Билды ПБ</span></button>
                 <button class="side-item" data-section="ships"><span class="side-ico">🚢</span><span>Корабли</span></button>
                 <button class="side-item" data-section="builder"><span class="side-ico">🔧</span><span>Сборка корабля</span></button>
+                <button class="side-item" data-section="shipcost"><span class="side-ico">🔨</span><span>Постройка</span></button>
+                <button class="side-item" data-section="resources"><span class="side-ico">📦</span><span>Ресурсы</span></button>
+                <button class="side-item" data-section="map"><span class="side-ico">🗺</span><span>Карта</span></button>
                 <button class="side-item" data-section="contacts"><span class="side-ico">💬</span><span>Контакты</span></button>
                 <button class="side-item" data-section="members"><span class="side-ico">👥</span><span>Участники</span></button>
                 <button class="side-item" id="openTacticsBtn"><span class="side-ico">📖</span><span>Тактика боя</span></button>
@@ -550,6 +431,100 @@
                                 <button id="builderRecalc2" class="builder-btn primary">🔄 Пересчитать</button>
                                 <button id="builderCopy2" class="builder-btn secondary">📋 Скопировать результат</button>
                             </div>
+                        </footer>
+                    </div>
+                </div>
+
+                <div id="section-shipcost" class="clan-section">
+                    <h2>🔨 Стоимость постройки корабля</h2>
+                    <p class="hint">Расчёт рецепта с учётом активных скидок (город / фракция / сезон)</p>
+                    <div class="sc-panel">
+                        <header class="sc-topbar">
+                            <div class="sc-pick">
+                                <label>🚢 Корабль:</label>
+                                <select id="sc-ship"><option value="">— Выберите корабль —</option></select>
+                                <img id="sc-ship-img" class="sc-ship-img" src="" alt="" hidden>
+                            </div>
+                            <div class="sc-pick">
+                                <label>⚓ Город:</label>
+                                <select id="sc-city"><option value="">— Не указан —</option></select>
+                                <label style="margin-left:12px;">🏴 Фракция:</label>
+                                <select id="sc-faction"><option value="">— Не указана —</option></select>
+                            </div>
+                        </header>
+                        <div id="sc-empty" class="sc-empty">Выберите корабль, чтобы увидеть стоимость постройки.</div>
+                        <div id="sc-content" hidden>
+                            <div class="sc-table-wrap">
+                                <table class="sc-table">
+                                    <thead><tr><th>Ресурс</th><th>Кол-во</th><th>Цена за ед.</th><th>Сумма</th></tr></thead>
+                                    <tbody id="sc-tbody"></tbody>
+                                </table>
+                            </div>
+                            <div class="sc-discounts">
+                                <h4>💸 Применённые скидки</h4>
+                                <div id="sc-discounts-list" class="sc-discounts-list"></div>
+                            </div>
+                            <footer class="sc-footer">
+                                <div class="sc-total-row"><span class="sc-label">Базовая стоимость:</span><span id="sc-base" class="sc-value">0 🪙</span></div>
+                                <div class="sc-total-row sc-discount-row"><span class="sc-label">Скидки:</span><span id="sc-discounts-sum" class="sc-value">−0 🪙</span></div>
+                                <div class="sc-total-row sc-final-row"><span class="sc-label">💰 Итого:</span><span id="sc-final" class="sc-value">0 🪙</span></div>
+                            </footer>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="section-resources" class="clan-section">
+                    <h2>📦 Ресурсы — справочник цен</h2>
+                    <p class="hint">Базовые цены на ресурсы, используемые в расчётах</p>
+                    <div class="res-panel">
+                        <header class="res-topbar">
+                            <h3 class="res-title">Базовые цены на ресурсы</h3>
+                            <div class="res-controls">
+                                <input type="search" id="res-search" class="res-search" placeholder="🔍 Поиск ресурса...">
+                                <select id="res-sort" class="res-sort">
+                                    <option value="name-asc">🔤 Название А→Я</option>
+                                    <option value="name-desc">🔤 Название Я→А</option>
+                                    <option value="price-asc">💰 Цена ↑</option>
+                                    <option value="price-desc">💰 Цена ↓</option>
+                                    <option value="updated-desc">🕐 Недавно обновлённые</option>
+                                </select>
+                                <button id="res-refresh" class="res-refresh" title="Обновить">🔄</button>
+                            </div>
+                        </header>
+                        <div class="res-table-wrap">
+                            <table class="res-table">
+                                <thead><tr><th>Ресурс</th><th>Цена</th><th>Обновлено</th></tr></thead>
+                                <tbody id="res-tbody"><tr><td colspan="3" class="res-empty">Загрузка…</td></tr></tbody>
+                            </table>
+                        </div>
+                        <footer class="res-footer">
+                            <span>💡 Цены задаются вручную в админ-панели</span>
+                            <span id="res-updated" class="res-updated"></span>
+                        </footer>
+                    </div>
+                </div>
+
+                <div id="section-map" class="clan-section">
+                    <h2>🗺 Карта мира</h2>
+                    <p class="hint">Кликните по карте, чтобы открыть на весь экран</p>
+                    <div class="map-panel">
+                        <header class="map-topbar">
+                            <div class="map-title" id="map-title">World of Sea Battle — Карта</div>
+                            <div class="map-controls">
+                                <div class="map-views" id="map-views">
+                                    <button class="map-view-btn active" data-view="detailed">📍 С маркерами</button>
+                                    <button class="map-view-btn" data-view="clean">🧭 Чистая</button>
+                                </div>
+                                <button id="map-open" class="map-btn" title="Открыть на весь экран">⛶</button>
+                            </div>
+                        </header>
+                        <div class="map-preview" id="map-preview">
+                            <img id="map-preview-img" src="" alt="Карта" draggable="false">
+                            <div class="map-preview-hint">🔍 Нажми, чтобы открыть на весь экран</div>
+                        </div>
+                        <footer class="map-footer">
+                            <span id="map-note" class="map-note"></span>
+                            <span class="map-hint">💡 Колёсико — приблизить, ЛКМ — перетащить, Esc — выйти</span>
                         </footer>
                     </div>
                 </div>
@@ -810,12 +785,10 @@
                     <div class="admin-field" id="disc-city-field" hidden>
                         <label>Город</label>
                         <select id="disc-city-select"></select>
-                        <input type="hidden" id="disc-city">
                     </div>
                     <div class="admin-field" id="disc-faction-field" hidden>
                         <label>Фракция</label>
                         <select id="disc-faction-select"></select>
-                        <input type="hidden" id="disc-faction">
                     </div>
                     <div class="admin-field"><label>Дата с</label><input type="date" id="disc-from"></div>
                     <div class="admin-field"><label>Дата по</label><input type="date" id="disc-to"></div>
@@ -1427,7 +1400,7 @@
 
     <footer class="site-footer">
         <span class="footer-left">Mist Time — Сергеев С.В</span>
-        <span class="footer-right">v2.1.0</span>
+        <span class="footer-right">v2.3.0</span>
     </footer>
 
     <script type="module" src="app.js"></script>

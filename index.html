@@ -321,15 +321,75 @@
                     <section class="add-form clan-admin-only" hidden>
                         <select id="pvpShip" class="build-ship-select"><option value="">— Выберите корабль —</option></select>
                         <img id="pvpShipPreview" class="build-ship-preview" src="" alt="" hidden>
-                        <textarea id="pvpUpgrades" placeholder="Апгрейды — каждый с новой строки" rows="3"></textarea>
-                        <textarea id="pvpWeapS" placeholder="Малые пушки (до 12 фунтов)" rows="2"></textarea>
-                        <textarea id="pvpWeapM" placeholder="Средние пушки (до 24 фунтов)" rows="2"></textarea>
-                        <textarea id="pvpWeapL" placeholder="Большие пушки (до 48 фунтов)" rows="2"></textarea>
-                        <input type="text" id="pvpCons1" placeholder="Расходник 1" maxlength="40">
-                        <input type="text" id="pvpCons2" placeholder="Расходник 2" maxlength="40">
-                        <input type="text" id="pvpCons3" placeholder="Расходник 3" maxlength="40">
-                        <textarea id="pvpCargo" placeholder="Наполнение трюма" rows="1" maxlength="200"></textarea>
-                        <textarea id="pvpSpecs" placeholder="Специалисты — Имя | Бонус +5 | Бонус -3" rows="3"></textarea>
+
+                        <div class="build-picker-field">
+                            <div class="build-picker-label">🔧 Апгрейды</div>
+                            <div class="build-picker-controls">
+                                <select class="build-catalog-select" data-target="pvpUpgrades" data-type="upgrade"><option value="">— Из справочника —</option></select>
+                                <button type="button" class="build-catalog-add" data-target="pvpUpgrades">➕</button>
+                            </div>
+                            <textarea id="pvpUpgrades" placeholder="Апгрейды — каждый с новой строки" rows="3"></textarea>
+                        </div>
+
+                        <div class="build-picker-field">
+                            <div class="build-picker-label">🟢 Малые пушки (до 12ф)</div>
+                            <div class="build-picker-controls">
+                                <select class="build-catalog-select" data-target="pvpWeapS" data-type="weapon_small"><option value="">— Из справочника —</option></select>
+                                <button type="button" class="build-catalog-add" data-target="pvpWeapS">➕</button>
+                            </div>
+                            <textarea id="pvpWeapS" placeholder="Малые пушки (до 12 фунтов)" rows="2"></textarea>
+                        </div>
+
+                        <div class="build-picker-field">
+                            <div class="build-picker-label">🟡 Средние пушки (до 24ф)</div>
+                            <div class="build-picker-controls">
+                                <select class="build-catalog-select" data-target="pvpWeapM" data-type="weapon_medium"><option value="">— Из справочника —</option></select>
+                                <button type="button" class="build-catalog-add" data-target="pvpWeapM">➕</button>
+                            </div>
+                            <textarea id="pvpWeapM" placeholder="Средние пушки (до 24 фунтов)" rows="2"></textarea>
+                        </div>
+
+                        <div class="build-picker-field">
+                            <div class="build-picker-label">🔴 Большие пушки (до 48ф)</div>
+                            <div class="build-picker-controls">
+                                <select class="build-catalog-select" data-target="pvpWeapL" data-type="weapon_large"><option value="">— Из справочника —</option></select>
+                                <button type="button" class="build-catalog-add" data-target="pvpWeapL">➕</button>
+                            </div>
+                            <textarea id="pvpWeapL" placeholder="Большие пушки (до 48 фунтов)" rows="2"></textarea>
+                        </div>
+
+                        <div class="build-picker-field">
+                            <div class="build-picker-label">⚗️ Расходники</div>
+                            <div class="build-picker-controls">
+                                <select class="build-catalog-select" data-target="pvpCons1" data-type="consum" data-mode="set"><option value="">— Расходник 1 —</option></select>
+                                <select class="build-catalog-select" data-target="pvpCons2" data-type="consum" data-mode="set"><option value="">— Расходник 2 —</option></select>
+                                <select class="build-catalog-select" data-target="pvpCons3" data-type="consum" data-mode="set"><option value="">— Расходник 3 —</option></select>
+                            </div>
+                            <div class="build-row-3">
+                                <input type="text" id="pvpCons1" placeholder="Расходник 1" maxlength="40">
+                                <input type="text" id="pvpCons2" placeholder="Расходник 2" maxlength="40">
+                                <input type="text" id="pvpCons3" placeholder="Расходник 3" maxlength="40">
+                            </div>
+                        </div>
+
+                        <div class="build-picker-field">
+                            <div class="build-picker-label">📦 Трюм</div>
+                            <div class="build-picker-controls">
+                                <select class="build-catalog-select" data-target="pvpCargo" data-type="cargo"><option value="">— Из справочника —</option></select>
+                                <button type="button" class="build-catalog-add" data-target="pvpCargo">➕</button>
+                            </div>
+                            <textarea id="pvpCargo" placeholder="Наполнение трюма" rows="1" maxlength="200"></textarea>
+                        </div>
+
+                        <div class="build-picker-field">
+                            <div class="build-picker-label">👤 Специалисты</div>
+                            <div class="build-picker-controls">
+                                <select class="build-catalog-select" data-target="pvpSpecs" data-type="specialist"><option value="">— Из справочника —</option></select>
+                                <button type="button" class="build-catalog-add" data-target="pvpSpecs">➕</button>
+                            </div>
+                            <textarea id="pvpSpecs" placeholder="Специалисты — Имя | Бонус +5 | Бонус -3" rows="3"></textarea>
+                        </div>
+
                         <select id="pvpScope"></select>
                         <button id="pvpAddBtn">➕ Добавить</button>
                         <span id="pvpStatus"></span>
@@ -343,15 +403,75 @@
                         <textarea id="pbRank" placeholder="Ранг (1-6)" rows="1" maxlength="10"></textarea>
                         <select id="pbShip" class="build-ship-select"><option value="">— Выберите корабль —</option></select>
                         <img id="pbShipPreview" class="build-ship-preview" src="" alt="" hidden>
-                        <textarea id="pbUpgrades" placeholder="Апгрейды — каждый с новой строки" rows="3"></textarea>
-                        <textarea id="pbWeapS" placeholder="Малые пушки (до 12 фунтов)" rows="2"></textarea>
-                        <textarea id="pbWeapM" placeholder="Средние пушки (до 24 фунтов)" rows="2"></textarea>
-                        <textarea id="pbWeapL" placeholder="Большие пушки (до 48 фунтов)" rows="2"></textarea>
-                        <input type="text" id="pbCons1" placeholder="Расходник 1" maxlength="40">
-                        <input type="text" id="pbCons2" placeholder="Расходник 2" maxlength="40">
-                        <input type="text" id="pbCons3" placeholder="Расходник 3" maxlength="40">
-                        <textarea id="pbCargo" placeholder="Наполнение трюма" rows="1" maxlength="200"></textarea>
-                        <textarea id="pbSpecs" placeholder="Специалисты — Имя | Бонус +5 | Бонус -3" rows="3"></textarea>
+
+                        <div class="build-picker-field">
+                            <div class="build-picker-label">🔧 Апгрейды</div>
+                            <div class="build-picker-controls">
+                                <select class="build-catalog-select" data-target="pbUpgrades" data-type="upgrade"><option value="">— Из справочника —</option></select>
+                                <button type="button" class="build-catalog-add" data-target="pbUpgrades">➕</button>
+                            </div>
+                            <textarea id="pbUpgrades" placeholder="Апгрейды — каждый с новой строки" rows="3"></textarea>
+                        </div>
+
+                        <div class="build-picker-field">
+                            <div class="build-picker-label">🟢 Малые пушки (до 12ф)</div>
+                            <div class="build-picker-controls">
+                                <select class="build-catalog-select" data-target="pbWeapS" data-type="weapon_small"><option value="">— Из справочника —</option></select>
+                                <button type="button" class="build-catalog-add" data-target="pbWeapS">➕</button>
+                            </div>
+                            <textarea id="pbWeapS" placeholder="Малые пушки (до 12 фунтов)" rows="2"></textarea>
+                        </div>
+
+                        <div class="build-picker-field">
+                            <div class="build-picker-label">🟡 Средние пушки (до 24ф)</div>
+                            <div class="build-picker-controls">
+                                <select class="build-catalog-select" data-target="pbWeapM" data-type="weapon_medium"><option value="">— Из справочника —</option></select>
+                                <button type="button" class="build-catalog-add" data-target="pbWeapM">➕</button>
+                            </div>
+                            <textarea id="pbWeapM" placeholder="Средние пушки (до 24 фунтов)" rows="2"></textarea>
+                        </div>
+
+                        <div class="build-picker-field">
+                            <div class="build-picker-label">🔴 Большие пушки (до 48ф)</div>
+                            <div class="build-picker-controls">
+                                <select class="build-catalog-select" data-target="pbWeapL" data-type="weapon_large"><option value="">— Из справочника —</option></select>
+                                <button type="button" class="build-catalog-add" data-target="pbWeapL">➕</button>
+                            </div>
+                            <textarea id="pbWeapL" placeholder="Большие пушки (до 48 фунтов)" rows="2"></textarea>
+                        </div>
+
+                        <div class="build-picker-field">
+                            <div class="build-picker-label">⚗️ Расходники</div>
+                            <div class="build-picker-controls">
+                                <select class="build-catalog-select" data-target="pbCons1" data-type="consum" data-mode="set"><option value="">— Расходник 1 —</option></select>
+                                <select class="build-catalog-select" data-target="pbCons2" data-type="consum" data-mode="set"><option value="">— Расходник 2 —</option></select>
+                                <select class="build-catalog-select" data-target="pbCons3" data-type="consum" data-mode="set"><option value="">— Расходник 3 —</option></select>
+                            </div>
+                            <div class="build-row-3">
+                                <input type="text" id="pbCons1" placeholder="Расходник 1" maxlength="40">
+                                <input type="text" id="pbCons2" placeholder="Расходник 2" maxlength="40">
+                                <input type="text" id="pbCons3" placeholder="Расходник 3" maxlength="40">
+                            </div>
+                        </div>
+
+                        <div class="build-picker-field">
+                            <div class="build-picker-label">📦 Трюм</div>
+                            <div class="build-picker-controls">
+                                <select class="build-catalog-select" data-target="pbCargo" data-type="cargo"><option value="">— Из справочника —</option></select>
+                                <button type="button" class="build-catalog-add" data-target="pbCargo">➕</button>
+                            </div>
+                            <textarea id="pbCargo" placeholder="Наполнение трюма" rows="1" maxlength="200"></textarea>
+                        </div>
+
+                        <div class="build-picker-field">
+                            <div class="build-picker-label">👤 Специалисты</div>
+                            <div class="build-picker-controls">
+                                <select class="build-catalog-select" data-target="pbSpecs" data-type="specialist"><option value="">— Из справочника —</option></select>
+                                <button type="button" class="build-catalog-add" data-target="pbSpecs">➕</button>
+                            </div>
+                            <textarea id="pbSpecs" placeholder="Специалисты — Имя | Бонус +5 | Бонус -3" rows="3"></textarea>
+                        </div>
+
                         <select id="pbScope"></select>
                         <button id="pbAddBtn">➕ Добавить</button>
                         <span id="pbStatus"></span>
@@ -627,21 +747,66 @@
         <aside class="admin-sidebar">
             <div class="admin-sidebar-brand"><span class="admin-sidebar-logo">⚙️</span><span class="admin-sidebar-title">Админ-панель</span></div>
             <nav class="admin-nav">
-                <button class="admin-nav-item active" data-apanel="clans"><span class="admin-nav-ico">🏰</span><span>Гильдии</span></button>
-                <button class="admin-nav-item" data-apanel="alliances"><span class="admin-nav-ico">🤝</span><span>Союзы</span></button>
-                <button class="admin-nav-item" data-apanel="games"><span class="admin-nav-ico">🎮</span><span>Игры</span></button>
-                <button class="admin-nav-item" data-apanel="ships"><span class="admin-nav-ico">🚢</span><span>Корабли</span></button>
-                <button class="admin-nav-item" data-apanel="resources"><span class="admin-nav-ico">💲</span><span>Ценообразование</span></button>
-                <button class="admin-nav-item" data-apanel="shipcost"><span class="admin-nav-ico">🔨</span><span>Постройка</span></button>
-                <button class="admin-nav-item" data-apanel="ports"><span class="admin-nav-ico">⚓</span><span>Фракции и порты</span></button>
-                <button class="admin-nav-item" data-apanel="map"><span class="admin-nav-ico">🗺</span><span>Карта</span></button>
-                <button class="admin-nav-item" data-apanel="partners"><span class="admin-nav-ico">🤝</span><span>Партнёры</span></button>
-                <button class="admin-nav-item" data-apanel="faq"><span class="admin-nav-ico">❓</span><span>FAQ</span></button>
-                <button class="admin-nav-item" data-apanel="tactics"><span class="admin-nav-ico">📖</span><span>Тактика</span></button>
-                <button class="admin-nav-item" data-apanel="online"><span class="admin-nav-ico">👥</span><span>Онлайн</span></button>
-                <button class="admin-nav-item" data-apanel="admins"><span class="admin-nav-ico">👑</span><span>Админы</span></button>
-                <button class="admin-nav-item owner-only" data-apanel="clanRequests" hidden><span class="admin-nav-ico">📨</span><span>Заявки гильдий</span></button>
-                <button class="admin-nav-item" data-apanel="settings"><span class="admin-nav-ico">⚙️</span><span>Настройки</span></button>
+                <!-- 🏰 ГИЛЬДИИ -->
+                <div class="admin-nav-group open">
+                    <button class="admin-nav-group-btn" type="button">
+                        <span class="admin-nav-ico">🏰</span><span class="admin-nav-group-label">Гильдии</span><span class="admin-nav-caret">▾</span>
+                    </button>
+                    <div class="admin-nav-sub">
+                        <button class="admin-nav-item active" data-apanel="clans"><span class="admin-nav-ico">🏰</span><span>Гильдии</span></button>
+                        <button class="admin-nav-item" data-apanel="alliances"><span class="admin-nav-ico">🤝</span><span>Союзы</span></button>
+                        <button class="admin-nav-item owner-only" data-apanel="clanRequests" hidden><span class="admin-nav-ico">📨</span><span>Заявки гильдий</span></button>
+                    </div>
+                </div>
+
+                <!-- 🚢 КОНТЕНТ -->
+                <div class="admin-nav-group">
+                    <button class="admin-nav-group-btn" type="button">
+                        <span class="admin-nav-ico">🚢</span><span class="admin-nav-group-label">Контент</span><span class="admin-nav-caret">▾</span>
+                    </button>
+                    <div class="admin-nav-sub">
+                        <button class="admin-nav-item" data-apanel="ships"><span class="admin-nav-ico">🚢</span><span>Корабли</span></button>
+                        <button class="admin-nav-item" data-apanel="builditems"><span class="admin-nav-ico">⚙️</span><span>Апгрейды и специалисты</span></button>
+                        <button class="admin-nav-item" data-apanel="resources"><span class="admin-nav-ico">💲</span><span>Ценообразование</span></button>
+                        <button class="admin-nav-item" data-apanel="shipcost"><span class="admin-nav-ico">🔨</span><span>Постройка</span></button>
+                        <button class="admin-nav-item" data-apanel="ports"><span class="admin-nav-ico">⚓</span><span>Фракции и порты</span></button>
+                        <button class="admin-nav-item" data-apanel="map"><span class="admin-nav-ico">🗺</span><span>Карта</span></button>
+                    </div>
+                </div>
+
+                <!-- 📝 КОНТЕНТ САЙТА -->
+                <div class="admin-nav-group">
+                    <button class="admin-nav-group-btn" type="button">
+                        <span class="admin-nav-ico">📝</span><span class="admin-nav-group-label">Контент сайта</span><span class="admin-nav-caret">▾</span>
+                    </button>
+                    <div class="admin-nav-sub">
+                        <button class="admin-nav-item" data-apanel="games"><span class="admin-nav-ico">🎮</span><span>Игры</span></button>
+                        <button class="admin-nav-item" data-apanel="partners"><span class="admin-nav-ico">🤝</span><span>Партнёры</span></button>
+                        <button class="admin-nav-item" data-apanel="faq"><span class="admin-nav-ico">❓</span><span>FAQ</span></button>
+                        <button class="admin-nav-item" data-apanel="tactics"><span class="admin-nav-ico">📖</span><span>Тактика</span></button>
+                    </div>
+                </div>
+
+                <!-- 👥 ЛЮДИ -->
+                <div class="admin-nav-group">
+                    <button class="admin-nav-group-btn" type="button">
+                        <span class="admin-nav-ico">👥</span><span class="admin-nav-group-label">Люди</span><span class="admin-nav-caret">▾</span>
+                    </button>
+                    <div class="admin-nav-sub">
+                        <button class="admin-nav-item" data-apanel="online"><span class="admin-nav-ico">👥</span><span>Онлайн</span></button>
+                        <button class="admin-nav-item" data-apanel="admins"><span class="admin-nav-ico">👑</span><span>Админы</span></button>
+                    </div>
+                </div>
+
+                <!-- ⚙️ СИСТЕМА -->
+                <div class="admin-nav-group">
+                    <button class="admin-nav-group-btn" type="button">
+                        <span class="admin-nav-ico">⚙️</span><span class="admin-nav-group-label">Система</span><span class="admin-nav-caret">▾</span>
+                    </button>
+                    <div class="admin-nav-sub">
+                        <button class="admin-nav-item" data-apanel="settings"><span class="admin-nav-ico">⚙️</span><span>Настройки сайта</span></button>
+                    </div>
+                </div>
             </nav>
             <div class="admin-sidebar-footer"><button id="adminBackHome" class="admin-back-btn">← На главную</button></div>
         </aside>
@@ -724,6 +889,37 @@
                 <h2 class="admin-section-title">🚢 Справочник кораблей</h2>
                 <div class="modal-actions" style="margin-bottom:14px;"><button id="reloadShipsBtn" class="secondary">🔄 Обновить список</button></div>
                 <div id="adminShipsList" class="partners-admin-list"></div>
+            </section>
+
+            <section class="admin-section" data-apanel="builditems">
+                <h2 class="admin-section-title">⚙️ Апгрейды и специалисты</h2>
+                <p class="hint">Справочник для выбора в билдах — больше не нужно вводить вручную.</p>
+
+                <div class="admin-card">
+                    <h3 style="font-size:15px;color:#ffd479;margin-bottom:6px;">➕ Добавить элемент</h3>
+                    <div class="admin-field">
+                        <label>Категория *</label>
+                        <select id="bi-type">
+                            <option value="upgrade">🔧 Апгрейд</option>
+                            <option value="weapon_small">🟢 Малая пушка (до 12ф)</option>
+                            <option value="weapon_medium">🟡 Средняя пушка (до 24ф)</option>
+                            <option value="weapon_large">🔴 Большая пушка (до 48ф)</option>
+                            <option value="specialist">👤 Специалист</option>
+                            <option value="consum">⚗️ Расходник</option>
+                            <option value="cargo">📦 Трюм</option>
+                        </select>
+                    </div>
+                    <div class="admin-field"><label>Название *</label><input type="text" id="bi-name" maxlength="80"></div>
+                    <div class="admin-field" id="bi-bonuses-field" hidden>
+                        <label>Бонусы (для специалистов, через <code>|</code>)</label>
+                        <input type="text" id="bi-bonuses" maxlength="200" placeholder="Скорость +5 | Маневр. -3">
+                    </div>
+                    <div class="admin-field"><label>Порядок</label><input type="number" id="bi-order" min="0" step="1" value="10"></div>
+                    <p id="bi-msg" class="error"></p>
+                    <div class="modal-actions"><button id="bi-add">➕ Добавить</button></div>
+                </div>
+
+                <div id="buildItemsAdminList" class="partners-admin-list"></div>
             </section>
 
             <section class="admin-section" data-apanel="resources">
@@ -1400,7 +1596,7 @@
 
     <footer class="site-footer">
         <span class="footer-left">Mist Time — Сергеев С.В</span>
-        <span class="footer-right">v2.3.0</span>
+        <span class="footer-right">v2.4.0</span>
     </footer>
 
     <script type="module" src="app.js"></script>

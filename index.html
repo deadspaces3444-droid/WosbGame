@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark" data-page="home">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>World of Sea Battle — Гильдии</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="screen-home" class="screen">
+        <div class="top-right">
+            <span id="onlineBadge" class="online-badge" title="Пользователей онлайн">🟢 <b id="onlineCount">0</b></span>
+            <button id="openVkNewsBtn" class="icon-btn" title="Новости">📰</button>
+            <button id="openGeneralChatBtn" class="icon-btn" title="Общий чат">🌍</button>
+            <button id="openVoiceChatBtn" class="icon-btn" title="Голосовой чат">🎙</button>
+            <button id="themeToggle" class="icon-btn" title="Сменить тему">🌓</button>
+            <button id="notifBell" class="icon-btn" title="Уведомления">🔔<span id="notifBadge" class="notif-badge" hidden>0</span></button>
+            <button id="leaderPanelBtn" class="icon-btn" hidden title="Панель главы гильдии">🎖</button>
+            <span id="adminInfo"></span>
+            <a id="adminPanelBtn" class="icon-btn" href="admin.html" hidden title="Админ-панель">⚙️</a>
+            <button id="adminLoginBtn">🔐 Админ</button>
+            <button id="adminLogoutBtn" hidden>🚪 Выйти</button>
+        </div>
+
+        <div class="home-wrap">
+            <div class="hero-video">
+                <video autoplay muted loop playsinline preload="auto">
+                    <source src="videoshero.mp4" type="video/mp4">
+                    Ваш браузер не поддерживает видео.
+                </video>
+                <div class="hero-overlay"></div>
+                <div class="hero-text">
+                    <h1>⚔️ Добро пожаловать</h1>
+                    <p>Выбери свою гильдию, чтобы ознакомиться с правилами</p>
+                </div>
+            </div>
+
+            <div id="statsRow" class="stats-row"></div>
+
+            <div class="clans-header">
+                <h2 class="section-title">Гильдии</h2>
+                <button id="openClanRequestBtn" class="icon-btn clans-add-btn" title="Создать гильдию">➕</button>
+            </div>
+            <div id="clanGrid" class="clan-grid"></div>
+
+            <!-- Форма заявки -->
+            <section id="applySection" class="apply-section">
+                <h2 class="section-title">📝 Подать заявку в гильдию</h2>
+                <div class="apply-card">
+                    <p class="apply-hint">Заполни форму — совет рассмотрит заявку и свяжется с тобой.</p>
+                    <div class="apply-grid">
+                        <div class="admin-field"><label>Никнейм *</label><input type="text" id="applyNick" placeholder="Твой игровой ник" maxlength="40"></div>
+                        <div class="admin-field"><label>Возраст</label><input type="text" id="applyAge" placeholder="18" maxlength="10"></div>
+                        <div class="admin-field"><label>Опыт в игре</label><input type="text" id="applyExp" placeholder="Например: 500 часов" maxlength="100"></div>
+                        <div class="admin-field"><label>Связь (Discord / Telegram)</label><input type="text" id="applyContact" placeholder="@nickname" maxlength="80"></div>
+                    </div>
+                    <div class="admin-field"><label>Какая гильдия интересует</label><select id="applyClan"></select></div>
+                    <div class="admin-field"><label>Почему хотите вступить? *</label><textarea id="applyWhy" rows="3" maxlength="500"></textarea></div>
+                    <p id="applyMsg" class="error"></p>
+                    <button id="applyBtn" class="big-btn primary">📨 Отправить заявку</button>
+                </div>
+            </section>
+
+            <section class="faq-section">
+                <h2 class="section-title">❓ Часто задаваемые вопросы</h2>
+                <div id="faqList" class="faq-list"></div>
+            </section>
+
+            <section id="partnersSection" class="promo-section" hidden>
+                <h2 class="section-title">🤝 Партнёры и Реклама</h2>
+                <div id="partnersList" class="partners-list"></div>
+            </section>
+
+            <section class="thanks-section">
+                <h2 class="section-title">🙏 Благодарности</h2>
+                <div class="thanks-card">
+                    <p class="thanks-text">Спасибо всем участникам гильдий <b>АОВ</b> и <b>-К-</b> за активность и поддержку проекта.</p>
+                    <p class="thanks-text">Отдельная благодарность — администрации и совету гильдий за помощь в развитии сайта.</p>
+                    <p class="thanks-text thanks-final">Этот сайт — для вас. <span class="thanks-heart">❤️</span></p>
+                    <div class="thanks-sign">Mist Time — Сергеев С.В</div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <!-- ═════════ МОДАЛКИ ═════════ -->
+
+    <!-- Вход в гильдию -->
+    <div id="clanPassModal" class="modal" hidden>
+        <div class="modal-content">
+            <h2>🔐 Вход в гильдию</h2>
+            <p id="clanPassName" class="auth-clan-name"></p>
+            <input type="text" id="clanNickname" placeholder="Ваш игровой ник" maxlength="32">
+            <input type="password" id="clanPassword" placeholder="Пароль гильдии или админ-пароль">
+            <p id="clanPassError" class="error"></p>
+            <div class="modal-actions">
+                <button id="doClanLogin">Войти</button>
+                <button id="cancelClanLogin" class="secondary">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Вход админа -->
+    <div id="adminAuthModal" class="modal" hidden>
+        <div class="modal-content">
+            <h2>🔐 Вход администратора</h2>
+            <input type="email" id="adminEmail" placeholder="Email">
+            <input type="password" id="adminPassword" placeholder="Пароль">
+            <input type="text" id="adminNickname" placeholder="Ваш игровой ник" maxlength="32">
+            <p id="adminAuthError" class="error"></p>
+            <div class="modal-actions">
+                <button id="doAdminLogin">Войти</button>
+                <button id="cancelAdminLogin" class="secondary">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Профиль игрока -->
+    <div id="profileModal" class="modal" hidden>
+        <div class="modal-content">
+            <h2>👤 Профиль игрока</h2>
+            <p id="profileNickname" class="auth-clan-name"></p>
+            <div id="profileStats" class="profile-stats"></div>
+            <div class="modal-actions"><button id="closeProfile" class="secondary">Закрыть</button></div>
+        </div>
+    </div>
+
+    <!-- Заявка на создание гильдии -->
+    <div id="clanRequestModal" class="modal" hidden>
+        <div class="modal-content admin-panel-wide">
+            <h2>➕ Заявка на создание гильдии</h2>
+            <div class="admin-field"><label>Название *</label><input type="text" id="crName" maxlength="60"></div>
+            <div class="admin-field"><label>👑 Ник главы</label><input type="text" id="crLeaderNick" maxlength="40"></div>
+            <div class="admin-field"><label>Описание</label><textarea id="crDesc" rows="2" maxlength="500"></textarea></div>
+            <div class="admin-field"><label>Правила</label><textarea id="crRules" rows="3" maxlength="2000"></textarea></div>
+            <div class="admin-field"><label>Ваш игровой ник *</label><input type="text" id="crRequesterNick" maxlength="32"></div>
+            <div class="admin-field"><label>Email</label><input type="email" id="crEmail" maxlength="200"></div>
+            <div class="admin-field"><label>Discord</label><input type="text" id="crDiscord" maxlength="200"></div>
+            <div class="admin-field"><label>Пароль *</label><input type="text" id="crPassword" maxlength="60"></div>
+            <div class="admin-field"><label>Админ-пароль</label><input type="text" id="crAdminPassword" maxlength="60"></div>
+            <div class="admin-field"><label>Игра</label><select id="crGameId"></select></div>
+            <div class="admin-field">
+                <label>Флаг</label>
+                <select id="crFlag">
+                    <option value="neutral">Нейтральный</option>
+                    <option value="pirate">Пиратский</option>
+                    <option value="spain">Испанский</option>
+                    <option value="england">Английский</option>
+                    <option value="russia">Российской империи</option>
+                </select>
+            </div>
+            <div class="admin-field"><label>Ссылка на логотип</label><input type="text" id="crImage" maxlength="500"></div>
+            <p id="clanRequestMsg" class="error"></p>
+            <div class="modal-actions">
+                <button id="clanRequestSubmit">📨 Отправить</button>
+                <button id="clanRequestCancel" class="secondary">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Уведомления -->
+    <div id="notifPanel" class="notif-panel" hidden>
+        <div class="notif-header"><h3>🔔 Уведомления</h3><button id="notifMarkAllRead" class="notif-action">Прочитать все</button></div>
+        <div id="notifList" class="notif-list"></div>
+    </div>
+
+    <!-- Чат -->
+    <div id="chatPanel" class="chat-panel" hidden>
+        <div class="chat-header">
+            <div class="chat-tabs">
+                <button class="chat-tab active" data-mode="guild">🏰 Гильдия</button>
+                <button class="chat-tab" data-mode="general">🌍 Общий</button>
+                <button class="chat-tab" data-mode="leaders" id="chatLeadersTab" hidden>🎖 Главы</button>
+                <button class="chat-tab" data-mode="private" id="chatPrivateTab" hidden>✉️ Личный</button>
+                <button class="chat-tab" data-mode="voice" id="chatVoiceTab">🎙 Голос</button>
+            </div>
+            <div class="chat-header-actions">
+                <button id="chatClear" class="chat-clear" title="Очистить чат" hidden>🗑</button>
+                <button id="chatClose" class="chat-close">✕</button>
+            </div>
+        </div>
+        <div id="chatMessages" class="chat-messages"></div>
+        <div id="chatVoiceContainer" class="chat-voice" hidden></div>
+        <div class="chat-input-row" id="chatInputRow">
+            <input type="text" id="chatInput" placeholder="Написать сообщение..." maxlength="500">
+            <button id="chatSend">➤</button>
+        </div>
+    </div>
+
+    <!-- Новости ВК -->
+    <div id="vkNewsModal" class="vk-news-modal" hidden>
+        <div class="vk-news-modal-content">
+            <header class="vk-news-modal-header">
+                <h2>📰 Новости ВКонтакте</h2>
+                <button id="closeVkNews" class="vk-news-close" title="Закрыть">✕</button>
+            </header>
+            <div id="vkNewsList" class="vk-news-modal-body"><div class="vk-news-loading">Загрузка новостей…</div></div>
+            <footer class="vk-news-modal-footer">
+                <a id="vkNewsSourceLink" href="https://vk.ru/@worldofseabattle" target="_blank" rel="noopener" class="vk-news-link">Открыть сообщество ВКонтакте →</a>
+                <span>💡 Esc — закрыть</span>
+            </footer>
+        </div>
+    </div>
+
+    <footer class="site-footer">
+        <span class="footer-left">Mist Time — Сергеев С.В</span>
+        <span class="footer-right">v2.1.0</span>
+    </footer>
+
+    <script type="module" src="app.js"></script>
+</body>
+</html>

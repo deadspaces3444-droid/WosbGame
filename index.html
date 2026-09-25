@@ -45,7 +45,6 @@
             </div>
             <div id="clanGrid" class="clan-grid"></div>
 
-            <!-- 🪙 РЫНОК (СВОРАЧИВАЕМЫЙ) -->
             <section id="homeTradeSection" class="home-trade-section">
                 <h2 class="section-title">🪙 Гильдейский рынок</h2>
                 <div class="trade-market">
@@ -138,13 +137,11 @@
                 </div>
             </section>
 
-            <!-- ❓ FAQ -->
             <section class="faq-section">
                 <h2 class="section-title">❓ Часто задаваемые вопросы</h2>
                 <div id="faqList" class="faq-list"></div>
             </section>
 
-            <!-- 📝 ПОДАТЬ ЗАЯВКУ -->
             <section id="applySection" class="apply-section">
                 <h2 class="section-title">📝 Подать заявку в гильдию</h2>
                 <div class="apply-card">
@@ -162,13 +159,11 @@
                 </div>
             </section>
 
-            <!-- 🤝 ПАРТНЁРЫ -->
             <section id="partnersSection" class="promo-section" hidden>
                 <h2 class="section-title">🤝 Партнёры и Реклама</h2>
                 <div id="partnersList" class="partners-list"></div>
             </section>
 
-            <!-- 🙏 БЛАГОДАРНОСТИ -->
             <section class="thanks-section">
                 <h2 class="section-title">🙏 Благодарности</h2>
                 <div class="thanks-card">
@@ -243,22 +238,76 @@
 
         <div class="clan-layout">
             <aside class="sidebar">
-                <button class="side-item active" data-section="lists"><span class="side-ico">📋</span><span>Списки</span></button>
-                <button class="side-item" data-section="events"><span class="side-ico">📅</span><span>События</span></button>
-                <button class="side-item" data-section="treasury"><span class="side-ico">💰</span><span>Казна</span></button>
-                <button class="side-item" data-section="pvp"><span class="side-ico">⚔️</span><span>Билды ПВП</span></button>
-                <button class="side-item" data-section="pb"><span class="side-ico">🛡</span><span>Билды ПБ</span></button>
-                <button class="side-item" data-section="ships"><span class="side-ico">🚢</span><span>Корабли</span></button>
-                <button class="side-item" data-section="builder"><span class="side-ico">🔧</span><span>Сборка корабля</span></button>
-                <button class="side-item" data-section="shipcost"><span class="side-ico">🔨</span><span>Постройка</span></button>
-                <button class="side-item" data-section="resources"><span class="side-ico">📦</span><span>Ресурсы</span></button>
-                <button class="side-item" data-section="map"><span class="side-ico">🗺</span><span>Карта</span></button>
-                <button class="side-item" data-section="contacts"><span class="side-ico">💬</span><span>Контакты</span></button>
-                <button class="side-item" data-section="members"><span class="side-ico">👥</span><span>Участники</span></button>
-                <button class="side-item" id="openTacticsBtn"><span class="side-ico">📖</span><span>Тактика боя</span></button>
-                <button class="side-item" id="openChatBtn"><span class="side-ico">💭</span><span>Чат гильдии</span></button>
-                <button class="side-item clan-admin-only" data-section="applications" hidden><span class="side-ico">📝</span><span>Заявки</span></button>
-                <button class="side-item clan-admin-only" data-section="online" hidden><span class="side-ico">🟢</span><span>Онлайн</span></button>
+                <!-- 📋 ОСНОВНОЕ -->
+                <div class="side-group open">
+                    <button class="side-group-btn" type="button">
+                        <span class="side-group-ico">📋</span>
+                        <span class="side-group-label">Основное</span>
+                        <span class="side-group-caret">▾</span>
+                    </button>
+                    <div class="side-group-sub">
+                        <button class="side-item active" data-section="lists"><span class="side-ico">📋</span><span>Списки</span></button>
+                        <button class="side-item" data-section="members"><span class="side-ico">👥</span><span>Участники</span></button>
+                        <button class="side-item" data-section="events"><span class="side-ico">📅</span><span>События</span></button>
+                        <button class="side-item" data-section="treasury"><span class="side-ico">💰</span><span>Казна</span></button>
+                    </div>
+                </div>
+
+                <!-- ⚔️ БИЛДЫ И КОРАБЛИ -->
+                <div class="side-group">
+                    <button class="side-group-btn" type="button">
+                        <span class="side-group-ico">⚔️</span>
+                        <span class="side-group-label">Билды и корабли</span>
+                        <span class="side-group-caret">▾</span>
+                    </button>
+                    <div class="side-group-sub">
+                        <button class="side-item" data-section="pvp"><span class="side-ico">⚔️</span><span>Билды ПВП</span></button>
+                        <button class="side-item" data-section="pb"><span class="side-ico">🛡</span><span>Билды ПБ</span></button>
+                        <button class="side-item" data-section="ships"><span class="side-ico">🚢</span><span>Корабли</span></button>
+                        <button class="side-item" data-section="builder"><span class="side-ico">🔧</span><span>Сборка</span></button>
+                        <button class="side-item" data-section="shipcost"><span class="side-ico">🔨</span><span>Постройка</span></button>
+                    </div>
+                </div>
+
+                <!-- 🗺 МИР -->
+                <div class="side-group">
+                    <button class="side-group-btn" type="button">
+                        <span class="side-group-ico">🗺</span>
+                        <span class="side-group-label">Мир</span>
+                        <span class="side-group-caret">▾</span>
+                    </button>
+                    <div class="side-group-sub">
+                        <button class="side-item" data-section="map"><span class="side-ico">🗺</span><span>Карта</span></button>
+                        <button class="side-item" data-section="resources"><span class="side-ico">📦</span><span>Ресурсы</span></button>
+                    </div>
+                </div>
+
+                <!-- 💬 СВЯЗЬ -->
+                <div class="side-group">
+                    <button class="side-group-btn" type="button">
+                        <span class="side-group-ico">💬</span>
+                        <span class="side-group-label">Связь</span>
+                        <span class="side-group-caret">▾</span>
+                    </button>
+                    <div class="side-group-sub">
+                        <button class="side-item" id="openChatBtn"><span class="side-ico">💭</span><span>Чат гильдии</span></button>
+                        <button class="side-item" id="openTacticsBtn"><span class="side-ico">📖</span><span>Тактика боя</span></button>
+                        <button class="side-item" data-section="contacts"><span class="side-ico">💬</span><span>Контакты</span></button>
+                    </div>
+                </div>
+
+                <!-- ⚙️ УПРАВЛЕНИЕ (только для главы/админа) -->
+                <div class="side-group" id="sideGroupAdmin" hidden>
+                    <button class="side-group-btn" type="button">
+                        <span class="side-group-ico">⚙️</span>
+                        <span class="side-group-label">Управление</span>
+                        <span class="side-group-caret">▾</span>
+                    </button>
+                    <div class="side-group-sub">
+                        <button class="side-item" data-section="applications"><span class="side-ico">📝</span><span>Заявки</span></button>
+                        <button class="side-item" data-section="online"><span class="side-ico">🟢</span><span>Онлайн</span></button>
+                    </div>
+                </div>
             </aside>
 
             <div class="clan-main">
@@ -292,6 +341,9 @@
                         <input type="datetime-local" id="evDate">
                         <textarea id="evDesc" placeholder="Описание" rows="2"></textarea>
                         <select id="evScope"></select>
+                        <input type="hidden" id="evMapData" value="">
+                        <button type="button" id="evMapBtn" class="secondary">🗺 Отметить на карте</button>
+                        <span id="evMapInfo" class="event-map-info"></span>
                         <button id="evAddBtn">➕ Добавить</button>
                         <span id="evStatus"></span>
                     </section>
@@ -330,7 +382,6 @@
                             </div>
                             <textarea id="pvpUpgrades" placeholder="Апгрейды — каждый с новой строки" rows="3"></textarea>
                         </div>
-
                         <div class="build-picker-field">
                             <div class="build-picker-label">🟢 Малые пушки (до 12ф)</div>
                             <div class="build-picker-controls">
@@ -339,7 +390,6 @@
                             </div>
                             <textarea id="pvpWeapS" placeholder="Малые пушки (до 12 фунтов)" rows="2"></textarea>
                         </div>
-
                         <div class="build-picker-field">
                             <div class="build-picker-label">🟡 Средние пушки (до 24ф)</div>
                             <div class="build-picker-controls">
@@ -348,7 +398,6 @@
                             </div>
                             <textarea id="pvpWeapM" placeholder="Средние пушки (до 24 фунтов)" rows="2"></textarea>
                         </div>
-
                         <div class="build-picker-field">
                             <div class="build-picker-label">🔴 Большие пушки (до 48ф)</div>
                             <div class="build-picker-controls">
@@ -357,7 +406,6 @@
                             </div>
                             <textarea id="pvpWeapL" placeholder="Большие пушки (до 48 фунтов)" rows="2"></textarea>
                         </div>
-
                         <div class="build-picker-field">
                             <div class="build-picker-label">⚗️ Расходники</div>
                             <div class="build-picker-controls">
@@ -371,7 +419,6 @@
                                 <input type="text" id="pvpCons3" placeholder="Расходник 3" maxlength="40">
                             </div>
                         </div>
-
                         <div class="build-picker-field">
                             <div class="build-picker-label">📦 Трюм</div>
                             <div class="build-picker-controls">
@@ -380,7 +427,6 @@
                             </div>
                             <textarea id="pvpCargo" placeholder="Наполнение трюма" rows="1" maxlength="200"></textarea>
                         </div>
-
                         <div class="build-picker-field">
                             <div class="build-picker-label">👤 Специалисты</div>
                             <div class="build-picker-controls">
@@ -412,7 +458,6 @@
                             </div>
                             <textarea id="pbUpgrades" placeholder="Апгрейды — каждый с новой строки" rows="3"></textarea>
                         </div>
-
                         <div class="build-picker-field">
                             <div class="build-picker-label">🟢 Малые пушки (до 12ф)</div>
                             <div class="build-picker-controls">
@@ -421,7 +466,6 @@
                             </div>
                             <textarea id="pbWeapS" placeholder="Малые пушки (до 12 фунтов)" rows="2"></textarea>
                         </div>
-
                         <div class="build-picker-field">
                             <div class="build-picker-label">🟡 Средние пушки (до 24ф)</div>
                             <div class="build-picker-controls">
@@ -430,7 +474,6 @@
                             </div>
                             <textarea id="pbWeapM" placeholder="Средние пушки (до 24 фунтов)" rows="2"></textarea>
                         </div>
-
                         <div class="build-picker-field">
                             <div class="build-picker-label">🔴 Большие пушки (до 48ф)</div>
                             <div class="build-picker-controls">
@@ -439,7 +482,6 @@
                             </div>
                             <textarea id="pbWeapL" placeholder="Большие пушки (до 48 фунтов)" rows="2"></textarea>
                         </div>
-
                         <div class="build-picker-field">
                             <div class="build-picker-label">⚗️ Расходники</div>
                             <div class="build-picker-controls">
@@ -453,7 +495,6 @@
                                 <input type="text" id="pbCons3" placeholder="Расходник 3" maxlength="40">
                             </div>
                         </div>
-
                         <div class="build-picker-field">
                             <div class="build-picker-label">📦 Трюм</div>
                             <div class="build-picker-controls">
@@ -462,7 +503,6 @@
                             </div>
                             <textarea id="pbCargo" placeholder="Наполнение трюма" rows="1" maxlength="200"></textarea>
                         </div>
-
                         <div class="build-picker-field">
                             <div class="build-picker-label">👤 Специалисты</div>
                             <div class="build-picker-controls">
@@ -747,7 +787,6 @@
         <aside class="admin-sidebar">
             <div class="admin-sidebar-brand"><span class="admin-sidebar-logo">⚙️</span><span class="admin-sidebar-title">Админ-панель</span></div>
             <nav class="admin-nav">
-                <!-- 🏰 ГИЛЬДИИ -->
                 <div class="admin-nav-group open">
                     <button class="admin-nav-group-btn" type="button">
                         <span class="admin-nav-ico">🏰</span><span class="admin-nav-group-label">Гильдии</span><span class="admin-nav-caret">▾</span>
@@ -758,8 +797,6 @@
                         <button class="admin-nav-item owner-only" data-apanel="clanRequests" hidden><span class="admin-nav-ico">📨</span><span>Заявки гильдий</span></button>
                     </div>
                 </div>
-
-                <!-- 🚢 КОНТЕНТ -->
                 <div class="admin-nav-group">
                     <button class="admin-nav-group-btn" type="button">
                         <span class="admin-nav-ico">🚢</span><span class="admin-nav-group-label">Контент</span><span class="admin-nav-caret">▾</span>
@@ -773,8 +810,6 @@
                         <button class="admin-nav-item" data-apanel="map"><span class="admin-nav-ico">🗺</span><span>Карта</span></button>
                     </div>
                 </div>
-
-                <!-- 📝 КОНТЕНТ САЙТА -->
                 <div class="admin-nav-group">
                     <button class="admin-nav-group-btn" type="button">
                         <span class="admin-nav-ico">📝</span><span class="admin-nav-group-label">Контент сайта</span><span class="admin-nav-caret">▾</span>
@@ -786,8 +821,6 @@
                         <button class="admin-nav-item" data-apanel="tactics"><span class="admin-nav-ico">📖</span><span>Тактика</span></button>
                     </div>
                 </div>
-
-                <!-- 👥 ЛЮДИ -->
                 <div class="admin-nav-group">
                     <button class="admin-nav-group-btn" type="button">
                         <span class="admin-nav-ico">👥</span><span class="admin-nav-group-label">Люди</span><span class="admin-nav-caret">▾</span>
@@ -797,8 +830,6 @@
                         <button class="admin-nav-item" data-apanel="admins"><span class="admin-nav-ico">👑</span><span>Админы</span></button>
                     </div>
                 </div>
-
-                <!-- ⚙️ СИСТЕМА -->
                 <div class="admin-nav-group">
                     <button class="admin-nav-group-btn" type="button">
                         <span class="admin-nav-ico">⚙️</span><span class="admin-nav-group-label">Система</span><span class="admin-nav-caret">▾</span>
@@ -812,6 +843,7 @@
         </aside>
 
         <main class="admin-content">
+            <!-- (секции админки без изменений — те же что и в v2.4.0) -->
             <section class="admin-section active" data-apanel="clans">
                 <h2 class="admin-section-title">🏰 Управление гильдиями</h2>
                 <div class="admin-card">
@@ -894,7 +926,6 @@
             <section class="admin-section" data-apanel="builditems">
                 <h2 class="admin-section-title">⚙️ Апгрейды и специалисты</h2>
                 <p class="hint">Справочник для выбора в билдах — больше не нужно вводить вручную.</p>
-
                 <div class="admin-card">
                     <h3 style="font-size:15px;color:#ffd479;margin-bottom:6px;">➕ Добавить элемент</h3>
                     <div class="admin-field">
@@ -918,7 +949,6 @@
                     <p id="bi-msg" class="error"></p>
                     <div class="modal-actions"><button id="bi-add">➕ Добавить</button></div>
                 </div>
-
                 <div id="buildItemsAdminList" class="partners-admin-list"></div>
             </section>
 
@@ -1170,7 +1200,61 @@
         </main>
     </div>
 
-    <!-- МОДАЛКИ -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- 🗺 МОДАЛКА РЕДАКТОРА КАРТЫ СОБЫТИЯ                                -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <div id="eventMapEditorModal" class="modal" hidden>
+        <div class="modal-content modal-map-wide">
+            <h2>🗺 Метки на карте события</h2>
+            <p class="hint" style="margin:0 0 6px;">Выбери тип метки, затем кликни по карте. Чтобы удалить — клик по самой метке.</p>
+            <div class="event-map-toolbar">
+                <select id="evMapType" class="event-map-view-select">
+                    <option value="detailed">📍 Детальная</option>
+                    <option value="clean">🧭 Чистая</option>
+                </select>
+                <div class="event-map-marker-types" id="eventMapMarkerTypes">
+                    <span class="marker-type-chip active" data-mtype="target">🎯 Цель</span>
+                    <span class="marker-type-chip" data-mtype="regroup">🤝 Регруп</span>
+                    <span class="marker-type-chip" data-mtype="battle">⚔️ Бой</span>
+                    <span class="marker-type-chip" data-mtype="point">📍 Точка</span>
+                    <span class="marker-type-chip" data-mtype="danger">☠️ Опасность</span>
+                    <span class="marker-type-chip" data-mtype="loot">🏆 Добыча</span>
+                </div>
+            </div>
+            <div id="eventMapStage" class="event-map-stage">
+                <div class="event-map-inner" id="eventMapInner">
+                    <img id="eventMapImg" src="" alt="">
+                    <div id="eventMapMarkers" class="event-map-markers"></div>
+                </div>
+            </div>
+            <div id="eventMapMarkerList" class="event-map-marker-list"></div>
+            <p id="eventMapMsg" class="error"></p>
+            <div class="modal-actions">
+                <button id="eventMapSave">💾 Готово</button>
+                <button id="eventMapClear" class="danger">🗑 Очистить все</button>
+                <button id="eventMapCancel" class="secondary">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🗺 МОДАЛКА ПРОСМОТРА КАРТЫ СОБЫТИЯ -->
+    <div id="eventMapViewModal" class="modal" hidden>
+        <div class="modal-content modal-map-wide">
+            <h2 id="eventMapViewTitle">🗺 Карта события</h2>
+            <div class="event-map-stage">
+                <div class="event-map-inner">
+                    <img id="eventMapViewImg" src="" alt="">
+                    <div id="eventMapViewMarkers" class="event-map-markers"></div>
+                </div>
+            </div>
+            <div id="eventMapViewList" class="event-map-marker-list"></div>
+            <div class="modal-actions">
+                <button id="eventMapViewClose" class="secondary">Закрыть</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- МОДАЛКИ (стандартные) -->
     <div id="clanPassModal" class="modal" hidden>
         <div class="modal-content">
             <h2>🔐 Вход в гильдию</h2>
@@ -1596,7 +1680,7 @@
 
     <footer class="site-footer">
         <span class="footer-left">Mist Time — Сергеев С.В</span>
-        <span class="footer-right">v2.4.0</span>
+        <span class="footer-right">v2.5.0</span>
     </footer>
 
     <script type="module" src="app.js"></script>

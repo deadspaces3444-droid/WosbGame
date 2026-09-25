@@ -218,7 +218,7 @@ a.icon-btn:hover { background: linear-gradient(180deg, var(--green) 0%, var(--gr
     border-radius: 2px;
 }
 
-/* ============ ШАПКА ГИЛЬДИЙ + КНОПКА "+" ============ */
+/* ============ ШАПКА ГИЛЬДИЙ ============ */
 .clans-header { display: flex; align-items: center; justify-content: center; gap: 14px; max-width: 900px; width: 100%; }
 .clans-add-btn {
     width: 44px; height: 44px; font-size: 22px; font-weight: 800;
@@ -277,18 +277,16 @@ a.icon-btn:hover { background: linear-gradient(180deg, var(--green) 0%, var(--gr
 .clan-card.locked:hover { opacity: .85; filter: grayscale(.1); }
 .clan-lock { position: absolute; top: 12px; right: 12px; font-size: 20px; opacity: .9; pointer-events: none; text-shadow: 0 2px 6px rgba(0,0,0,.7); z-index: 2; }
 
-/* ============ ФЛАГИ-ЗАГЛУШКИ ============ */
+/* ============ ФЛАГИ ============ */
 .clan-card img.clan-flag, .clan-card video.clan-flag { object-fit: contain; width: 100px; height: 100px; padding: 8px; background: var(--panel-2); border-radius: 8px; box-shadow: 0 6px 16px var(--shadow), inset 0 0 0 1px var(--border); }
 .clan-info-logo-wrap img.clan-flag, .clan-info-logo-wrap video.clan-flag { object-fit: contain; padding: 12px; background: var(--panel-2); border-radius: 16px; box-shadow: 0 8px 24px var(--shadow), inset 0 0 0 2px var(--border); animation: logoFloat 3s ease-in-out infinite; }
 .clan-icon-wrap img.clan-flag, .clan-icon-wrap video.clan-flag { object-fit: contain; padding: 3px; background: var(--panel-2); border-radius: 4px; box-shadow: inset 0 0 0 1px var(--border); }
 .alliance-chip img.clan-flag, .alliance-chip video.clan-flag { object-fit: contain; padding: 2px; background: var(--panel-2); border-radius: 3px; box-shadow: inset 0 0 0 1px var(--border); }
 .contact-card img.clan-flag, .contact-card video.clan-flag { object-fit: contain; padding: 6px; background: var(--panel-2); border-radius: 8px; box-shadow: inset 0 0 0 1px var(--border); }
-
 .clan-info-logo-wrap { display: flex; align-items: center; justify-content: center; width: 140px; height: 140px; margin: 0 auto; }
 .clan-info-logo-wrap img, .clan-info-logo-wrap video { width: 140px; height: 140px; object-fit: contain; filter: drop-shadow(0 8px 24px var(--shadow)); animation: logoFloat 3s ease-in-out infinite; }
 .clan-icon-wrap { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; flex-shrink: 0; }
 .clan-icon-wrap img, .clan-icon-wrap video { width: 32px; height: 32px; object-fit: contain; border-radius: 6px; }
-
 .flag-preview {
     width: 80px; height: 48px; border-radius: 6px;
     border: 1px solid var(--border); background-size: contain; background-position: center;
@@ -423,7 +421,7 @@ a.icon-btn:hover { background: linear-gradient(180deg, var(--green) 0%, var(--gr
 .add-form button { padding: 10px 20px; background: linear-gradient(180deg, var(--accent) 0%, var(--accent-hover) 100%); color: #fff; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 700; font-family: inherit; align-self: center; box-shadow: 0 3px 0 rgba(0, 0, 0, .35), 0 5px 10px rgba(0, 0, 0, .3); transition: all .15s cubic-bezier(.4, 0, .2, 1); }
 .add-form button:hover { transform: translateY(-2px); filter: brightness(1.1); }
 .add-form button:active { transform: translateY(1px); }
-#status, #pvpStatus, #pbStatus, #evStatus, #trStatus, #partnerStatus, #gameStatus, #tacStatus, #allyMsg { color: var(--green); font-size: 13px; align-self: center; width: 100%; text-align: center; font-weight: 600; }
+#status, #pvpStatus, #pbStatus, #evStatus, #trStatus, #partnerStatus, #gameStatus, #tacStatus, #allyMsg, #port-msg, #pe-msg, #fe-msg { color: var(--green); font-size: 13px; align-self: center; width: 100%; text-align: center; font-weight: 600; }
 .hint { font-size: 13px; color: var(--muted); margin: 0 0 20px; padding: 0 4px; }
 .hint b { color: var(--text); }
 .tab-content { display: none; }
@@ -784,7 +782,7 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
 .builder-actions-bottom { display: flex; gap: 8px; flex-wrap: wrap; }
 .builder-row-img { width: 32px; height: 32px; object-fit: contain; background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px; padding: 2px; flex-shrink: 0; }
 
-/* ============ РЕСУРСЫ (АДМИНКА) ============ */
+/* ============ ЦЕНООБРАЗОВАНИЕ ============ */
 .pricing-panel { background: linear-gradient(180deg,#10141d,#0d1119); border:1px solid #1e2534; border-radius:14px; overflow:hidden; box-shadow:0 4px 0 rgba(0,0,0,.35),0 10px 30px rgba(0,0,0,.5); margin-bottom:24px; }
 .pricing-topbar { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:16px 22px; border-bottom:1px solid #1e2534; background:linear-gradient(180deg,rgba(59,130,246,.06),transparent); }
 .pricing-title { display:flex; align-items:center; gap:10px; }
@@ -834,7 +832,7 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
 .pricing-add-btn:hover { transform:translateY(-2px); filter:brightness(1.1); }
 .pricing-status { font-size:12px; font-weight:700; color:#6ee7a7; }
 
-/* ============ ПУБЛИЧНАЯ ТАБЛИЦА РЕСУРСОВ ============ */
+/* ============ РЕСУРСЫ (публичная) ============ */
 .res-panel { background:linear-gradient(180deg,var(--panel-3),var(--panel)); border:1px solid var(--border); border-radius:18px; padding:22px; box-shadow:0 6px 0 rgba(0,0,0,.2),0 10px 28px var(--shadow); }
 .res-topbar { display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; padding-bottom:14px; border-bottom:1px solid var(--border); margin-bottom:16px; }
 .res-title { font-size:16px; color:var(--gold); margin:0; text-transform:uppercase; letter-spacing:.5px; }
@@ -924,7 +922,7 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
 .sc-final-row .sc-label { color:var(--gold); font-weight:700; font-size:15px; }
 .sc-final-row .sc-value { font-size:22px; color:var(--gold); text-shadow:0 0 12px rgba(255,212,121,.35); }
 
-/* ============ АДМИН: РЕЦЕПТЫ ============ */
+/* ============ РЕЦЕПТЫ (админ) ============ */
 .recipe-rows { display:flex; flex-direction:column; gap:8px; margin-top:6px; }
 .recipe-row { display:flex; gap:8px; align-items:center; padding:8px 10px; background:var(--panel-2); border:1px solid var(--border); border-radius:10px; }
 .recipe-row img { width:28px; height:28px; object-fit:contain; background:var(--panel); border-radius:6px; padding:2px; }
@@ -934,6 +932,12 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
 .recipe-row .rr-del:hover { background:var(--red); color:#fff; }
 .disc-check { display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer; }
 .disc-check input { accent-color:var(--accent); }
+
+/* ============ ФРАКЦИИ И ПОРТЫ (админ) ============ */
+#factions-admin-list .partners-admin-item .logo-mini { font-size: 20px; }
+#ports-admin-list .partners-admin-item .txt b { color: var(--text); }
+#ranks-admin-list .partners-admin-item .logo-mini { color: var(--gold); font-weight: 800; font-family: ui-monospace, monospace; }
+#ranks-admin-list .partners-admin-item .logo-mini span { font-size: 15px; }
 
 /* ============ ТАКТИКА ============ */
 .tactics-modal { position: fixed; inset: 0; background: var(--overlay-modal); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 200; padding: 20px; }
@@ -982,7 +986,7 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
 .partners-admin-item .logo-mini img, .games-admin-item .logo-mini img, .ship-admin-item .logo-mini img { width: 100%; height: 100%; object-fit: contain; }
 .partners-admin-item .logo-mini span, .games-admin-item .logo-mini span, .ship-admin-item .logo-mini span { font-size: 16px; font-weight: 800; color: var(--text); }
 .partners-admin-item .txt, .games-admin-item .txt, .ship-admin-item .txt { flex: 1; min-width: 0; font-size: 13px; line-height: 1.4; }
-.partners-admin-item .txt b, .games-admin-item .txt b, .ship-admin-item .txt b { display: block; color: var(--text); margin-bottom: 2px; word-break: break-word; }
+.partners-admin-item .txt b, .games-admin-item .txt b, .ship-admin-item .txt b { display: block; color: var(--text); margin-bottom: 2px; word-break: break-word; cursor: pointer; }
 .partners-admin-item .txt a { display: block; color: var(--muted); font-size: 11px; text-decoration: none; word-break: break-all; }
 .partners-admin-item .actions, .games-admin-item .actions, .ship-admin-item .actions { display: flex; gap: 4px; flex-shrink: 0; }
 .partners-admin-item .actions button, .games-admin-item .actions button, .ship-admin-item .actions button { width: 30px; height: 30px; background: linear-gradient(180deg, var(--panel-3) 0%, var(--panel) 100%); border: 1px solid var(--border); color: var(--text-dim); border-radius: 6px; cursor: pointer; font-size: 12px; transition: all .15s; }

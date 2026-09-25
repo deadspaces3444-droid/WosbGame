@@ -34,6 +34,9 @@ const VK_API_VERSION = '5.131';
 const VK_POSTS_COUNT = 10;
 const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
 
+const MAP_DEFAULT_DETAILED = 'images/map/detailed.jpg';
+const MAP_DEFAULT_CLEAN    = 'images/map/clean.jpg';
+
 let gamesCache = {}, clansCache = {}, alliancesCache = {};
 let settingsCache = null, faqCache = [], partnersCache = [], tacticsCache = [], tradesCache = [];
 let shipsCache = [];
@@ -65,19 +68,31 @@ let chatMessages = [], notifications = [];
 let chatMode = 'guild', chatPrivateWith = null, voiceActive = false;
 let voiceRoomOverride = null;
 
-// 🆕 РЕСУРСЫ
+// Ресурсы
 let resourcesCache = [];
 let pricingSaveTimers = {};
 let editingResourceId = null;
 
+// Рецепты и скидки
+let recipesCache = [];
+let discountsCache = [];
+
+// Карта
+let mapSettings = null;
+let currentMapView = 'detailed';
+let mapFsZoom = 1, mapFsX = 0, mapFsY = 0, mapFsDragging = false;
+let mapFsDragStart = null;
+let mapDetailedData = null;
+let mapCleanData = null;
+
 const $ = id => document.getElementById(id);
-function on(id, event, handler) {
+function on(id, event, handler, opts) {
     const el = document.getElementById(id);
     if (!el) return false;
-    el.addEventListener(event, handler);
+    el.addEventListener(event, handler, opts);
     return true;
 }
-function val(id) { const el = document.getElementById(id); return el ? el.value : ''; }
+function val(id) { const el = $(id); return el ? el.value : ''; }
 
 const screenHome  = $('screen-home');
 const screenClan  = $('screen-clan');
@@ -617,7 +632,8 @@ function renderAlliancesAdmin() {
         container.appendChild(el);
     });
 }
-/* ============ ЗАГРУЗКА ЛОГОТИПОВ ГИЛЬДИЙ ============ */
+
+/* ============ ЛОГОТИПЫ ГИЛЬДИЙ ============ */
 on('adminClanImagePick', 'click', () => { const f = $('adminClanImageFile'); if (f) f.click(); });
 on('adminClanImageFile', 'change', async (e) => {
     const file = e.target.files[0]; if (!file) return;
@@ -733,7 +749,9 @@ document.querySelectorAll('.admin-nav-item').forEach(btn => {
         if (panel === 'admins') renderSiteAdminsAdmin();
         if (panel === 'clanRequests') renderClanRequestsAdmin();
         if (panel === 'settings') renderSiteFields();
-        if (panel === 'resources') { renderPricingGrid(); }
+        if (panel === 'resources') renderPricingGrid();
+        if (panel === 'shipcost') { renderRecipeShipSelect(); renderRecipeRows(); renderDiscountsAdmin(); }
+        if (panel === 'map') renderMapAdmin();
     });
 });
 on('adminBackHome', 'click', () => { currentClan = null; showScreen('home'); });
@@ -1219,6 +1237,7 @@ function openAdminPage() {
 on('adminPanelBtn', 'click', openAdminPage);
 on('adminPanelBtn2', 'click', openAdminPage);
 on('adminPanelBtn3', 'click', openAdminPage);
+
 /* ============ АДМИН: ОНЛАЙН ============ */
 async function renderAdminOnlineList() {
     const container = $('adminOnlineList'); if (!container) return;
@@ -1830,272 +1849,6 @@ async function deleteBuild(id, type) {
     await logAdminAction(`Удалил билд ${type.toUpperCase()}`, null, `id: ${id}`);
     renderBuilds(type);
 }
-
-/* ============================================================
-   РЕСУРСЫ — СПРАВОЧНИК И РЕДАКТОР ЦЕН
-   ============================================================ */
-async function loadResourcePrices() {
-    const { data, error } = await supabase
-        .from('resource_prices')
-        .select('*')
-        .order('sort_order', { ascending: true })
-        .order('name', { ascending: true });
-    if (error) { console.warn('resource_prices load error:', error.message); resourcesCache = []; }
-    else { resourcesCache = data || []; }
-    renderPricingGrid();
-    renderResourcePricesHome();
-    if (builderHomeCtrl) builderHomeCtrl.refresh();
-    if (builderClanCtrl) builderClanCtrl.refresh();
-}
-
-function renderPricingGrid() {
-    const grid = $('pricingGrid'); if (!grid) return;
-    if (!resourcesCache.length) { grid.innerHTML = '<div class="pricing-empty">Пока нет ресурсов. Нажми «📥 Импорт базового набора».</div>'; return; }
-    grid.innerHTML = '';
-    resourcesCache.forEach(r => {
-        const iconHtml = r.image_url
-            ? `<img src="${escapeHtml(r.image_url)}" alt="" onerror="this.parentNode.innerHTML='${escapeHtml(r.icon || '📦')}'">`
-            : (r.icon || '📦');
-        const latin = (r.name_latin || r.id || '').toUpperCase();
-        const card = document.createElement('div');
-        card.className = 'pricing-card';
-        card.dataset.id = r.id;
-        card.innerHTML = `
-            <button class="pricing-card-del" data-id="${escapeHtml(r.id)}" title="Удалить">✕</button>
-            <button class="pricing-card-edit" data-id="${escapeHtml(r.id)}" title="Редактировать">✏️</button>
-            <div class="pricing-card-head">
-                <span class="pricing-card-icon">${iconHtml}</span>
-                <span class="pricing-card-name">${escapeHtml(r.name)} <span class="latin">(${escapeHtml(latin)})</span></span>
-            </div>
-            <div class="pricing-card-price">
-                <span class="pricing-card-prefix">G</span>
-                <input type="number" class="pricing-card-input" data-id="${escapeHtml(r.id)}" value="${Number(r.price) || 0}" min="0" step="1">
-            </div>`;
-        grid.appendChild(card);
-    });
-    grid.querySelectorAll('.pricing-card-input').forEach(inp => {
-        inp.addEventListener('input', e => {
-            const id = e.target.dataset.id;
-            clearTimeout(pricingSaveTimers[id]);
-            pricingSaveTimers[id] = setTimeout(() => saveResourcePrice(id, e.target.value), 700);
-        });
-        inp.addEventListener('keydown', e => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                const id = e.target.dataset.id;
-                clearTimeout(pricingSaveTimers[id]);
-                saveResourcePrice(id, e.target.value);
-                e.target.blur();
-            }
-        });
-    });
-    grid.querySelectorAll('.pricing-card-del').forEach(btn => btn.addEventListener('click', () => deleteResourcePrice(btn.dataset.id)));
-    grid.querySelectorAll('.pricing-card-edit').forEach(btn => btn.addEventListener('click', () => openResourceEditModal(btn.dataset.id)));
-}
-
-async function saveResourcePrice(id, rawPrice) {
-    const price = parseFloat(rawPrice) || 0;
-    const status = $('pricingStatus');
-    const { error } = await supabase.from('resource_prices')
-        .update({ price, updated_at: new Date().toISOString(), updated_by: getViewerNick() || 'admin' })
-        .eq('id', id);
-    if (error) { if (status) { status.textContent = '❌ ' + error.message; status.style.color = '#ff7a7a'; setTimeout(() => status.textContent = '', 2500); } return; }
-    const r = resourcesCache.find(x => x.id === id);
-    if (r) r.price = price;
-    if (status) { status.textContent = '✔ Сохранено'; status.style.color = '#6ee7a7'; setTimeout(() => status.textContent = '', 1500); }
-    renderResourcePricesHome();
-}
-
-async function deleteResourcePrice(id) {
-    const r = resourcesCache.find(x => x.id === id);
-    if (!r) return;
-    if (!confirm(`Удалить ресурс «${r.name}»?`)) return;
-    const { error } = await supabase.from('resource_prices').delete().eq('id', id);
-    if (error) return alert(error.message);
-    await logAdminAction('Удалил ресурс', r.name);
-    await loadResourcePrices();
-}
-
-function openResourceEditModal(id) {
-    const r = id ? resourcesCache.find(x => x.id === id) : null;
-    editingResourceId = r ? r.id : null;
-    $('resourceEditTitle').textContent = r ? '✏️ Редактировать ресурс' : '➕ Новый ресурс';
-    $('re-id').value = r?.id || '';
-    $('re-id').disabled = !!r;
-    $('re-name').value = r?.name || '';
-    $('re-latin').value = r?.name_latin || '';
-    $('re-price').value = r?.price ?? 0;
-    $('re-icon').value = r?.icon || '📦';
-    $('re-image-url').value = (r?.image_url && !r.image_url.startsWith('data:')) ? r.image_url : '';
-    delete $('re-image-url').dataset.dataUrl;
-    if (r?.image_url) { $('re-image-preview-img').src = r.image_url; $('re-image-preview').hidden = false; }
-    else $('re-image-preview').hidden = true;
-    $('re-image-name').textContent = '';
-    $('re-msg').textContent = '';
-    $('resourceEditModal').hidden = false;
-    $('re-name').focus();
-}
-
-on('pricingAddBtn', 'click', () => openResourceEditModal(null));
-on('re-cancel', 'click', () => { $('resourceEditModal').hidden = true; editingResourceId = null; });
-on('resourceEditModal', 'click', e => { if (e.target.id === 'resourceEditModal') { $('resourceEditModal').hidden = true; editingResourceId = null; } });
-
-on('re-image-pick', 'click', () => { const f = $('re-image-file'); if (f) { f.value = ''; f.click(); } });
-on('re-image-file', 'change', async e => {
-    const file = e.target.files[0]; if (!file) return;
-    if (file.size > 2 * 1024 * 1024) { alert('Максимум 2 МБ'); return; }
-    try {
-        const dataUrl = await compressLogo(file, 128, 0.9);
-        $('re-image-preview-img').src = dataUrl;
-        $('re-image-preview').hidden = false;
-        $('re-image-name').textContent = file.name;
-        $('re-image-url').value = '';
-        $('re-image-url').dataset.dataUrl = dataUrl;
-    } catch (err) { alert('Ошибка: ' + err.message); }
-});
-on('re-image-clear', 'click', () => {
-    $('re-image-preview').hidden = true; $('re-image-file').value = '';
-    $('re-image-name').textContent = ''; $('re-image-url').value = '';
-    delete $('re-image-url').dataset.dataUrl;
-});
-on('re-image-url', 'input', () => {
-    delete $('re-image-url').dataset.dataUrl;
-    const url = val('re-image-url').trim();
-    if (url) { $('re-image-preview-img').src = url; $('re-image-preview').hidden = false; }
-    else $('re-image-preview').hidden = true;
-});
-
-on('re-save', 'click', async () => {
-    const msg = $('re-msg'); msg.textContent = '';
-    const id = (editingResourceId || val('re-id').trim().toLowerCase().replace(/[^a-z0-9_-]/g, ''));
-    const name = val('re-name').trim();
-    const latin = (val('re-latin').trim() || id).toUpperCase();
-    const price = parseFloat(val('re-price')) || 0;
-    const icon = val('re-icon').trim() || '📦';
-    const urlField = val('re-image-url').trim();
-    const image = urlField || $('re-image-url').dataset.dataUrl || (editingResourceId ? resourcesCache.find(x => x.id === editingResourceId)?.image_url : null);
-    if (!id) { msg.textContent = 'Укажи ID'; msg.style.color = '#ff7a7a'; return; }
-    if (!name) { msg.textContent = 'Укажи название'; msg.style.color = '#ff7a7a'; return; }
-    const payload = {
-        id, name, name_latin: latin, icon, image_url: image, price, category: 'resource',
-        sort_order: resourcesCache.find(x => x.id === id)?.sort_order ?? (resourcesCache.length + 1) * 10,
-        updated_at: new Date().toISOString(), updated_by: getViewerNick() || 'admin'
-    };
-    let error;
-    if (editingResourceId) ({ error } = await supabase.from('resource_prices').update(payload).eq('id', id));
-    else ({ error } = await supabase.from('resource_prices').insert(payload));
-    if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
-    await logAdminAction(editingResourceId ? 'Обновил ресурс' : 'Добавил ресурс', name);
-    $('resourceEditModal').hidden = true; editingResourceId = null;
-    await loadResourcePrices();
-});
-
-const RESOURCE_PRESET = [
-    ['wood','Дерево','WOOD','🪵','images/resources/wood.png',3.9,10],
-    ['iron','Железо','IRON','⛓','images/resources/iron.png',12,20],
-    ['fabric','Ткань','FABRIC','🧵','images/resources/fabric.png',3.5,30],
-    ['resin','Смола','RESIN','🛢','images/resources/resin.png',54,40],
-    ['coal','Уголь','COAL','⚫','images/resources/coal.png',25.5,50],
-    ['volcanic_ore','Вулк. руда','VOLCANIC ORE','🪨','images/resources/volcanic_ore.png',370,60],
-    ['copper','Медь','COPPER','🟠','images/resources/plate.png',65,70],
-    ['rum','Ром','RUM','🥃','images/resources/rum.png',13.5,80],
-    ['beam','Балка','BEAM','🪵','images/resources/beam.png',779,90],
-    ['canvas','Парус','CANVAS','🧶','images/resources/canvas.png',230,100],
-    ['bulkhead','Переборка','BULKHEAD','🛡','images/resources/bulkhead.png',1120,110],
-    ['plate','Плита','PLATE','🔩','images/resources/plate.png',1500,120],
-    ['bronze','Бронза','BRONZE','🥉','images/resources/bronze.png',1150,130],
-    ['wreckage','Обломки','WRECKAGE','📦','images/resources/pouch.png',100,140],
-    ['battle_mark','Боевая метка','BATTLE MARK','🎖','images/resources/bronze.png',755,150],
-    ['blueprint_fragment','Фрагмент чертежа','BL. FRAGMENT','📜','images/resources/blueprint_fragment.png',18400,160],
-    ['blueprint_imp','Имп. чертёж','IMP. BLUE','📜','images/resources/blueprint.png',2000000,170],
-    ['escudo','Эскудо','ESCUDO','🪙','images/resources/escudo.png',4000,180],
-    ['pirate_token','Пиратский жетон','PIR. TOKEN','☠️','images/resources/pirate_token.png',0,190],
-    ['license','Лицензия','CONST. LICE','📃','images/resources/license.png',550000,200],
-    ['salt','Соль','SALT','🧂','images/resources/salt.png',0,210],
-    ['copper_ingot','Медный слиток','CU INGOT','🟧','images/resources/copper_ingot.png',0,220]
-];
-
-on('pricingPresetBtn', 'click', async () => {
-    if (!confirm('Загрузить базовый набор из 22 ресурсов? Существующие с такими ID будут перезаписаны.')) return;
-    const btn = $('pricingPresetBtn'); btn.disabled = true; btn.textContent = '⏳…';
-    let count = 0;
-    for (const [id, name, latin, icon, image_url, price, sort] of RESOURCE_PRESET) {
-        const payload = { id, name, name_latin: latin, icon, image_url, price, category: 'resource', sort_order: sort, updated_at: new Date().toISOString(), updated_by: 'preset' };
-        const { error } = await supabase.from('resource_prices').upsert(payload, { onConflict: 'id' });
-        if (!error) count++;
-    }
-    btn.disabled = false; btn.textContent = '📥 Импорт базового набора';
-    await logAdminAction('Импорт пресета ресурсов', null, `загружено: ${count}`);
-    await loadResourcePrices();
-    alert(`✔ Загружено ${count} из ${RESOURCE_PRESET.length}`);
-});
-
-on('pricingAuto', 'change', async (e) => {
-    const on = e.target.checked; const msg = $('pricingAutoMsg');
-    if (!on) { if (msg) msg.textContent = ''; return; }
-    if (msg) { msg.textContent = '⏳ считаю…'; msg.style.color = '#7db9ff'; }
-    const active = tradesCache.filter(t => t.status !== 'done' && t.type === 'sell' && t.category === 'resource');
-    if (!active.length) { if (msg) { msg.textContent = 'Нет активных заявок'; msg.style.color = '#ff7a7a'; } e.target.checked = false; return; }
-    const sums = {};
-    active.forEach(t => {
-        const k = (t.name || '').trim().toLowerCase();
-        if (!sums[k]) sums[k] = { gold: 0, qty: 0 };
-        sums[k].gold += (Number(t.price) || 0) * (Number(t.qty) || 0);
-        sums[k].qty += Number(t.qty) || 0;
-    });
-    let updated = 0;
-    for (const r of resourcesCache) {
-        const k = (r.name || '').trim().toLowerCase();
-        if (sums[k] && sums[k].qty > 0) {
-            const avg = Math.round(sums[k].gold / sums[k].qty);
-            const { error } = await supabase.from('resource_prices').update({ price: avg, updated_at: new Date().toISOString(), updated_by: 'auto' }).eq('id', r.id);
-            if (!error) { r.price = avg; updated++; }
-        }
-    }
-    await logAdminAction('Авто-цены', null, `обновлено: ${updated}`);
-    renderPricingGrid(); renderResourcePricesHome();
-    if (msg) { msg.textContent = `✔ обновлено ${updated}`; msg.style.color = '#6ee7a7'; setTimeout(() => msg.textContent = '', 3000); }
-});
-
-on('pricingCollapse', 'click', () => { const p = $('pricingPanel'); if (p) p.classList.toggle('collapsed'); });
-
-function renderResourcePricesHome() {
-    const tbody = $('res-tbody'); if (!tbody) return;
-    const q = ($('res-search')?.value || '').trim().toLowerCase();
-    const sort = $('res-sort')?.value || 'name-asc';
-    let list = resourcesCache.slice();
-    if (q) list = list.filter(r => (r.name || '').toLowerCase().includes(q));
-    list.sort((a, b) => {
-        switch (sort) {
-            case 'name-desc': return (b.name || '').localeCompare(a.name || '');
-            case 'price-asc': return (a.price || 0) - (b.price || 0);
-            case 'price-desc': return (b.price || 0) - (a.price || 0);
-            case 'updated-desc': return new Date(b.updated_at || 0) - new Date(a.updated_at || 0);
-            default: return (a.name || '').localeCompare(b.name || '');
-        }
-    });
-    if (!list.length) { tbody.innerHTML = `<tr><td colspan="3" class="res-empty">${q ? 'Ничего не найдено' : 'Справочник пуст'}</td></tr>`; return; }
-    const fmt = n => Number(n).toLocaleString('ru-RU');
-    tbody.innerHTML = '';
-    list.forEach(r => {
-        const img = r.image_url
-            ? `<img src="${escapeHtml(r.image_url)}" alt="" onerror="this.style.display='none'">`
-            : `<span style="font-size:18px;">${escapeHtml(r.icon || '📦')}</span>`;
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td><span class="res-name">${img}${escapeHtml(r.name)}</span></td>
-            <td><span class="res-cell-price avg">${fmt(r.price)} 🪙</span></td>
-            <td style="font-size:11px;color:var(--muted);">${r.updated_at ? new Date(r.updated_at).toLocaleDateString('ru-RU') : '—'}</td>`;
-        tbody.appendChild(tr);
-    });
-    const upd = $('res-updated');
-    if (upd) upd.textContent = 'обновлено ' + new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-}
-
-on('res-search', 'input', renderResourcePricesHome);
-on('res-sort', 'change', renderResourcePricesHome);
-on('res-refresh', 'click', loadResourcePrices);
-
 /* ============ СОБЫТИЯ ============ */
 async function renderEvents() {
     if (!currentClan) return;
@@ -3182,6 +2935,754 @@ on('tacAddBtn', 'click', async () => {
     $('tacOrder').value = 10;
     flashStatusEl(statusEl, '✔ Добавлено', '#6ee7a7');
     await loadTactics();
+});
+
+/* ============================================================
+   РЕСУРСЫ — СПРАВОЧНИК И РЕДАКТОР ЦЕН
+   ============================================================ */
+async function loadResourcePrices() {
+    const { data, error } = await supabase
+        .from('resource_prices')
+        .select('*')
+        .order('sort_order', { ascending: true })
+        .order('name', { ascending: true });
+    if (error) { console.warn('resource_prices load error:', error.message); resourcesCache = []; }
+    else { resourcesCache = data || []; }
+    renderPricingGrid();
+    renderResourcePricesHome();
+    if (builderHomeCtrl) builderHomeCtrl.refresh();
+    if (builderClanCtrl) builderClanCtrl.refresh();
+}
+
+function renderPricingGrid() {
+    const grid = $('pricingGrid'); if (!grid) return;
+    if (!resourcesCache.length) { grid.innerHTML = '<div class="pricing-empty">Пока нет ресурсов. Нажми «📥 Импорт базового набора».</div>'; return; }
+    grid.innerHTML = '';
+    resourcesCache.forEach(r => {
+        const iconHtml = r.image_url
+            ? `<img src="${escapeHtml(r.image_url)}" alt="" onerror="this.parentNode.innerHTML='${escapeHtml(r.icon || '📦')}'">`
+            : (r.icon || '📦');
+        const latin = (r.name_latin || r.id || '').toUpperCase();
+        const card = document.createElement('div');
+        card.className = 'pricing-card';
+        card.dataset.id = r.id;
+        card.innerHTML = `
+            <button class="pricing-card-del" data-id="${escapeHtml(r.id)}" title="Удалить">✕</button>
+            <button class="pricing-card-edit" data-id="${escapeHtml(r.id)}" title="Редактировать">✏️</button>
+            <div class="pricing-card-head">
+                <span class="pricing-card-icon">${iconHtml}</span>
+                <span class="pricing-card-name">${escapeHtml(r.name)} <span class="latin">(${escapeHtml(latin)})</span></span>
+            </div>
+            <div class="pricing-card-price">
+                <span class="pricing-card-prefix">G</span>
+                <input type="number" class="pricing-card-input" data-id="${escapeHtml(r.id)}" value="${Number(r.price) || 0}" min="0" step="1">
+            </div>`;
+        grid.appendChild(card);
+    });
+    grid.querySelectorAll('.pricing-card-input').forEach(inp => {
+        inp.addEventListener('input', e => {
+            const id = e.target.dataset.id;
+            clearTimeout(pricingSaveTimers[id]);
+            pricingSaveTimers[id] = setTimeout(() => saveResourcePrice(id, e.target.value), 700);
+        });
+        inp.addEventListener('keydown', e => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const id = e.target.dataset.id;
+                clearTimeout(pricingSaveTimers[id]);
+                saveResourcePrice(id, e.target.value);
+                e.target.blur();
+            }
+        });
+    });
+    grid.querySelectorAll('.pricing-card-del').forEach(btn => btn.addEventListener('click', () => deleteResourcePrice(btn.dataset.id)));
+    grid.querySelectorAll('.pricing-card-edit').forEach(btn => btn.addEventListener('click', () => openResourceEditModal(btn.dataset.id)));
+}
+
+async function saveResourcePrice(id, rawPrice) {
+    const price = parseFloat(rawPrice) || 0;
+    const status = $('pricingStatus');
+    const { error } = await supabase.from('resource_prices')
+        .update({ price, updated_at: new Date().toISOString(), updated_by: getViewerNick() || 'admin' })
+        .eq('id', id);
+    if (error) { if (status) { status.textContent = '❌ ' + error.message; status.style.color = '#ff7a7a'; setTimeout(() => status.textContent = '', 2500); } return; }
+    const r = resourcesCache.find(x => x.id === id);
+    if (r) r.price = price;
+    if (status) { status.textContent = '✔ Сохранено'; status.style.color = '#6ee7a7'; setTimeout(() => status.textContent = '', 1500); }
+    renderResourcePricesHome();
+    renderShipCostPublic();
+}
+
+async function deleteResourcePrice(id) {
+    const r = resourcesCache.find(x => x.id === id);
+    if (!r) return;
+    if (!confirm(`Удалить ресурс «${r.name}»?`)) return;
+    const { error } = await supabase.from('resource_prices').delete().eq('id', id);
+    if (error) return alert(error.message);
+    await logAdminAction('Удалил ресурс', r.name);
+    await loadResourcePrices();
+}
+
+function openResourceEditModal(id) {
+    const r = id ? resourcesCache.find(x => x.id === id) : null;
+    editingResourceId = r ? r.id : null;
+    $('resourceEditTitle').textContent = r ? '✏️ Редактировать ресурс' : '➕ Новый ресурс';
+    $('re-id').value = r?.id || '';
+    $('re-id').disabled = !!r;
+    $('re-name').value = r?.name || '';
+    $('re-latin').value = r?.name_latin || '';
+    $('re-price').value = r?.price ?? 0;
+    $('re-icon').value = r?.icon || '📦';
+    $('re-image-url').value = (r?.image_url && !r.image_url.startsWith('data:')) ? r.image_url : '';
+    delete $('re-image-url').dataset.dataUrl;
+    if (r?.image_url) { $('re-image-preview-img').src = r.image_url; $('re-image-preview').hidden = false; }
+    else $('re-image-preview').hidden = true;
+    $('re-image-name').textContent = '';
+    $('re-msg').textContent = '';
+    $('resourceEditModal').hidden = false;
+    $('re-name').focus();
+}
+
+on('pricingAddBtn', 'click', () => openResourceEditModal(null));
+on('re-cancel', 'click', () => { $('resourceEditModal').hidden = true; editingResourceId = null; });
+on('resourceEditModal', 'click', e => { if (e.target.id === 'resourceEditModal') { $('resourceEditModal').hidden = true; editingResourceId = null; } });
+on('re-image-pick', 'click', () => { const f = $('re-image-file'); if (f) { f.value = ''; f.click(); } });
+on('re-image-file', 'change', async e => {
+    const file = e.target.files[0]; if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { alert('Максимум 2 МБ'); return; }
+    try {
+        const dataUrl = await compressLogo(file, 128, 0.9);
+        $('re-image-preview-img').src = dataUrl;
+        $('re-image-preview').hidden = false;
+        $('re-image-name').textContent = file.name;
+        $('re-image-url').value = '';
+        $('re-image-url').dataset.dataUrl = dataUrl;
+    } catch (err) { alert('Ошибка: ' + err.message); }
+});
+on('re-image-clear', 'click', () => {
+    $('re-image-preview').hidden = true; $('re-image-file').value = '';
+    $('re-image-name').textContent = ''; $('re-image-url').value = '';
+    delete $('re-image-url').dataset.dataUrl;
+});
+on('re-image-url', 'input', () => {
+    delete $('re-image-url').dataset.dataUrl;
+    const url = val('re-image-url').trim();
+    if (url) { $('re-image-preview-img').src = url; $('re-image-preview').hidden = false; }
+    else $('re-image-preview').hidden = true;
+});
+on('re-save', 'click', async () => {
+    const msg = $('re-msg'); msg.textContent = '';
+    const id = (editingResourceId || val('re-id').trim().toLowerCase().replace(/[^a-z0-9_-]/g, ''));
+    const name = val('re-name').trim();
+    const latin = (val('re-latin').trim() || id).toUpperCase();
+    const price = parseFloat(val('re-price')) || 0;
+    const icon = val('re-icon').trim() || '📦';
+    const urlField = val('re-image-url').trim();
+    const image = urlField || $('re-image-url').dataset.dataUrl || (editingResourceId ? resourcesCache.find(x => x.id === editingResourceId)?.image_url : null);
+    if (!id) { msg.textContent = 'Укажи ID'; msg.style.color = '#ff7a7a'; return; }
+    if (!name) { msg.textContent = 'Укажи название'; msg.style.color = '#ff7a7a'; return; }
+    const payload = {
+        id, name, name_latin: latin, icon, image_url: image, price, category: 'resource',
+        sort_order: resourcesCache.find(x => x.id === id)?.sort_order ?? (resourcesCache.length + 1) * 10,
+        updated_at: new Date().toISOString(), updated_by: getViewerNick() || 'admin'
+    };
+    let error;
+    if (editingResourceId) ({ error } = await supabase.from('resource_prices').update(payload).eq('id', id));
+    else ({ error } = await supabase.from('resource_prices').insert(payload));
+    if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
+    await logAdminAction(editingResourceId ? 'Обновил ресурс' : 'Добавил ресурс', name);
+    $('resourceEditModal').hidden = true; editingResourceId = null;
+    await loadResourcePrices();
+});
+
+const RESOURCE_PRESET = [
+    ['wood','Дерево','WOOD','🪵','images/resources/wood.png',3.9,10],
+    ['iron','Железо','IRON','⛓','images/resources/iron.png',12,20],
+    ['fabric','Ткань','FABRIC','🧵','images/resources/fabric.png',3.5,30],
+    ['resin','Смола','RESIN','🛢','images/resources/resin.png',54,40],
+    ['coal','Уголь','COAL','⚫','images/resources/coal.png',25.5,50],
+    ['volcanic_ore','Вулк. руда','VOLCANIC ORE','🪨','images/resources/volcanic_ore.png',370,60],
+    ['copper','Медь','COPPER','🟠','images/resources/plate.png',65,70],
+    ['rum','Ром','RUM','🥃','images/resources/rum.png',13.5,80],
+    ['beam','Балка','BEAM','🪵','images/resources/beam.png',779,90],
+    ['canvas','Парус','CANVAS','🧶','images/resources/canvas.png',230,100],
+    ['bulkhead','Переборка','BULKHEAD','🛡','images/resources/bulkhead.png',1120,110],
+    ['plate','Плита','PLATE','🔩','images/resources/plate.png',1500,120],
+    ['bronze','Бронза','BRONZE','🥉','images/resources/bronze.png',1150,130],
+    ['wreckage','Обломки','WRECKAGE','📦','images/resources/pouch.png',100,140],
+    ['battle_mark','Боевая метка','BATTLE MARK','🎖','images/resources/bronze.png',755,150],
+    ['blueprint_fragment','Фрагмент чертежа','BL. FRAGMENT','📜','images/resources/blueprint_fragment.png',18400,160],
+    ['blueprint_imp','Имп. чертёж','IMP. BLUE','📜','images/resources/blueprint.png',2000000,170],
+    ['escudo','Эскудо','ESCUDO','🪙','images/resources/escudo.png',4000,180],
+    ['pirate_token','Пиратский жетон','PIR. TOKEN','☠️','images/resources/pirate_token.png',0,190],
+    ['license','Лицензия','CONST. LICE','📃','images/resources/license.png',550000,200],
+    ['salt','Соль','SALT','🧂','images/resources/salt.png',0,210],
+    ['copper_ingot','Медный слиток','CU INGOT','🟧','images/resources/copper_ingot.png',0,220]
+];
+
+on('pricingPresetBtn', 'click', async () => {
+    if (!confirm('Загрузить базовый набор из 22 ресурсов? Существующие с такими ID будут перезаписаны.')) return;
+    const btn = $('pricingPresetBtn'); btn.disabled = true; btn.textContent = '⏳…';
+    let count = 0;
+    for (const [id, name, latin, icon, image_url, price, sort] of RESOURCE_PRESET) {
+        const payload = { id, name, name_latin: latin, icon, image_url, price, category: 'resource', sort_order: sort, updated_at: new Date().toISOString(), updated_by: 'preset' };
+        const { error } = await supabase.from('resource_prices').upsert(payload, { onConflict: 'id' });
+        if (!error) count++;
+    }
+    btn.disabled = false; btn.textContent = '📥 Импорт базового набора';
+    await logAdminAction('Импорт пресета ресурсов', null, `загружено: ${count}`);
+    await loadResourcePrices();
+    alert(`✔ Загружено ${count} из ${RESOURCE_PRESET.length}`);
+});
+
+on('pricingAuto', 'change', async (e) => {
+    const on = e.target.checked; const msg = $('pricingAutoMsg');
+    if (!on) { if (msg) msg.textContent = ''; return; }
+    if (msg) { msg.textContent = '⏳ считаю…'; msg.style.color = '#7db9ff'; }
+    const active = tradesCache.filter(t => t.status !== 'done' && t.type === 'sell' && t.category === 'resource');
+    if (!active.length) { if (msg) { msg.textContent = 'Нет активных заявок'; msg.style.color = '#ff7a7a'; } e.target.checked = false; return; }
+    const sums = {};
+    active.forEach(t => {
+        const k = (t.name || '').trim().toLowerCase();
+        if (!sums[k]) sums[k] = { gold: 0, qty: 0 };
+        sums[k].gold += (Number(t.price) || 0) * (Number(t.qty) || 0);
+        sums[k].qty += Number(t.qty) || 0;
+    });
+    let updated = 0;
+    for (const r of resourcesCache) {
+        const k = (r.name || '').trim().toLowerCase();
+        if (sums[k] && sums[k].qty > 0) {
+            const avg = Math.round(sums[k].gold / sums[k].qty);
+            const { error } = await supabase.from('resource_prices').update({ price: avg, updated_at: new Date().toISOString(), updated_by: 'auto' }).eq('id', r.id);
+            if (!error) { r.price = avg; updated++; }
+        }
+    }
+    await logAdminAction('Авто-цены', null, `обновлено: ${updated}`);
+    renderPricingGrid(); renderResourcePricesHome();
+    if (msg) { msg.textContent = `✔ обновлено ${updated}`; msg.style.color = '#6ee7a7'; setTimeout(() => msg.textContent = '', 3000); }
+});
+
+on('pricingCollapse', 'click', () => { const p = $('pricingPanel'); if (p) p.classList.toggle('collapsed'); });
+
+function renderResourcePricesHome() {
+    const tbody = $('res-tbody'); if (!tbody) return;
+    const q = ($('res-search')?.value || '').trim().toLowerCase();
+    const sort = $('res-sort')?.value || 'name-asc';
+    let list = resourcesCache.slice();
+    if (q) list = list.filter(r => (r.name || '').toLowerCase().includes(q));
+    list.sort((a, b) => {
+        switch (sort) {
+            case 'name-desc': return (b.name || '').localeCompare(a.name || '');
+            case 'price-asc': return (a.price || 0) - (b.price || 0);
+            case 'price-desc': return (b.price || 0) - (a.price || 0);
+            case 'updated-desc': return new Date(b.updated_at || 0) - new Date(a.updated_at || 0);
+            default: return (a.name || '').localeCompare(b.name || '');
+        }
+    });
+    if (!list.length) { tbody.innerHTML = `<tr><td colspan="3" class="res-empty">${q ? 'Ничего не найдено' : 'Справочник пуст'}</td></tr>`; return; }
+    const fmt = n => Number(n).toLocaleString('ru-RU');
+    tbody.innerHTML = '';
+    list.forEach(r => {
+        const img = r.image_url
+            ? `<img src="${escapeHtml(r.image_url)}" alt="" onerror="this.style.display='none'">`
+            : `<span style="font-size:18px;">${escapeHtml(r.icon || '📦')}</span>`;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><span class="res-name">${img}${escapeHtml(r.name)}</span></td>
+            <td><span class="res-cell-price avg">${fmt(r.price)} 🪙</span></td>
+            <td style="font-size:11px;color:var(--muted);">${r.updated_at ? new Date(r.updated_at).toLocaleDateString('ru-RU') : '—'}</td>`;
+        tbody.appendChild(tr);
+    });
+    const upd = $('res-updated');
+    if (upd) upd.textContent = 'обновлено ' + new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+}
+on('res-search', 'input', renderResourcePricesHome);
+on('res-sort', 'change', renderResourcePricesHome);
+on('res-refresh', 'click', loadResourcePrices);
+
+/* ============================================================
+   ПОСТРОЙКА КОРАБЛЯ + СКИДКИ
+   ============================================================ */
+async function loadRecipes() {
+    const { data, error } = await supabase.from('ship_recipes').select('*').order('sort_order').order('id');
+    if (error) { console.warn('ship_recipes load:', error.message); recipesCache = []; }
+    else recipesCache = data || [];
+    renderRecipeShipSelect();
+    renderRecipeRows();
+    renderShipCostPublic();
+}
+async function loadDiscounts() {
+    const { data, error } = await supabase.from('discounts').select('*').order('sort_order').order('id');
+    if (error) { console.warn('discounts load:', error.message); discountsCache = []; }
+    else discountsCache = data || [];
+    renderDiscountsAdmin();
+    renderShipCostPublic();
+    fillScCities();
+}
+function fillScCities() {
+    const sel = $('sc-city'); if (!sel) return;
+    const cur = sel.value;
+    const cities = [...new Set(discountsCache.map(d => d.city).filter(Boolean))].sort();
+    sel.innerHTML = '<option value="">— Не указан —</option>' +
+        cities.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+    if (cur && cities.includes(cur)) sel.value = cur;
+}
+function fillScShipSelect() {
+    const sel = $('sc-ship'); if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">— Выберите корабль —</option>';
+    shipsCache.slice().sort((a, b) => a.name.localeCompare(b.name)).forEach(s => {
+        const o = document.createElement('option');
+        o.value = s.name; o.textContent = `${ROMAN[s.level] || s.level} · ${s.name}`;
+        o.dataset.image = s.image_url || '';
+        sel.appendChild(o);
+    });
+    if (cur) sel.value = cur;
+}
+function getActiveDiscounts(city, faction) {
+    const today = new Date().toISOString().slice(0, 10);
+    return discountsCache.filter(d => {
+        if (!d.is_active) return false;
+        if (d.date_from && d.date_from > today) return false;
+        if (d.date_to   && d.date_to   < today) return false;
+        if (d.type === 'city'    && (!d.city    || d.city    !== city))    return false;
+        if (d.type === 'faction' && (!d.faction || d.faction !== faction)) return false;
+        return true;
+    });
+}
+function renderShipCostPublic() {
+    const sel = $('sc-ship'); if (!sel) return;
+    const shipName = sel.value;
+    const img = $('sc-ship-img');
+    const empty = $('sc-empty');
+    const content = $('sc-content');
+    if (!shipName) {
+        if (img) img.hidden = true;
+        if (empty) empty.hidden = false;
+        if (content) content.hidden = true;
+        return;
+    }
+    const opt = sel.selectedOptions[0];
+    if (img && opt?.dataset.image) { img.src = opt.dataset.image; img.hidden = false; }
+    else if (img) img.hidden = true;
+
+    const recipe = recipesCache.filter(r => r.ship_id === shipName);
+    if (!recipe.length) {
+        if (empty) { empty.hidden = false; empty.textContent = 'Для этого корабля рецепт не задан.'; }
+        if (content) content.hidden = true;
+        return;
+    }
+    if (empty) empty.hidden = true;
+    if (content) content.hidden = false;
+
+    const tbody = $('sc-tbody'); if (!tbody) return;
+    tbody.innerHTML = '';
+    let baseSum = 0;
+    recipe.forEach(r => {
+        const res = resourcesCache.find(x => x.id === r.resource_id);
+        const price = res ? Number(res.price) || 0 : 0;
+        const qty   = Number(r.quantity) || 0;
+        const sum   = price * qty;
+        baseSum += sum;
+        const imgHtml = res?.image_url
+            ? `<img src="${escapeHtml(res.image_url)}" alt="">`
+            : `<span style="font-size:18px;">${escapeHtml(res?.icon || '📦')}</span>`;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><span class="sc-res-name">${imgHtml}${escapeHtml(res?.name || r.resource_id)}</span></td>
+            <td class="sc-qty">${qty.toLocaleString('ru-RU')}</td>
+            <td class="sc-price">${price.toLocaleString('ru-RU')} 🪙</td>
+            <td class="sc-sum">${Math.round(sum).toLocaleString('ru-RU')} 🪙</td>`;
+        tbody.appendChild(tr);
+    });
+
+    const city = val('sc-city');
+    const faction = val('sc-faction');
+    const active = getActiveDiscounts(city, faction);
+    const dl = $('sc-discounts-list');
+    const block = document.querySelector('.sc-discounts');
+    if (dl) {
+        if (!active.length) {
+            if (block) block.hidden = true;
+            dl.innerHTML = '';
+        } else {
+            if (block) block.hidden = false;
+            dl.innerHTML = active.map(d => `
+                <div class="sc-disc-row">
+                    <span class="sc-disc-name">${escapeHtml(d.name)}
+                        <span class="sc-disc-badge ${d.type}">${
+                            d.type === 'seasonal' ? '🗓 сезон' :
+                            d.type === 'city' ? '⚓ ' + escapeHtml(d.city || '') :
+                            '🏴 ' + escapeHtml(d.faction || '')
+                        }</span>
+                    </span>
+                    <span class="sc-disc-value">−${d.value}%</span>
+                </div>`).join('');
+        }
+    }
+
+    const totalPercent = active.reduce((s, d) => s + (Number(d.value) || 0), 0);
+    const discountSum = baseSum * totalPercent / 100;
+    const finalSum = Math.max(0, baseSum - discountSum);
+    const fmt = n => Math.round(n).toLocaleString('ru-RU') + ' 🪙';
+    const baseEl = $('sc-base'); if (baseEl) baseEl.textContent = fmt(baseSum);
+    const dEl = $('sc-discounts-sum'); if (dEl) dEl.textContent = '−' + fmt(discountSum);
+    const fEl = $('sc-final'); if (fEl) fEl.textContent = fmt(finalSum);
+}
+on('sc-ship', 'change', renderShipCostPublic);
+on('sc-city', 'change', renderShipCostPublic);
+on('sc-faction', 'change', renderShipCostPublic);
+
+function renderRecipeShipSelect() {
+    const sel = $('recipe-ship'); if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">— Выберите корабль —</option>';
+    shipsCache.slice().sort((a, b) => a.name.localeCompare(b.name)).forEach(s => {
+        const o = document.createElement('option');
+        o.value = s.name; o.textContent = `${ROMAN[s.level] || s.level} · ${s.name}`;
+        sel.appendChild(o);
+    });
+    if (cur) sel.value = cur;
+}
+function renderRecipeRows() {
+    const container = $('recipe-rows'); if (!container) return;
+    const ship = val('recipe-ship');
+    if (!ship) { container.innerHTML = '<p class="hint" style="margin:0;">Выберите корабль — появятся его компоненты.</p>'; return; }
+    const rows = recipesCache.filter(r => r.ship_id === ship).sort((a, b) => (a.sort_order||0) - (b.sort_order||0));
+    container.innerHTML = '';
+    if (!rows.length) {
+        container.innerHTML = '<p class="hint" style="margin:0;">Рецепт пуст. Нажмите «➕ Добавить ресурс».</p>';
+        return;
+    }
+    rows.forEach(r => addRecipeRowUI(r.resource_id, r.quantity, r.id));
+}
+function addRecipeRowUI(resourceId = '', qty = 1, id = null) {
+    const container = $('recipe-rows'); if (!container) return;
+    if (container.querySelector('.hint')) container.innerHTML = '';
+    const row = document.createElement('div');
+    row.className = 'recipe-row';
+    if (id) row.dataset.id = id;
+    row.innerHTML = `
+        <img class="rr-img" src="" alt="" hidden>
+        <select class="rr-res">
+            <option value="">— Ресурс —</option>
+            ${resourcesCache.map(r => `<option value="${escapeHtml(r.id)}" ${r.id === resourceId ? 'selected' : ''}>${escapeHtml(r.name)}</option>`).join('')}
+        </select>
+        <input type="number" class="rr-qty" min="1" step="1" value="${Number(qty) || 1}">
+        <button class="rr-del" title="Удалить">✕</button>`;
+    const sel = row.querySelector('.rr-res');
+    const img = row.querySelector('.rr-img');
+    const updateImg = () => {
+        const r = resourcesCache.find(x => x.id === sel.value);
+        if (r?.image_url) { img.src = r.image_url; img.hidden = false; }
+        else { img.hidden = true; img.src = ''; }
+    };
+    sel.addEventListener('change', updateImg);
+    updateImg();
+    row.querySelector('.rr-del').addEventListener('click', () => row.remove());
+    container.appendChild(row);
+}
+on('recipe-ship', 'change', renderRecipeRows);
+on('recipe-add-row', 'click', () => {
+    if (!val('recipe-ship')) { alert('Сначала выберите корабль'); return; }
+    addRecipeRowUI();
+});
+on('recipe-clear', 'click', async () => {
+    const ship = val('recipe-ship'); if (!ship) return;
+    if (!confirm(`Удалить рецепт корабля «${ship}»?`)) return;
+    const { error } = await supabase.from('ship_recipes').delete().eq('ship_id', ship);
+    if (error) return alert('Ошибка: ' + error.message);
+    await logAdminAction('Удалил рецепт', ship);
+    await loadRecipes();
+});
+on('recipe-save', 'click', async () => {
+    const ship = val('recipe-ship');
+    const msg = $('recipe-msg'); msg.textContent = '';
+    if (!ship) { msg.textContent = 'Выберите корабль'; msg.style.color = '#ff7a7a'; return; }
+    const rows = [...document.querySelectorAll('#recipe-rows .recipe-row')].map(r => ({
+        resource_id: r.querySelector('.rr-res').value,
+        quantity: Number(r.querySelector('.rr-qty').value) || 0
+    })).filter(r => r.resource_id && r.quantity > 0);
+    const seen = new Set();
+    for (const r of rows) {
+        if (seen.has(r.resource_id)) { msg.textContent = 'Ресурс повторяется: ' + r.resource_id; msg.style.color = '#ff7a7a'; return; }
+        seen.add(r.resource_id);
+    }
+    const { error: delErr } = await supabase.from('ship_recipes').delete().eq('ship_id', ship);
+    if (delErr) { msg.textContent = 'Ошибка удаления: ' + delErr.message; msg.style.color = '#ff7a7a'; return; }
+    if (rows.length) {
+        const payload = rows.map((r, i) => ({ ship_id: ship, resource_id: r.resource_id, quantity: r.quantity, sort_order: i * 10 }));
+        const { error } = await supabase.from('ship_recipes').insert(payload);
+        if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
+    }
+    await logAdminAction('Сохранил рецепт', ship, `компонентов: ${rows.length}`);
+    msg.textContent = '✔ Рецепт сохранён'; msg.style.color = '#6ee7a7';
+    await loadRecipes();
+});
+
+function renderDiscountsAdmin() {
+    const container = $('discounts-list'); if (!container) return;
+    container.innerHTML = '';
+    if (!discountsCache.length) { container.innerHTML = '<div class="empty">Скидок пока нет</div>'; return; }
+    discountsCache.forEach(d => {
+        const typeLabels = { seasonal: '🗓 Сезонная', city: '⚓ Городская', faction: '🏴 Фракционная' };
+        const range = (d.date_from || d.date_to) ? `${d.date_from || '…'} → ${d.date_to || '…'}` : 'без ограничения';
+        const el = document.createElement('div');
+        el.className = 'partners-admin-item';
+        el.innerHTML = `
+            <div class="logo-mini"><span>💸</span></div>
+            <div class="txt">
+                <b>${escapeHtml(d.name)} <span style="color:var(--green)">−${d.value}%</span></b>
+                <span style="color:var(--muted);font-size:11px;">
+                    ${typeLabels[d.type] || d.type}
+                    ${d.city ? ' · ' + escapeHtml(d.city) : ''}
+                    ${d.faction ? ' · ' + escapeHtml(d.faction) : ''}
+                    · ${range} · ${d.is_active ? '🟢 активна' : '⚫ выкл'}
+                </span>
+                ${d.note ? `<span style="color:var(--muted);font-size:11px;font-style:italic;">${escapeHtml(d.note)}</span>` : ''}
+            </div>
+            <div class="actions">
+                <button class="edit" title="Вкл/выкл">${d.is_active ? '🟢' : '⚫'}</button>
+                <button class="delete" title="Удалить">🗑</button>
+            </div>`;
+        el.querySelector('.edit').addEventListener('click', async () => {
+            const { error } = await supabase.from('discounts').update({ is_active: !d.is_active }).eq('id', d.id);
+            if (error) return alert(error.message);
+            await loadDiscounts();
+        });
+        el.querySelector('.delete').addEventListener('click', async () => {
+            if (!confirm(`Удалить скидку «${d.name}»?`)) return;
+            await supabase.from('discounts').delete().eq('id', d.id);
+            await logAdminAction('Удалил скидку', d.name);
+            await loadDiscounts();
+        });
+        container.appendChild(el);
+    });
+}
+on('disc-add', 'click', async () => {
+    const msg = $('disc-msg'); msg.textContent = '';
+    const name = val('disc-name').trim();
+    const type = val('disc-type');
+    const value = parseFloat(val('disc-value')) || 0;
+    const city = val('disc-city').trim() || null;
+    const faction = val('disc-faction').trim() || null;
+    const dateFrom = val('disc-from') || null;
+    const dateTo = val('disc-to') || null;
+    const note = val('disc-note').trim() || null;
+    const isActive = $('disc-active').checked;
+    if (!name) { msg.textContent = 'Укажи название'; msg.style.color = '#ff7a7a'; return; }
+    if (value <= 0 || value > 100) { msg.textContent = 'Процент 0–100'; msg.style.color = '#ff7a7a'; return; }
+    if (type === 'city' && !city) { msg.textContent = 'Укажи город'; msg.style.color = '#ff7a7a'; return; }
+    if (type === 'faction' && !faction) { msg.textContent = 'Укажи фракцию'; msg.style.color = '#ff7a7a'; return; }
+    const { error } = await supabase.from('discounts').insert({
+        name, type, value, city, faction,
+        date_from: dateFrom, date_to: dateTo,
+        note, is_active: isActive,
+        sort_order: (discountsCache.length + 1) * 10
+    });
+    if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
+    await logAdminAction('Добавил скидку', name, `${type} −${value}%`);
+    msg.textContent = '✔ Скидка добавлена'; msg.style.color = '#6ee7a7';
+    ['disc-name','disc-city','disc-faction','disc-from','disc-to','disc-note'].forEach(i => { const el = $(i); if (el) el.value = ''; });
+    $('disc-value').value = 5;
+    await loadDiscounts();
+});
+
+/* ============================================================
+   КАРТА
+   ============================================================ */
+async function loadMapSettings() {
+    const { data, error } = await supabase.from('map_settings').select('*').eq('id', 'main').maybeSingle();
+    if (error) { console.warn('map_settings load:', error.message); mapSettings = null; }
+    else mapSettings = data;
+    renderMapPreview();
+    renderMapAdmin();
+}
+function getMapUrls() {
+    const s = mapSettings || {};
+    return {
+        detailed: s.detailed_url || MAP_DEFAULT_DETAILED,
+        clean:    s.clean_url    || MAP_DEFAULT_CLEAN,
+        title:    s.title        || 'World of Sea Battle — Карта',
+        note:     s.note         || '',
+        defaultView: s.default_view || 'detailed'
+    };
+}
+function renderMapPreview() {
+    const urls = getMapUrls();
+    const titleEl = $('map-title'); if (titleEl) titleEl.textContent = urls.title;
+    const noteEl  = $('map-note');  if (noteEl)  noteEl.textContent = urls.note;
+    const img = $('map-preview-img'); if (!img) return;
+    document.querySelectorAll('.map-view-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.view === currentMapView);
+    });
+    const src = currentMapView === 'clean' ? urls.clean : urls.detailed;
+    img.src = src || '';
+    img.onerror = () => {
+        if (currentMapView === 'detailed' && urls.clean) { img.src = urls.clean; }
+        else if (currentMapView === 'clean' && urls.detailed) { img.src = urls.detailed; }
+        else { img.alt = 'Карта не загружена'; }
+    };
+}
+function openMapFullscreen() {
+    const urls = getMapUrls();
+    const fs = $('mapFullscreen'); if (!fs) return;
+    const img = $('map-fs-img');
+    const src = currentMapView === 'clean' ? urls.clean : urls.detailed;
+    if (!src) { alert('Карта не настроена'); return; }
+    img.src = src;
+    img.onerror = () => { img.src = currentMapView === 'clean' ? urls.detailed : urls.clean; };
+    const titleEl = $('map-fs-title'); if (titleEl) titleEl.textContent = urls.title;
+    mapFsZoom = 1; mapFsX = 0; mapFsY = 0; applyMapFsTransform();
+    fs.hidden = false;
+    document.body.style.overflow = 'hidden';
+}
+function closeMapFullscreen() {
+    const fs = $('mapFullscreen'); if (!fs) return;
+    fs.hidden = true;
+    document.body.style.overflow = '';
+}
+function applyMapFsTransform() {
+    const img = $('map-fs-img'); if (!img) return;
+    img.style.transform = `translate(${mapFsX}px, ${mapFsY}px) scale(${mapFsZoom})`;
+}
+function setMapFsZoom(z) {
+    mapFsZoom = Math.max(0.5, Math.min(6, z));
+    if (mapFsZoom <= 1) { mapFsX = 0; mapFsY = 0; }
+    applyMapFsTransform();
+}
+function resetMapFs() { mapFsZoom = 1; mapFsX = 0; mapFsY = 0; applyMapFsTransform(); }
+
+on('map-open', 'click', openMapFullscreen);
+on('map-preview', 'click', openMapFullscreen);
+document.querySelectorAll('.map-view-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        currentMapView = btn.dataset.view;
+        renderMapPreview();
+        const fs = $('mapFullscreen');
+        if (fs && !fs.hidden) {
+            const urls = getMapUrls();
+            const img = $('map-fs-img');
+            if (img) img.src = currentMapView === 'clean' ? urls.clean : urls.detailed;
+            resetMapFs();
+        }
+    });
+});
+on('map-fs-close', 'click', closeMapFullscreen);
+on('map-fs-zoom-in', 'click', () => setMapFsZoom(mapFsZoom + 0.25));
+on('map-fs-zoom-out', 'click', () => setMapFsZoom(mapFsZoom - 0.25));
+on('map-fs-reset', 'click', resetMapFs);
+on('map-fs-stage', 'wheel', e => {
+    e.preventDefault();
+    setMapFsZoom(mapFsZoom + (e.deltaY < 0 ? 0.15 : -0.15));
+}, { passive: false });
+on('map-fs-stage', 'mousedown', e => {
+    if (mapFsZoom <= 1) return;
+    mapFsDragging = true;
+    mapFsDragStart = { x: e.clientX - mapFsX, y: e.clientY - mapFsY };
+    $('map-fs-stage').classList.add('dragging');
+});
+document.addEventListener('mousemove', e => {
+    if (!mapFsDragging) return;
+    mapFsX = e.clientX - mapFsDragStart.x;
+    mapFsY = e.clientY - mapFsDragStart.y;
+    applyMapFsTransform();
+});
+document.addEventListener('mouseup', () => {
+    if (!mapFsDragging) return;
+    mapFsDragging = false;
+    $('map-fs-stage')?.classList.remove('dragging');
+});
+on('map-fs-stage', 'mouseleave', () => { mapFsDragging = false; });
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+        const fs = $('mapFullscreen');
+        if (fs && !fs.hidden) closeMapFullscreen();
+    }
+});
+
+function renderMapAdmin() {
+    const urls = getMapUrls();
+    const t = $('map-title-input'); if (t) t.value = urls.title;
+    const n = $('map-note-input');  if (n) n.value = urls.note;
+    const dv = $('map-default-view'); if (dv) dv.value = urls.defaultView;
+    const det = $('map-detailed-url'); if (det) det.value = (urls.detailed && !urls.detailed.startsWith('data:')) ? urls.detailed : '';
+    const cln = $('map-clean-url');    if (cln) cln.value = (urls.clean    && !urls.clean.startsWith('data:'))    ? urls.clean    : '';
+    const detPrev = $('map-detailed-preview');
+    const detImg  = $('map-detailed-preview-img');
+    if (urls.detailed) { detImg.src = urls.detailed; detPrev.hidden = false; } else detPrev.hidden = true;
+    const clnPrev = $('map-clean-preview');
+    const clnImg  = $('map-clean-preview-img');
+    if (urls.clean) { clnImg.src = urls.clean; clnPrev.hidden = false; } else clnPrev.hidden = true;
+    mapDetailedData = null;
+    mapCleanData = null;
+    const msg = $('map-admin-msg'); if (msg) msg.textContent = '';
+}
+on('map-detailed-pick', 'click', () => { const f = $('map-detailed-file'); if (f) { f.value = ''; f.click(); } });
+on('map-detailed-file', 'change', async e => {
+    const file = e.target.files[0]; if (!file) return;
+    if (file.size > 8 * 1024 * 1024) { alert('Максимум 8 МБ'); return; }
+    try {
+        const dataUrl = await compressImage(file, 3000, 0.9);
+        mapDetailedData = dataUrl;
+        $('map-detailed-preview-img').src = dataUrl;
+        $('map-detailed-preview').hidden = false;
+        $('map-detailed-name').textContent = file.name;
+        $('map-detailed-url').value = '';
+    } catch (err) { alert('Ошибка: ' + err.message); }
+});
+on('map-detailed-clear', 'click', () => {
+    mapDetailedData = null;
+    $('map-detailed-preview').hidden = true;
+    $('map-detailed-name').textContent = '';
+    $('map-detailed-file').value = '';
+    $('map-detailed-url').value = '';
+});
+on('map-clean-pick', 'click', () => { const f = $('map-clean-file'); if (f) { f.value = ''; f.click(); } });
+on('map-clean-file', 'change', async e => {
+    const file = e.target.files[0]; if (!file) return;
+    if (file.size > 8 * 1024 * 1024) { alert('Максимум 8 МБ'); return; }
+    try {
+        const dataUrl = await compressImage(file, 3000, 0.9);
+        mapCleanData = dataUrl;
+        $('map-clean-preview-img').src = dataUrl;
+        $('map-clean-preview').hidden = false;
+        $('map-clean-name').textContent = file.name;
+        $('map-clean-url').value = '';
+    } catch (err) { alert('Ошибка: ' + err.message); }
+});
+on('map-clean-clear', 'click', () => {
+    mapCleanData = null;
+    $('map-clean-preview').hidden = true;
+    $('map-clean-name').textContent = '';
+    $('map-clean-file').value = '';
+    $('map-clean-url').value = '';
+});
+on('map-reset-urls', 'click', () => {
+    $('map-detailed-url').value = MAP_DEFAULT_DETAILED;
+    $('map-clean-url').value    = MAP_DEFAULT_CLEAN;
+    mapDetailedData = null; mapCleanData = null;
+    $('map-detailed-preview').hidden = false;
+    $('map-detailed-preview-img').src = MAP_DEFAULT_DETAILED;
+    $('map-clean-preview').hidden = false;
+    $('map-clean-preview-img').src = MAP_DEFAULT_CLEAN;
+});
+on('map-save', 'click', async () => {
+    const msg = $('map-admin-msg'); msg.textContent = '';
+    const title = val('map-title-input').trim() || 'World of Sea Battle — Карта';
+    const note = val('map-note-input').trim() || null;
+    const defaultView = val('map-default-view') || 'detailed';
+    const detailedUrl = mapDetailedData || val('map-detailed-url').trim() || null;
+    const cleanUrl    = mapCleanData    || val('map-clean-url').trim()    || null;
+    const { error } = await supabase.from('map_settings').upsert({
+        id: 'main', title, note, default_view: defaultView,
+        detailed_url: detailedUrl, clean_url: cleanUrl,
+        updated_at: new Date().toISOString()
+    }, { onConflict: 'id' });
+    if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
+    await logAdminAction('Обновил карту', title);
+    msg.textContent = '✔ Карта сохранена'; msg.style.color = '#6ee7a7';
+    await loadMapSettings();
 });
 
 /* ============ АДМИН: СОЮЗЫ / НАСТРОЙКИ / СТАТИСТИКА ============ */
@@ -4298,7 +4799,12 @@ on('leaderOpenVoiceTop', 'click', () => openChat('voice', { room: 'wosb_leaders_
     await loadFaq();
     await loadTactics();
     await loadShips();
-    await loadResourcePrices();   // 🆕 Загрузка ресурсов
+    await loadResourcePrices();
+    await loadRecipes();
+    await loadDiscounts();
+    await loadMapSettings();
+    fillScShipSelect();
+    currentMapView = (mapSettings?.default_view) || 'detailed';
     await loadStats();
     initTradeCategorySelect();
     initTradeCategoryFilters();

@@ -45,6 +45,7 @@
             </div>
             <div id="clanGrid" class="clan-grid"></div>
 
+            <!-- 🗺 КАРТА -->
             <section id="mapSection" class="home-trade-section">
                 <h2 class="section-title">🗺 Карта мира</h2>
                 <div class="map-panel">
@@ -64,11 +65,12 @@
                     </div>
                     <footer class="map-footer">
                         <span id="map-note" class="map-note"></span>
-                        <span class="map-hint">💡 Колёсико мыши — приблизить, ЛКМ — перетащить, Esc — выйти</span>
+                        <span class="map-hint">💡 Колёсико — приблизить, ЛКМ — перетащить, Esc — выйти</span>
                     </footer>
                 </div>
             </section>
 
+            <!-- 🔨 СТОИМОСТЬ ПОСТРОЙКИ -->
             <section id="shipCostSection" class="home-trade-section">
                 <h2 class="section-title">🔨 Стоимость постройки корабля</h2>
                 <div class="sc-panel">
@@ -106,6 +108,7 @@
                 </div>
             </section>
 
+            <!-- 🪙 РЫНОК -->
             <section id="homeTradeSection" class="home-trade-section">
                 <h2 class="section-title">🪙 Гильдейский рынок</h2>
                 <div class="trade-market">
@@ -195,6 +198,7 @@
                 </div>
             </section>
 
+            <!-- 📦 РЕСУРСЫ -->
             <section id="resourcesSection" class="home-trade-section">
                 <h2 class="section-title">📦 Ресурсы — справочник цен</h2>
                 <div class="res-panel">
@@ -225,6 +229,7 @@
                 </div>
             </section>
 
+            <!-- 🔧 СБОРКА -->
             <section id="shipBuilderSection" class="home-trade-section">
                 <h2 class="section-title">🔧 Калькулятор сборки корабля</h2>
                 <div class="builder-panel">
@@ -270,7 +275,7 @@
                         <div class="admin-field"><label>Связь (Discord / Telegram)</label><input type="text" id="applyContact" placeholder="@nickname" maxlength="80"></div>
                     </div>
                     <div class="admin-field"><label>Какая гильдия интересует</label><select id="applyClan"></select></div>
-                    <div class="admin-field"><label>Почему хотите вступить? *</label><textarea id="applyWhy" rows="3" placeholder="Коротко о себе..." maxlength="500"></textarea></div>
+                    <div class="admin-field"><label>Почему хотите вступить? *</label><textarea id="applyWhy" rows="3" maxlength="500"></textarea></div>
                     <p id="applyMsg" class="error"></p>
                     <button id="applyBtn" class="big-btn primary">📨 Отправить заявку</button>
                 </div>
@@ -516,7 +521,7 @@
 
                 <div id="section-builder" class="clan-section">
                     <h2>🔧 Сборка корабля</h2>
-                    <p class="hint">Собери корабль из компонентов — калькулятор посчитает стоимость по справочнику</p>
+                    <p class="hint">Собери корабль — цены берутся из справочника ресурсов</p>
                     <div class="builder-panel">
                         <header class="builder-topbar">
                             <div class="builder-target">
@@ -642,7 +647,7 @@
         </div>
     </div>
 
-    <!-- АДМИН-ПАНЕЛЬ -->
+    <!-- АДМИН -->
     <div id="screen-admin" class="screen admin-screen" hidden>
         <aside class="admin-sidebar">
             <div class="admin-sidebar-brand"><span class="admin-sidebar-logo">⚙️</span><span class="admin-sidebar-title">Админ-панель</span></div>
@@ -748,18 +753,27 @@
 
             <section class="admin-section" data-apanel="resources">
                 <h2 class="admin-section-title">💲 Настройки ценообразования</h2>
-                <div class="pricing-panel" id="pricingPanel">
+                <div class="pricing-panel">
                     <header class="pricing-topbar">
-                        <div class="pricing-title"><span class="pricing-title-ico">$</span><span class="pricing-title-text">Настройки ценообразования</span></div>
-                        <button class="pricing-collapse" id="pricingCollapse" title="Свернуть">⌃</button>
+                        <div class="pricing-title">
+                            <span class="pricing-title-ico">$</span>
+                            <span class="pricing-title-text">Базовые цены на ресурсы</span>
+                        </div>
+                        <div class="pricing-toolbar">
+                            <input type="search" id="pricing-search" class="pricing-search" placeholder="🔍 Поиск ресурса...">
+                            <button class="pricing-collapse" id="pricingCollapse" title="Свернуть">⌃</button>
+                        </div>
                     </header>
                     <div class="pricing-body">
                         <div class="pricing-auto">
                             <label class="switch"><input type="checkbox" id="pricingAuto"><span class="switch-slider"></span></label>
-                            <div class="pricing-auto-info"><div class="pricing-auto-title">Авто-цены</div><div class="pricing-auto-hint">Получить среднюю цену (не точную)</div></div>
+                            <div class="pricing-auto-info">
+                                <div class="pricing-auto-title">Авто-цены с биржи</div>
+                                <div class="pricing-auto-hint">Средняя цена по активным заявкам на продажу</div>
+                            </div>
                             <span id="pricingAutoMsg" class="pricing-auto-msg"></span>
                         </div>
-                        <div class="pricing-grid" id="pricingGrid"><div class="pricing-empty">Загрузка…</div></div>
+                        <div id="pricingGroups" class="pricing-groups"><div class="pricing-empty">Загрузка…</div></div>
                         <div class="pricing-footer">
                             <button id="pricingAddBtn" class="pricing-add-btn">➕ Добавить ресурс</button>
                             <button id="pricingPresetBtn" class="pricing-add-btn" style="background:linear-gradient(180deg,#7c3aed,#5b21b6);">📥 Импорт базового набора</button>
@@ -822,8 +836,7 @@
                 <div class="admin-card">
                     <h3 style="font-size:15px;color:#ffd479;margin-bottom:6px;">➕ Добавить порт</h3>
                     <div class="admin-field"><label>Название</label><input type="text" id="port-name" maxlength="80" placeholder="Бухта Сурако"></div>
-                    <div class="admin-field">
-                        <label>Тип</label>
+                    <div class="admin-field"><label>Тип</label>
                         <select id="port-type">
                             <option value="city">🏙 Город</option>
                             <option value="port">⚓ Порт</option>
@@ -996,7 +1009,6 @@
             <input type="text" id="clanNickname" placeholder="Ваш игровой ник" maxlength="32">
             <input type="password" id="clanPassword" placeholder="Пароль гильдии или админ-пароль">
             <p id="clanPassError" class="error"></p>
-            <p class="hint" style="margin:0;font-size:12px;">💡 Войти могут только участники из списка гильдии, а также админы.</p>
             <div class="modal-actions">
                 <button id="doClanLogin">Войти</button>
                 <button id="cancelClanLogin" class="secondary">Отмена</button>
@@ -1287,11 +1299,21 @@
     <div id="resourceEditModal" class="modal" hidden>
         <div class="modal-content admin-panel-wide">
             <h2 id="resourceEditTitle">✏️ Редактировать ресурс</h2>
-            <div class="admin-field"><label>ID (латиница)</label><input type="text" id="re-id" maxlength="40"></div>
-            <div class="admin-field"><label>Название</label><input type="text" id="re-name" maxlength="80"></div>
-            <div class="admin-field"><label>Латинское (код)</label><input type="text" id="re-latin" maxlength="40"></div>
-            <div class="admin-field"><label>Цена (G)</label><input type="number" id="re-price" min="0" step="1"></div>
-            <div class="admin-field"><label>Эмодзи</label><input type="text" id="re-icon" maxlength="4"></div>
+            <div class="admin-field"><label>ID (латиница)</label><input type="text" id="re-id" maxlength="40" placeholder="wood"></div>
+            <div class="admin-field"><label>Название</label><input type="text" id="re-name" maxlength="80" placeholder="Дерево"></div>
+            <div class="admin-field"><label>Латинское (код)</label><input type="text" id="re-latin" maxlength="40" placeholder="WOOD"></div>
+            <div class="admin-field">
+                <label>Группа</label>
+                <select id="re-group">
+                    <option value="raw">🪵 Сырьё</option>
+                    <option value="processed">⚙️ Обработанные</option>
+                    <option value="consum">🧪 Расходники</option>
+                    <option value="valuable">💎 Ценности</option>
+                    <option value="other">📦 Прочее</option>
+                </select>
+            </div>
+            <div class="admin-field"><label>Цена (G)</label><input type="number" id="re-price" min="0" step="1" placeholder="0"></div>
+            <div class="admin-field"><label>Эмодзи (если нет картинки)</label><input type="text" id="re-icon" maxlength="4" placeholder="📦"></div>
             <div class="admin-field">
                 <label>Картинка ресурса</label>
                 <div class="logo-upload">
@@ -1310,7 +1332,6 @@
         </div>
     </div>
 
-    <!-- НОВЫЕ МОДАЛКИ РЕДАКТИРОВАНИЯ ПОРТА/ФРАКЦИИ -->
     <div id="portEditModal" class="modal" hidden>
         <div class="modal-content admin-panel-wide">
             <h2 id="portEditTitle">✏️ Редактировать порт</h2>

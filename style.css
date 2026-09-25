@@ -1,6 +1,6 @@
 /* ============================================================
-   WosbGame v2.1.0 — style.css
-============================================================ */
+   WosbGame v2.5.1 — style.css
+   ============================================================ */
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 [hidden] { display: none !important; }
@@ -863,7 +863,6 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
 .switch input:checked + .switch-slider { background: linear-gradient(180deg, #6ee7a7, #16a34a); border-color: #6ee7a7; }
 .switch input:checked + .switch-slider::before { transform: translateX(20px); background: #fff; }
 
-/* Группы */
 .pricing-groups { display: flex; flex-direction: column; gap: 24px; }
 .pricing-group { display: flex; flex-direction: column; gap: 14px; }
 .pricing-group-title {
@@ -1491,13 +1490,13 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
         transition-duration: .01ms !important;
     }
 }
+
 /* ════════════════════════════════════════════════════════════════════════
-   v2.3.0 — Сворачиваемый Гильдейский рынок на главной
+   v2.3.0 — Сворачиваемый Гильдейский рынок
    ════════════════════════════════════════════════════════════════════════ */
 .tm-toggle {
     margin-left: auto;
-    width: 34px;
-    height: 34px;
+    width: 34px; height: 34px;
     background: transparent;
     border: 1px solid var(--tm-border);
     color: var(--tm-muted);
@@ -1510,21 +1509,11 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
     justify-content: center;
     transition: all .2s;
 }
-.tm-toggle:hover {
-    color: var(--tm-gold-light);
-    border-color: var(--tm-gold-light);
-    transform: translateY(-1px);
-}
-.trade-market.collapsed .tm-body {
-    display: none;
-}
-.trade-market.collapsed .tm-toggle {
-    transform: rotate(180deg);
-}
-.trade-market.collapsed .tm-topbar {
-    margin-bottom: 0;
-    padding-bottom: 10px;
-}
+.tm-toggle:hover { color: var(--tm-gold-light); border-color: var(--tm-gold-light); transform: translateY(-1px); }
+.trade-market.collapsed .tm-body { display: none; }
+.trade-market.collapsed .tm-toggle { transform: rotate(180deg); }
+.trade-market.collapsed .tm-topbar { margin-bottom: 0; padding-bottom: 10px; }
+
 /* ════════════════════════════════════════════════════════════════════════
    v2.4.0 — Админ-навигация с выпадающими группами
    ════════════════════════════════════════════════════════════════════════ */
@@ -1544,10 +1533,7 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
     border-color: var(--accent); transform: translateX(2px);
 }
 .admin-nav-group-label { flex: 1; }
-.admin-nav-caret {
-    color: var(--muted); font-size: 12px;
-    transition: transform .2s;
-}
+.admin-nav-caret { color: var(--muted); font-size: 12px; transition: transform .2s; }
 .admin-nav-group.open .admin-nav-caret { transform: rotate(180deg); }
 .admin-nav-sub {
     display: none;
@@ -1576,9 +1562,7 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
     color: var(--muted); text-transform: uppercase;
     letter-spacing: .5px;
 }
-.build-picker-controls {
-    display: flex; gap: 6px; flex-wrap: wrap;
-}
+.build-picker-controls { display: flex; gap: 6px; flex-wrap: wrap; }
 .build-picker-controls > * { flex: 1; min-width: 160px; }
 .build-catalog-select {
     padding: 8px 12px;
@@ -1615,6 +1599,7 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
     .build-row-3 { grid-template-columns: 1fr; }
     .build-picker-controls > * { min-width: 100%; }
 }
+
 /* ════════════════════════════════════════════════════════════════════════
    v2.5.0 — Группы в сайдбаре гильдии
    ════════════════════════════════════════════════════════════════════════ */
@@ -1632,11 +1617,9 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
     background: linear-gradient(180deg, rgba(59,130,246,.18), rgba(59,130,246,.05));
     border-color: var(--accent); transform: translateX(2px);
 }
+.side-group-ico { font-size: 16px; line-height: 1; }
 .side-group-label { flex: 1; }
-.side-group-caret {
-    color: var(--muted); font-size: 12px;
-    transition: transform .2s;
-}
+.side-group-caret { color: var(--muted); font-size: 12px; transition: transform .2s; }
 .side-group.open .side-group-caret { transform: rotate(180deg); }
 .side-group-sub {
     display: none;
@@ -1749,7 +1732,6 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
     font-size: 12px; padding: 0 2px;
 }
 
-/* Кнопка «Карта» в карточке события */
 .event-map-btn {
     display: inline-flex; align-items: center; gap: 5px;
     padding: 6px 12px; border-radius: 8px;
@@ -1764,4 +1746,88 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
 @media (max-width: 700px) {
     .modal-map-wide { width: 100vw !important; max-width: none !important; }
     .event-map-stage, .event-map-inner, .event-map-inner img { max-height: 55vh; }
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   v2.5.1 — Расширенные билды: паруса, мортиры, группы специалистов
+   ════════════════════════════════════════════════════════════════════════ */
+.chip-sail              { color: #7dd3fc; background: rgba(125,211,252,.15); border-color: rgba(125,211,252,.5); }
+.chip-mortar-light      { color: #fbbf24; background: rgba(251,191,36,.15); border-color: rgba(251,191,36,.5); }
+.chip-mortar-medium     { color: #f59e0b; background: rgba(245,158,11,.15); border-color: rgba(245,158,11,.5); }
+.chip-mortar-heavy      { color: #dc2626; background: rgba(220,38,38,.15);  border-color: rgba(220,38,38,.5); }
+
+.chip-bonus-count {
+    display: inline-block;
+    margin-left: 4px;
+    padding: 0 6px;
+    font-size: 10px;
+    font-weight: 800;
+    background: rgba(255,255,255,.15);
+    border-radius: 8px;
+    vertical-align: middle;
+}
+
+.build-details { margin-top: 6px; }
+.build-details-summary {
+    list-style: none;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    padding: 6px 8px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    user-select: none;
+    transition: all .15s;
+}
+.build-details-summary:hover { color: var(--text); border-color: var(--accent); }
+.build-details-summary::-webkit-details-marker { display: none; }
+.build-details-summary::before {
+    content: '▶';
+    font-size: 10px;
+    color: var(--accent);
+    transition: transform .2s;
+}
+.build-details[open] > .build-details-summary::before { transform: rotate(90deg); }
+.build-details-count {
+    margin-left: auto;
+    padding: 1px 8px;
+    font-size: 11px;
+    background: rgba(59,130,246,.15);
+    border: 1px solid rgba(59,130,246,.4);
+    color: var(--blue);
+    border-radius: 10px;
+    font-weight: 700;
+}
+.build-details > .build-chips { padding: 8px 4px 4px; }
+
+/* Специалисты — группы */
+.spec-group { margin-bottom: 12px; }
+.spec-group:last-child { margin-bottom: 0; }
+.spec-group-title {
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--purple);
+    margin-bottom: 6px;
+    padding: 4px 8px;
+    background: rgba(180,138,255,.08);
+    border-left: 3px solid var(--purple);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.spec-group-count {
+    padding: 1px 8px;
+    font-size: 11px;
+    background: rgba(180,138,255,.15);
+    border: 1px solid rgba(180,138,255,.4);
+    border-radius: 10px;
+    margin-left: auto;
 }

@@ -1615,3 +1615,153 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
     .build-row-3 { grid-template-columns: 1fr; }
     .build-picker-controls > * { min-width: 100%; }
 }
+/* ════════════════════════════════════════════════════════════════════════
+   v2.5.0 — Группы в сайдбаре гильдии
+   ════════════════════════════════════════════════════════════════════════ */
+.side-group { display: flex; flex-direction: column; gap: 2px; }
+.side-group-btn {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px; width: 100%;
+    background: linear-gradient(180deg, rgba(59,130,246,.08), rgba(59,130,246,.02));
+    border: 1px solid rgba(59,130,246,.25);
+    color: var(--text); border-radius: 10px;
+    cursor: pointer; font-family: inherit; font-size: 13.5px; font-weight: 700;
+    text-align: left; transition: all .15s;
+}
+.side-group-btn:hover {
+    background: linear-gradient(180deg, rgba(59,130,246,.18), rgba(59,130,246,.05));
+    border-color: var(--accent); transform: translateX(2px);
+}
+.side-group-label { flex: 1; }
+.side-group-caret {
+    color: var(--muted); font-size: 12px;
+    transition: transform .2s;
+}
+.side-group.open .side-group-caret { transform: rotate(180deg); }
+.side-group-sub {
+    display: none;
+    flex-direction: column; gap: 3px;
+    padding: 6px 0 6px 10px;
+    margin-left: 8px;
+    border-left: 2px solid var(--border);
+}
+.side-group.open .side-group-sub { display: flex; }
+.side-group-sub .side-item { padding: 9px 12px; font-size: 13px; }
+
+/* ════════════════════════════════════════════════════════════════════════
+   v2.5.0 — Метки на карте в событиях
+   ════════════════════════════════════════════════════════════════════════ */
+.event-map-info { font-size: 12px; color: var(--green); align-self: center; font-weight: 600; }
+.event-map-view-select {
+    padding: 8px 12px; background: var(--input-bg);
+    border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text); font-family: inherit; font-size: 13px;
+    cursor: pointer;
+}
+.modal-map-wide { max-width: 1000px !important; width: 96vw !important; }
+.event-map-toolbar {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+    padding-bottom: 10px; border-bottom: 1px solid var(--border);
+    margin-bottom: 10px;
+}
+.event-map-marker-types { display: flex; flex-wrap: wrap; gap: 6px; }
+.marker-type-chip {
+    padding: 6px 12px; border-radius: 16px;
+    background: var(--panel-2); border: 1px solid var(--border);
+    color: var(--muted); font-size: 12px; font-weight: 700;
+    cursor: pointer; user-select: none; transition: all .15s;
+}
+.marker-type-chip:hover { color: var(--text); border-color: var(--accent); }
+.marker-type-chip.active {
+    background: linear-gradient(180deg, var(--accent), var(--accent-hover));
+    color: #fff; border-color: var(--accent);
+    box-shadow: 0 2px 0 rgba(0,0,0,.3), 0 0 14px var(--accent-glow);
+}
+
+.event-map-stage {
+    display: flex; justify-content: center; align-items: center;
+    background: #0a0d12; border-radius: 12px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    margin-bottom: 12px;
+    max-height: 70vh;
+}
+.event-map-inner {
+    position: relative;
+    max-width: 100%; max-height: 70vh;
+    cursor: crosshair;
+    line-height: 0;
+}
+.event-map-inner img {
+    display: block;
+    max-width: 100%; max-height: 70vh;
+    object-fit: contain;
+    user-select: none;
+    pointer-events: none;
+}
+.event-map-markers { position: absolute; inset: 0; pointer-events: none; }
+.event-map-marker {
+    position: absolute;
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    transform: translate(-50%, -50%);
+    border: 2px solid #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,.7);
+    pointer-events: auto;
+    cursor: pointer;
+    transition: transform .15s;
+}
+.event-map-marker:hover { transform: translate(-50%, -50%) scale(1.2); }
+.event-map-marker .eml-label {
+    position: absolute;
+    top: -22px; left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,.85);
+    color: #fff;
+    font-size: 10px; font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .15s;
+}
+.event-map-marker:hover .eml-label { opacity: 1; }
+
+.event-map-marker-list {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    padding: 8px 0;
+    max-height: 120px; overflow-y: auto;
+}
+.event-map-marker-list:empty { display: none; }
+.event-map-marker-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 10px; border-radius: 10px;
+    background: var(--panel-2); border: 1px solid var(--border);
+    color: var(--text); font-size: 12px;
+}
+.event-map-marker-chip .emc-ico { font-size: 14px; }
+.event-map-marker-chip .emc-del {
+    background: transparent; border: none;
+    color: var(--red); cursor: pointer;
+    font-size: 12px; padding: 0 2px;
+}
+
+/* Кнопка «Карта» в карточке события */
+.event-map-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 6px 12px; border-radius: 8px;
+    background: linear-gradient(180deg, var(--accent), var(--accent-hover));
+    color: #fff; border: none; cursor: pointer;
+    font-family: inherit; font-size: 12px; font-weight: 700;
+    box-shadow: 0 2px 0 rgba(0,0,0,.3);
+    transition: all .15s;
+}
+.event-map-btn:hover { transform: translateY(-1px); filter: brightness(1.1); }
+
+@media (max-width: 700px) {
+    .modal-map-wide { width: 100vw !important; max-width: none !important; }
+    .event-map-stage, .event-map-inner, .event-map-inner img { max-height: 55vh; }
+}

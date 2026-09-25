@@ -45,6 +45,76 @@
             </div>
             <div id="clanGrid" class="clan-grid"></div>
 
+            <!-- 🗺 КАРТА -->
+            <section id="mapSection" class="home-trade-section">
+                <h2 class="section-title">🗺 Карта мира</h2>
+                <div class="map-panel">
+                    <header class="map-topbar">
+                        <div class="map-title" id="map-title">World of Sea Battle — Карта</div>
+                        <div class="map-controls">
+                            <div class="map-views" id="map-views">
+                                <button class="map-view-btn active" data-view="detailed">📍 С маркерами</button>
+                                <button class="map-view-btn" data-view="clean">🧭 Чистая</button>
+                            </div>
+                            <button id="map-open" class="map-btn" title="Открыть на весь экран">⛶</button>
+                        </div>
+                    </header>
+                    <div class="map-preview" id="map-preview">
+                        <img id="map-preview-img" src="" alt="Карта" draggable="false">
+                        <div class="map-preview-hint">🔍 Нажми, чтобы открыть на весь экран</div>
+                    </div>
+                    <footer class="map-footer">
+                        <span id="map-note" class="map-note"></span>
+                        <span class="map-hint">💡 Колёсико мыши — приблизить, ЛКМ — перетащить, Esc — выйти</span>
+                    </footer>
+                </div>
+            </section>
+
+            <!-- 🔨 СТОИМОСТЬ ПОСТРОЙКИ -->
+            <section id="shipCostSection" class="home-trade-section">
+                <h2 class="section-title">🔨 Стоимость постройки корабля</h2>
+                <div class="sc-panel">
+                    <header class="sc-topbar">
+                        <div class="sc-pick">
+                            <label>🚢 Корабль:</label>
+                            <select id="sc-ship"><option value="">— Выберите корабль —</option></select>
+                            <img id="sc-ship-img" class="sc-ship-img" src="" alt="" hidden>
+                        </div>
+                        <div class="sc-pick">
+                            <label>⚓ Город:</label>
+                            <select id="sc-city"><option value="">— Не указан —</option></select>
+                            <label style="margin-left:12px;">🏴 Фракция:</label>
+                            <select id="sc-faction">
+                                <option value="">— Не указана —</option>
+                                <option value="Англия">Англия</option>
+                                <option value="Испания">Испания</option>
+                                <option value="Франция">Франция</option>
+                                <option value="Россия">Россия</option>
+                                <option value="Пираты">Пираты</option>
+                            </select>
+                        </div>
+                    </header>
+                    <div id="sc-empty" class="sc-empty">Выберите корабль, чтобы увидеть стоимость постройки.</div>
+                    <div id="sc-content" hidden>
+                        <div class="sc-table-wrap">
+                            <table class="sc-table">
+                                <thead><tr><th>Ресурс</th><th>Кол-во</th><th>Цена за ед.</th><th>Сумма</th></tr></thead>
+                                <tbody id="sc-tbody"></tbody>
+                            </table>
+                        </div>
+                        <div class="sc-discounts">
+                            <h4>💸 Применённые скидки</h4>
+                            <div id="sc-discounts-list" class="sc-discounts-list"></div>
+                        </div>
+                        <footer class="sc-footer">
+                            <div class="sc-total-row"><span class="sc-label">Базовая стоимость:</span><span id="sc-base" class="sc-value">0 🪙</span></div>
+                            <div class="sc-total-row sc-discount-row"><span class="sc-label">Скидки:</span><span id="sc-discounts-sum" class="sc-value">−0 🪙</span></div>
+                            <div class="sc-total-row sc-final-row"><span class="sc-label">💰 Итого:</span><span id="sc-final" class="sc-value">0 🪙</span></div>
+                        </footer>
+                    </div>
+                </div>
+            </section>
+
             <section id="homeTradeSection" class="home-trade-section">
                 <h2 class="section-title">🪙 Гильдейский рынок</h2>
                 <div class="trade-market">
@@ -80,18 +150,14 @@
                             </div>
                             <div class="tm-fg"><label>Гильдия</label><select id="tm-clan"></select></div>
                             <div class="tm-fg"><label>Категория</label><select id="tm-category"></select></div>
-
                             <div class="tm-fg tm-ship-picker" id="tm-ship-picker" hidden>
                                 <label>Корабль из справочника</label>
-                                <select id="tm-ship-select">
-                                    <option value="">— Выберите корабль —</option>
-                                </select>
+                                <select id="tm-ship-select"><option value="">— Выберите корабль —</option></select>
                                 <div id="tm-ship-preview" class="tm-ship-preview" hidden>
                                     <img id="tm-ship-preview-img" src="" alt="">
                                     <div id="tm-ship-preview-info" class="tm-ship-preview-info"></div>
                                 </div>
                             </div>
-
                             <div class="tm-fg"><label>Название *</label><input type="text" id="tm-name" maxlength="60" placeholder="Например: Дубовые доски"></div>
                             <div class="tm-frow">
                                 <div class="tm-fg"><label>Цена за ед. *</label><input type="number" id="tm-price" min="1" step="1" placeholder="0"></div>
@@ -138,7 +204,7 @@
                 </div>
             </section>
 
-            <!-- 📦 ТАБЛИЦА РЕСУРСОВ -->
+            <!-- 📦 РЕСУРСЫ -->
             <section id="resourcesSection" class="home-trade-section">
                 <h2 class="section-title">📦 Ресурсы — справочник цен</h2>
                 <div class="res-panel">
@@ -169,17 +235,14 @@
                 </div>
             </section>
 
-            <!-- 🔧 КАЛЬКУЛЯТОР СБОРКИ КОРАБЛЯ -->
+            <!-- 🔧 КАЛЬКУЛЯТОР СБОРКИ -->
             <section id="shipBuilderSection" class="home-trade-section">
                 <h2 class="section-title">🔧 Калькулятор сборки корабля</h2>
-
                 <div class="builder-panel">
                     <header class="builder-topbar">
                         <div class="builder-target">
                             <label>🎯 Собираю корабль:</label>
-                            <select id="builderTargetShip">
-                                <option value="">— Не выбран —</option>
-                            </select>
+                            <select id="builderTargetShip"><option value="">— Не выбран —</option></select>
                             <img id="builderTargetImg" class="builder-target-img" src="" alt="" hidden>
                         </div>
                         <div class="builder-actions-top">
@@ -187,36 +250,17 @@
                             <button id="builderClear" class="builder-btn secondary">🗑 Очистить</button>
                         </div>
                     </header>
-
                     <div class="builder-table-wrap">
                         <table class="builder-table">
-                            <thead>
-                                <tr>
-                                    <th style="width:35%">Компонент</th>
-                                    <th style="width:15%">Кол-во</th>
-                                    <th style="width:20%">Средняя цена</th>
-                                    <th style="width:20%">Итого</th>
-                                    <th style="width:10%"></th>
-                                </tr>
-                            </thead>
+                            <thead><tr><th style="width:35%">Компонент</th><th style="width:15%">Кол-во</th><th style="width:20%">Средняя цена</th><th style="width:20%">Итого</th><th style="width:10%"></th></tr></thead>
                             <tbody id="builderRows"></tbody>
                         </table>
                     </div>
-
                     <footer class="builder-footer">
                         <div class="builder-summary">
-                            <div class="builder-stat">
-                                <span class="builder-stat-label">Позиций</span>
-                                <span class="builder-stat-value" id="builderCountPositions">0</span>
-                            </div>
-                            <div class="builder-stat">
-                                <span class="builder-stat-label">Найдено цен</span>
-                                <span class="builder-stat-value" id="builderCountPrices">0 / 0</span>
-                            </div>
-                            <div class="builder-stat builder-stat-total">
-                                <span class="builder-stat-label">💰 Средняя стоимость корабля</span>
-                                <span class="builder-stat-value" id="builderTotal">0 🪙</span>
-                            </div>
+                            <div class="builder-stat"><span class="builder-stat-label">Позиций</span><span class="builder-stat-value" id="builderCountPositions">0</span></div>
+                            <div class="builder-stat"><span class="builder-stat-label">Найдено цен</span><span class="builder-stat-value" id="builderCountPrices">0 / 0</span></div>
+                            <div class="builder-stat builder-stat-total"><span class="builder-stat-label">💰 Средняя стоимость корабля</span><span class="builder-stat-value" id="builderTotal">0 🪙</span></div>
                         </div>
                         <div class="builder-actions-bottom">
                             <button id="builderRecalc" class="builder-btn primary">🔄 Пересчитать</button>
@@ -443,7 +487,6 @@
                 <div id="section-ships" class="clan-section">
                     <h2>🚢 Справочник кораблей</h2>
                     <p class="hint">Все корабли World of Sea Battle с характеристиками</p>
-
                     <div class="ships-filters">
                         <input type="search" id="ships-search" class="search-input" placeholder="🔍 Поиск по названию...">
                         <select id="ships-sort" class="ships-sort-select">
@@ -479,20 +522,17 @@
                             <span class="ships-chip" data-type="Имперские">👑 Имперские</span>
                         </div>
                     </div>
-
                     <div id="shipsGrid" class="ships-grid-view"></div>
                 </div>
 
                 <div id="section-builder" class="clan-section">
                     <h2>🔧 Сборка корабля</h2>
-                    <p class="hint">Собери корабль из компонентов — калькулятор посчитает среднюю стоимость по активным заявкам на бирже</p>
+                    <p class="hint">Собери корабль из компонентов — калькулятор посчитает стоимость по справочнику ресурсов</p>
                     <div class="builder-panel">
                         <header class="builder-topbar">
                             <div class="builder-target">
                                 <label>🎯 Собираю корабль:</label>
-                                <select id="builderTargetShip2">
-                                    <option value="">— Не выбран —</option>
-                                </select>
+                                <select id="builderTargetShip2"><option value="">— Не выбран —</option></select>
                                 <img id="builderTargetImg2" class="builder-target-img" src="" alt="" hidden>
                             </div>
                             <div class="builder-actions-top">
@@ -502,32 +542,15 @@
                         </header>
                         <div class="builder-table-wrap">
                             <table class="builder-table">
-                                <thead>
-                                    <tr>
-                                        <th style="width:35%">Компонент</th>
-                                        <th style="width:15%">Кол-во</th>
-                                        <th style="width:20%">Средняя цена</th>
-                                        <th style="width:20%">Итого</th>
-                                        <th style="width:10%"></th>
-                                    </tr>
-                                </thead>
+                                <thead><tr><th style="width:35%">Компонент</th><th style="width:15%">Кол-во</th><th style="width:20%">Средняя цена</th><th style="width:20%">Итого</th><th style="width:10%"></th></tr></thead>
                                 <tbody id="builderRows2"></tbody>
                             </table>
                         </div>
                         <footer class="builder-footer">
                             <div class="builder-summary">
-                                <div class="builder-stat">
-                                    <span class="builder-stat-label">Позиций</span>
-                                    <span class="builder-stat-value" id="builderCountPositions2">0</span>
-                                </div>
-                                <div class="builder-stat">
-                                    <span class="builder-stat-label">Найдено цен</span>
-                                    <span class="builder-stat-value" id="builderCountPrices2">0 / 0</span>
-                                </div>
-                                <div class="builder-stat builder-stat-total">
-                                    <span class="builder-stat-label">💰 Средняя стоимость корабля</span>
-                                    <span class="builder-stat-value" id="builderTotal2">0 🪙</span>
-                                </div>
+                                <div class="builder-stat"><span class="builder-stat-label">Позиций</span><span class="builder-stat-value" id="builderCountPositions2">0</span></div>
+                                <div class="builder-stat"><span class="builder-stat-label">Найдено цен</span><span class="builder-stat-value" id="builderCountPrices2">0 / 0</span></div>
+                                <div class="builder-stat builder-stat-total"><span class="builder-stat-label">💰 Средняя стоимость корабля</span><span class="builder-stat-value" id="builderTotal2">0 🪙</span></div>
                             </div>
                             <div class="builder-actions-bottom">
                                 <button id="builderRecalc2" class="builder-btn primary">🔄 Пересчитать</button>
@@ -548,14 +571,13 @@
                     <div id="adminsList" class="members-list"></div>
                     <section class="add-form clan-admin-only" hidden style="flex-direction:column; align-items:stretch; gap:10px;">
                         <p class="hint" style="margin:0;">👑 Список адмиралов — по одному нику в строке.</p>
-                        <textarea id="clanAdminNicksInput" rows="4" placeholder="Тайпан56&#10;SamuRay" style="width:100%;"></textarea>
+                        <textarea id="clanAdminNicksInput" rows="4" style="width:100%;"></textarea>
                         <button type="button" id="clanAdminNicksSave" class="big-btn primary" style="align-self:flex-start;">💾 Сохранить адмиралов</button>
                         <span id="clanAdminNicksStatus" style="font-size:13px;font-weight:600;"></span>
                     </section>
                     <h2 style="margin-top:28px;">👥 Список участников гильдии</h2>
                     <p class="hint">Формат: <b>номер - ник</b> или просто ник, каждый с новой строки.</p>
                     <section class="add-form clan-admin-only" hidden style="flex-direction:column; align-items:stretch; gap:10px;">
-                        <p class="hint" style="margin:0;">📂 Загрузи текстовый файл (или CSV) со списком участников.</p>
                         <input type="file" id="membersFileInput" accept=".txt,.csv,text/plain" hidden>
                         <button type="button" id="membersUploadBtn" class="big-btn secondary" style="align-self:flex-start;">📂 Загрузить участников из файла</button>
                         <span id="membersUploadStatus" style="color:var(--green);font-size:13px;font-weight:600;"></span>
@@ -575,15 +597,13 @@
                     <div class="modal-actions" style="margin-bottom:12px;">
                         <button id="clanOnlineRefresh" class="secondary">🔄 Обновить</button>
                     </div>
-                    <div id="clanOnlineList" class="online-list">
-                        <div class="empty">Нажмите «Обновить»</div>
-                    </div>
+                    <div id="clanOnlineList" class="online-list"><div class="empty">Нажмите «Обновить»</div></div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- ПАНЕЛЬ ГЛАВЫ ГИЛЬДИИ -->
+    <!-- ПАНЕЛЬ ГЛАВЫ -->
     <div id="screen-leader" class="screen" hidden>
         <div class="top-right">
             <button id="themeToggle4" class="icon-btn" title="Сменить тему">🌓</button>
@@ -591,17 +611,14 @@
             <button id="leaderOpenVoiceTop" class="icon-btn" title="Голосовой">🎙</button>
         </div>
         <button id="leaderBackBtn" class="back-btn">← На главную</button>
-
         <div class="home-wrap" style="padding-top:120px;">
             <h1 class="section-title">🎖 Панель главы гильдии</h1>
             <p class="hint" style="text-align:center;font-size:14px;">Гильдия: <b id="leaderClanName">—</b></p>
-
             <section class="apply-section">
                 <h2 class="section-title">📅 Общие события владельца</h2>
                 <p class="hint" style="text-align:center;">Нажми «Принять участие», чтобы присоединить событие к своей гильдии.</p>
                 <div id="leaderEventsList" class="events-list" style="width:100%;max-width:900px;"></div>
             </section>
-
             <section class="apply-section">
                 <h2 class="section-title">🤝 Союзы</h2>
                 <div class="modal-actions" style="justify-content:center;margin-bottom:16px;">
@@ -612,7 +629,6 @@
                 <h3 style="color:var(--blue);margin:20px 0 8px;">📤 Исходящие заявки</h3>
                 <div id="leaderAllianceOutgoing" class="applications-list" style="width:100%;max-width:900px;"></div>
             </section>
-
             <section class="apply-section" style="margin-bottom:60px;">
                 <h2 class="section-title">💬 Связь глав</h2>
                 <div class="modal-actions" style="justify-content:center;">
@@ -628,10 +644,7 @@
             <h2>🤝 Предложить союз</h2>
             <p class="hint" style="margin:0;">Выбери гильдию, которой хочешь предложить союз.</p>
             <div class="admin-field"><label>Гильдия</label><select id="leaderAlliancePickerSelect"></select></div>
-            <div class="admin-field">
-                <label>Сообщение (необязательно)</label>
-                <textarea id="leaderAlliancePickerMsg" rows="3" maxlength="300" placeholder="Расскажите о своей гильдии..."></textarea>
-            </div>
+            <div class="admin-field"><label>Сообщение (необязательно)</label><textarea id="leaderAlliancePickerMsg" rows="3" maxlength="300"></textarea></div>
             <p id="leaderAlliancePickerError" class="error"></p>
             <div class="modal-actions">
                 <button id="leaderAlliancePickerSend">📨 Отправить</button>
@@ -640,7 +653,7 @@
         </div>
     </div>
 
-    <!-- АДМИН-ПАНЕЛЬ -->
+    <!-- АДМИН -->
     <div id="screen-admin" class="screen admin-screen" hidden>
         <aside class="admin-sidebar">
             <div class="admin-sidebar-brand"><span class="admin-sidebar-logo">⚙️</span><span class="admin-sidebar-title">Админ-панель</span></div>
@@ -650,11 +663,13 @@
                 <button class="admin-nav-item" data-apanel="games"><span class="admin-nav-ico">🎮</span><span>Игры</span></button>
                 <button class="admin-nav-item" data-apanel="ships"><span class="admin-nav-ico">🚢</span><span>Корабли</span></button>
                 <button class="admin-nav-item" data-apanel="resources"><span class="admin-nav-ico">💲</span><span>Ценообразование</span></button>
+                <button class="admin-nav-item" data-apanel="shipcost"><span class="admin-nav-ico">🔨</span><span>Постройка</span></button>
+                <button class="admin-nav-item" data-apanel="map"><span class="admin-nav-ico">🗺</span><span>Карта</span></button>
                 <button class="admin-nav-item" data-apanel="partners"><span class="admin-nav-ico">🤝</span><span>Партнёры</span></button>
                 <button class="admin-nav-item" data-apanel="faq"><span class="admin-nav-ico">❓</span><span>FAQ</span></button>
                 <button class="admin-nav-item" data-apanel="tactics"><span class="admin-nav-ico">📖</span><span>Тактика</span></button>
                 <button class="admin-nav-item" data-apanel="online"><span class="admin-nav-ico">👥</span><span>Онлайн</span></button>
-                <button class="admin-nav-item" data-apanel="admins"><span class="admin-nav-ico">👑</span><span>Админы сайта</span></button>
+                <button class="admin-nav-item" data-apanel="admins"><span class="admin-nav-ico">👑</span><span>Админы</span></button>
                 <button class="admin-nav-item owner-only" data-apanel="clanRequests" hidden><span class="admin-nav-ico">📨</span><span>Заявки гильдий</span></button>
                 <button class="admin-nav-item" data-apanel="settings"><span class="admin-nav-ico">⚙️</span><span>Настройки</span></button>
             </nav>
@@ -668,57 +683,24 @@
                     <div class="admin-field"><label>Гильдия</label><select id="adminClanSelect"></select></div>
                     <div class="admin-field"><label>Игра</label><select id="adminClanGame"></select></div>
                     <div class="admin-field"><label>Союз</label><select id="adminClanAlliance"></select></div>
-                    <div class="admin-field">
-                        <label>Текущий пароль</label>
-                        <div class="password-field">
-                            <input type="password" id="adminCurrentPass" readonly>
-                            <button type="button" class="pwd-toggle" data-target="adminCurrentPass">👁</button>
-                        </div>
-                    </div>
-                    <div class="admin-field">
-                        <label>Новый пароль гильдии</label>
-                        <div class="password-field">
-                            <input type="password" id="adminNewPass" placeholder="Оставь пустым, чтобы не менять">
-                            <button type="button" class="pwd-toggle" data-target="adminNewPass">👁</button>
-                        </div>
-                    </div>
-                    <div class="admin-field">
-                        <label>Текущий админ-пароль</label>
-                        <div class="password-field">
-                            <input type="password" id="adminCurrentAdminPass" readonly>
-                            <button type="button" class="pwd-toggle" data-target="adminCurrentAdminPass">👁</button>
-                        </div>
-                    </div>
-                    <div class="admin-field">
-                        <label>Новый админ-пароль</label>
-                        <div class="password-field">
-                            <input type="password" id="adminNewAdminPass" placeholder="Оставь пустым, чтобы не менять">
-                            <button type="button" class="pwd-toggle" data-target="adminNewAdminPass">👁</button>
-                        </div>
-                    </div>
-                    <div class="admin-field"><label>👑 Ник главы гильдии</label><input type="text" id="adminLeaderNick" placeholder="Например: Тайпан56" maxlength="40"></div>
-                    <div class="admin-field"><label>Discord-ссылка</label><input type="text" id="adminDiscord" placeholder="https://discord.gg/xxxxx" maxlength="200"></div>
-                    <div class="admin-field"><label>Телефон (необязательно)</label><input type="text" id="adminPhone" placeholder="+7 999 123-45-67" maxlength="30"></div>
+                    <div class="admin-field"><label>Текущий пароль</label><div class="password-field"><input type="password" id="adminCurrentPass" readonly><button type="button" class="pwd-toggle" data-target="adminCurrentPass">👁</button></div></div>
+                    <div class="admin-field"><label>Новый пароль гильдии</label><div class="password-field"><input type="password" id="adminNewPass"><button type="button" class="pwd-toggle" data-target="adminNewPass">👁</button></div></div>
+                    <div class="admin-field"><label>Текущий админ-пароль</label><div class="password-field"><input type="password" id="adminCurrentAdminPass" readonly><button type="button" class="pwd-toggle" data-target="adminCurrentAdminPass">👁</button></div></div>
+                    <div class="admin-field"><label>Новый админ-пароль</label><div class="password-field"><input type="password" id="adminNewAdminPass"><button type="button" class="pwd-toggle" data-target="adminNewAdminPass">👁</button></div></div>
+                    <div class="admin-field"><label>👑 Ник главы гильдии</label><input type="text" id="adminLeaderNick" maxlength="40"></div>
+                    <div class="admin-field"><label>Discord-ссылка</label><input type="text" id="adminDiscord" maxlength="200"></div>
+                    <div class="admin-field"><label>Телефон (необязательно)</label><input type="text" id="adminPhone" maxlength="30"></div>
                     <div class="admin-field"><label>Новости</label><textarea id="adminNews" rows="5"></textarea></div>
-
                     <div class="admin-field">
                         <label>Логотип гильдии</label>
                         <div class="logo-upload">
                             <input type="file" id="adminClanImageFile" accept="image/*,video/mp4,video/webm" hidden>
                             <button type="button" id="adminClanImagePick" class="logo-pick-btn">📷 Загрузить файл</button>
-                            <div id="adminClanImagePreview" class="logo-preview" hidden>
-                                <img id="adminClanImagePreviewImg" src="" alt="">
-                                <button type="button" id="adminClanImageClear" class="logo-clear">✕</button>
-                            </div>
+                            <div id="adminClanImagePreview" class="logo-preview" hidden><img id="adminClanImagePreviewImg" src="" alt=""><button type="button" id="adminClanImageClear" class="logo-clear">✕</button></div>
                             <span id="adminClanImageName" class="logo-name"></span>
                         </div>
-                        <input type="text" id="adminClanImage" placeholder="Или ссылка: https://... или путь images/clan.png" maxlength="500">
-                        <p class="hint" style="margin:6px 0 0;font-size:11px;line-height:1.5;">
-                            💡 <b>Приоритет:</b> загруженный файл → ссылка → путь → флаг.<br>
-                            🎞 Поддерживаются GIF, MP4, WebM — анимированные лого работают автоматически.
-                        </p>
+                        <input type="text" id="adminClanImage" placeholder="Или ссылка/путь" maxlength="500">
                     </div>
-
                     <div class="admin-field">
                         <label>Флаг (если нет лого)</label>
                         <select id="adminClanFlag">
@@ -731,8 +713,8 @@
                         <div id="adminClanFlagPreview" class="flag-preview"></div>
                     </div>
                     <div class="admin-field"><label>Правила</label><textarea id="adminRules" rows="8"></textarea></div>
-                    <div class="admin-field"><label>👑 Список адмиралов (по одному нику в строке)</label><textarea id="adminNicks" rows="6" placeholder="Тайпан56&#10;SamuRay"></textarea></div>
-                    <div class="admin-field"><label>👥 Список участников (номер - ник)</label><textarea id="adminMembers" rows="10" placeholder="1 - Тайпан56&#10;2 - SamuRay"></textarea></div>
+                    <div class="admin-field"><label>👑 Список адмиралов</label><textarea id="adminNicks" rows="6"></textarea></div>
+                    <div class="admin-field"><label>👥 Список участников</label><textarea id="adminMembers" rows="10"></textarea></div>
                     <p id="adminPanelMsg" class="error"></p>
                     <div class="modal-actions">
                         <button id="saveAdminSettings">💾 Сохранить</button>
@@ -746,8 +728,8 @@
                 <h2 class="admin-section-title">🤝 Союзы</h2>
                 <div class="admin-card">
                     <h3 style="font-size:15px;color:#ffd479;">➕ Новый союз</h3>
-                    <div class="admin-field"><label>ID (латиница)</label><input type="text" id="allyId" placeholder="union1" maxlength="30"></div>
-                    <div class="admin-field"><label>Название</label><input type="text" id="allyName" placeholder="Северный союз" maxlength="80"></div>
+                    <div class="admin-field"><label>ID (латиница)</label><input type="text" id="allyId" maxlength="30"></div>
+                    <div class="admin-field"><label>Название</label><input type="text" id="allyName" maxlength="80"></div>
                     <div class="admin-field"><label>Описание</label><textarea id="allyDesc" rows="2"></textarea></div>
                     <p id="allyMsg" class="error"></p>
                     <div class="modal-actions"><button id="allyAddBtn">➕ Создать</button></div>
@@ -758,8 +740,8 @@
             <section class="admin-section" data-apanel="games">
                 <h2 class="admin-section-title">🎮 Управление играми</h2>
                 <div class="add-form" style="border-style:solid">
-                    <input type="text" id="gameId" placeholder="ID (латиница)" maxlength="30">
-                    <input type="text" id="gameName" placeholder="Название игры *" maxlength="80">
+                    <input type="text" id="gameId" placeholder="ID" maxlength="30">
+                    <input type="text" id="gameName" placeholder="Название *" maxlength="80">
                     <input type="text" id="gameImage" placeholder="Логотип" maxlength="200">
                     <input type="text" id="gameBg" placeholder="Фон" maxlength="200">
                     <button id="gameAddBtn">➕ Добавить</button>
@@ -770,10 +752,7 @@
 
             <section class="admin-section" data-apanel="ships">
                 <h2 class="admin-section-title">🚢 Справочник кораблей</h2>
-                <p class="hint">Управление базой кораблей. Обновляется автоматически скриптом parse-ships.js.</p>
-                <div class="modal-actions" style="margin-bottom:14px;">
-                    <button id="reloadShipsBtn" class="secondary">🔄 Обновить список</button>
-                </div>
+                <div class="modal-actions" style="margin-bottom:14px;"><button id="reloadShipsBtn" class="secondary">🔄 Обновить список</button></div>
                 <div id="adminShipsList" class="partners-admin-list"></div>
             </section>
 
@@ -781,27 +760,16 @@
                 <h2 class="admin-section-title">💲 Настройки ценообразования</h2>
                 <div class="pricing-panel" id="pricingPanel">
                     <header class="pricing-topbar">
-                        <div class="pricing-title">
-                            <span class="pricing-title-ico">$</span>
-                            <span class="pricing-title-text">Настройки ценообразования</span>
-                        </div>
+                        <div class="pricing-title"><span class="pricing-title-ico">$</span><span class="pricing-title-text">Настройки ценообразования</span></div>
                         <button class="pricing-collapse" id="pricingCollapse" title="Свернуть">⌃</button>
                     </header>
                     <div class="pricing-body">
                         <div class="pricing-auto">
-                            <label class="switch">
-                                <input type="checkbox" id="pricingAuto">
-                                <span class="switch-slider"></span>
-                            </label>
-                            <div class="pricing-auto-info">
-                                <div class="pricing-auto-title">Авто-цены</div>
-                                <div class="pricing-auto-hint">Получить среднюю цену (не точную)</div>
-                            </div>
+                            <label class="switch"><input type="checkbox" id="pricingAuto"><span class="switch-slider"></span></label>
+                            <div class="pricing-auto-info"><div class="pricing-auto-title">Авто-цены</div><div class="pricing-auto-hint">Получить среднюю цену (не точную)</div></div>
                             <span id="pricingAutoMsg" class="pricing-auto-msg"></span>
                         </div>
-                        <div class="pricing-grid" id="pricingGrid">
-                            <div class="pricing-empty">Загрузка…</div>
-                        </div>
+                        <div class="pricing-grid" id="pricingGrid"><div class="pricing-empty">Загрузка…</div></div>
                         <div class="pricing-footer">
                             <button id="pricingAddBtn" class="pricing-add-btn">➕ Добавить ресурс</button>
                             <button id="pricingPresetBtn" class="pricing-add-btn" style="background:linear-gradient(180deg,#7c3aed,#5b21b6);">📥 Импорт базового набора</button>
@@ -811,21 +779,94 @@
                 </div>
             </section>
 
+            <section class="admin-section" data-apanel="shipcost">
+                <h2 class="admin-section-title">🔨 Постройка кораблей</h2>
+                <div class="admin-card">
+                    <h3 style="font-size:15px;color:#ffd479;margin-bottom:6px;">🚢 Рецепт корабля</h3>
+                    <div class="admin-field"><label>Корабль</label><select id="recipe-ship"></select></div>
+                    <div id="recipe-rows" class="recipe-rows"></div>
+                    <div class="modal-actions" style="margin-top:6px;">
+                        <button id="recipe-add-row" class="secondary">➕ Добавить ресурс</button>
+                        <button id="recipe-save">💾 Сохранить рецепт</button>
+                        <button id="recipe-clear" class="danger">🗑 Очистить рецепт</button>
+                    </div>
+                    <p id="recipe-msg" class="error"></p>
+                </div>
+                <div class="admin-card">
+                    <h3 style="font-size:15px;color:#ffd479;margin-bottom:6px;">💸 Скидки</h3>
+                    <div class="admin-field"><label>Название</label><input type="text" id="disc-name" maxlength="80"></div>
+                    <div class="admin-field"><label>Тип</label>
+                        <select id="disc-type">
+                            <option value="seasonal">🗓 Сезонная</option>
+                            <option value="city">⚓ Городская</option>
+                            <option value="faction">🏴 Фракционная</option>
+                        </select>
+                    </div>
+                    <div class="admin-field"><label>Процент (0–100)</label><input type="number" id="disc-value" min="0" max="100" step="0.5" value="5"></div>
+                    <div class="admin-field"><label>Город (для городских)</label><input type="text" id="disc-city" maxlength="60"></div>
+                    <div class="admin-field"><label>Фракция (для фракционных)</label><input type="text" id="disc-faction" maxlength="40"></div>
+                    <div class="admin-field"><label>Дата с</label><input type="date" id="disc-from"></div>
+                    <div class="admin-field"><label>Дата по</label><input type="date" id="disc-to"></div>
+                    <div class="admin-field"><label>Примечание</label><input type="text" id="disc-note" maxlength="200"></div>
+                    <div class="admin-field"><label class="disc-check"><input type="checkbox" id="disc-active" checked> Активна</label></div>
+                    <p id="disc-msg" class="error"></p>
+                    <div class="modal-actions"><button id="disc-add">➕ Добавить скидку</button></div>
+                </div>
+                <div id="discounts-list" class="partners-admin-list"></div>
+            </section>
+
+            <section class="admin-section" data-apanel="map">
+                <h2 class="admin-section-title">🗺 Настройка карты</h2>
+                <div class="admin-card">
+                    <h3 style="font-size:15px;color:#ffd479;margin-bottom:6px;">🖼 Картинки карты</h3>
+                    <div class="admin-field"><label>Заголовок карты</label><input type="text" id="map-title-input" maxlength="120"></div>
+                    <div class="admin-field">
+                        <label>📍 Детальная карта (с маркерами)</label>
+                        <div class="logo-upload">
+                            <input type="file" id="map-detailed-file" accept="image/*" hidden>
+                            <button type="button" id="map-detailed-pick" class="logo-pick-btn">📷 Загрузить файл</button>
+                            <div id="map-detailed-preview" class="logo-preview" hidden><img id="map-detailed-preview-img" src="" alt=""><button type="button" id="map-detailed-clear" class="logo-clear">✕</button></div>
+                            <span id="map-detailed-name" class="logo-name"></span>
+                        </div>
+                        <input type="text" id="map-detailed-url" placeholder="Или путь: images/map/detailed.jpg" maxlength="500" style="margin-top:6px;">
+                    </div>
+                    <div class="admin-field">
+                        <label>🧭 Чистая карта (без маркеров)</label>
+                        <div class="logo-upload">
+                            <input type="file" id="map-clean-file" accept="image/*" hidden>
+                            <button type="button" id="map-clean-pick" class="logo-pick-btn">📷 Загрузить файл</button>
+                            <div id="map-clean-preview" class="logo-preview" hidden><img id="map-clean-preview-img" src="" alt=""><button type="button" id="map-clean-clear" class="logo-clear">✕</button></div>
+                            <span id="map-clean-name" class="logo-name"></span>
+                        </div>
+                        <input type="text" id="map-clean-url" placeholder="Или путь: images/map/clean.jpg" maxlength="500" style="margin-top:6px;">
+                    </div>
+                    <div class="admin-field"><label>По умолчанию показывать</label>
+                        <select id="map-default-view">
+                            <option value="detailed">📍 С маркерами</option>
+                            <option value="clean">🧭 Чистую</option>
+                        </select>
+                    </div>
+                    <div class="admin-field"><label>Примечание под картой</label><input type="text" id="map-note-input" maxlength="300"></div>
+                    <p id="map-admin-msg" class="error"></p>
+                    <div class="modal-actions">
+                        <button id="map-save">💾 Сохранить карту</button>
+                        <button id="map-reset-urls" class="secondary">↺ Пути по умолчанию</button>
+                    </div>
+                </div>
+            </section>
+
             <section class="admin-section" data-apanel="partners">
                 <h2 class="admin-section-title">🤝 Партнёры</h2>
                 <div class="admin-card">
                     <div class="admin-field"><label>Название *</label><input type="text" id="partnerName" maxlength="80"></div>
-                    <div class="admin-field"><label>Ссылка *</label><input type="text" id="partnerUrl" placeholder="https://..." maxlength="300"></div>
+                    <div class="admin-field"><label>Ссылка *</label><input type="text" id="partnerUrl" maxlength="300"></div>
                     <div class="admin-field"><label>Описание</label><textarea id="partnerDesc" rows="2" maxlength="300"></textarea></div>
                     <div class="admin-field">
                         <label>Логотип</label>
                         <div class="logo-upload">
                             <input type="file" id="partnerLogoFile" accept="image/*" hidden>
                             <button type="button" id="partnerLogoPick" class="logo-pick-btn">📷 Свой логотип</button>
-                            <div id="partnerLogoPreview" class="logo-preview" hidden>
-                                <img id="partnerLogoImg" src="" alt="">
-                                <button type="button" id="partnerLogoClear" class="logo-clear">✕</button>
-                            </div>
+                            <div id="partnerLogoPreview" class="logo-preview" hidden><img id="partnerLogoImg" src="" alt=""><button type="button" id="partnerLogoClear" class="logo-clear">✕</button></div>
                             <span id="partnerLogoName" class="logo-name"></span>
                         </div>
                     </div>
@@ -848,11 +889,11 @@
             <section class="admin-section" data-apanel="tactics">
                 <h2 class="admin-section-title">📖 Тактика боя</h2>
                 <div class="admin-card">
-                    <div class="admin-field"><label>ID (латиница)</label><input type="text" id="tacId" placeholder="nagib" maxlength="30"></div>
-                    <div class="admin-field"><label>Заголовок *</label><input type="text" id="tacTitle" placeholder="Накачка орудий" maxlength="120"></div>
-                    <div class="admin-field"><label>Иконка (эмодзи)</label><input type="text" id="tacIcon" placeholder="💪" maxlength="4"></div>
+                    <div class="admin-field"><label>ID (латиница)</label><input type="text" id="tacId" maxlength="30"></div>
+                    <div class="admin-field"><label>Заголовок *</label><input type="text" id="tacTitle" maxlength="120"></div>
+                    <div class="admin-field"><label>Иконка</label><input type="text" id="tacIcon" maxlength="4"></div>
                     <div class="admin-field"><label>Порядок</label><input type="number" id="tacOrder" min="0" step="1" value="10"></div>
-                    <div class="admin-field"><label>Содержимое * (HTML)</label><textarea id="tacContent" rows="8"></textarea></div>
+                    <div class="admin-field"><label>Содержимое (HTML)</label><textarea id="tacContent" rows="8"></textarea></div>
                     <p id="tacStatus" class="error"></p>
                     <div class="modal-actions"><button id="tacAddBtn">➕ Добавить раздел</button></div>
                 </div>
@@ -868,14 +909,12 @@
             <section class="admin-section" data-apanel="admins">
                 <h2 class="admin-section-title">👑 Админы сайта</h2>
                 <p class="hint"><b>👑 Владелец</b> — полный доступ. <b>⚙️ Админ</b> / <b>🎖 Глава Клана</b> с привязкой редактируют только свою гильдию.</p>
-
                 <div class="admin-card owner-only" hidden>
                     <h3 style="font-size:15px;color:#ffd479;margin-bottom:6px;">➕ Добавить админа</h3>
-                    <div class="admin-field"><label>Никнейм *</label><input type="text" id="newSiteAdminNickname" placeholder="MistTime" maxlength="40"></div>
-                    <div class="admin-field"><label>Email *</label><input type="email" id="newSiteAdminEmail" placeholder="user@example.com" maxlength="200"></div>
-                    <div class="admin-field"><label>Пароль * (от 6 символов)</label><input type="text" id="newSiteAdminPassword" placeholder="Временный пароль" maxlength="80"></div>
-                    <div class="admin-field">
-                        <label>Роль *</label>
+                    <div class="admin-field"><label>Никнейм *</label><input type="text" id="newSiteAdminNickname" maxlength="40"></div>
+                    <div class="admin-field"><label>Email *</label><input type="email" id="newSiteAdminEmail" maxlength="200"></div>
+                    <div class="admin-field"><label>Пароль *</label><input type="text" id="newSiteAdminPassword" maxlength="80"></div>
+                    <div class="admin-field"><label>Роль *</label>
                         <select id="newSiteAdminRole">
                             <option value="admin">⚙️ Админ</option>
                             <option value="mod">🎖 Глава Клана</option>
@@ -885,14 +924,12 @@
                     <p id="siteAdminsMsg" class="error"></p>
                     <div class="modal-actions"><button id="addSiteAdminBtn">➕ Создать админа</button></div>
                 </div>
-
                 <div class="admin-card">
                     <h3 style="font-size:15px;color:#ffd479;margin-bottom:6px;">🔑 Сменить свой пароль</h3>
-                    <div class="admin-field"><label>Новый пароль</label><input type="text" id="myNewPassword" placeholder="От 6 символов" maxlength="80"></div>
+                    <div class="admin-field"><label>Новый пароль</label><input type="text" id="myNewPassword" maxlength="80"></div>
                     <p id="myPassMsg" class="error"></p>
                     <div class="modal-actions"><button id="changeMyPassBtn">💾 Сменить пароль</button></div>
                 </div>
-
                 <div id="siteAdminsList" class="partners-admin-list"></div>
             </section>
 
@@ -906,17 +943,11 @@
                 <h2 class="admin-section-title">⚙️ Настройки сайта</h2>
                 <div class="admin-card">
                     <h3 style="font-size:15px;color:#ffd479;margin-bottom:6px;">📰 Новости ВКонтакте</h3>
-                    <div class="admin-field">
-                        <label>🔗 Ссылка на сообщество</label>
-                        <input type="text" id="adminNewsRss" placeholder="https://vk.ru/@worldofseabattle" maxlength="400" value="https://vk.ru/@worldofseabattle">
-                    </div>
+                    <div class="admin-field"><label>🔗 Ссылка на сообщество</label><input type="text" id="adminNewsRss" maxlength="400" value="https://vk.ru/@worldofseabattle"></div>
                 </div>
                 <div class="admin-card">
                     <h3 style="font-size:15px;color:#ffd479;margin-bottom:6px;">📨 Discord-оповещения</h3>
-                    <div class="admin-field">
-                        <label>🌐 Общий вебхук</label>
-                        <input type="text" id="adminWebhook" placeholder="https://discord.com/api/webhooks/..." maxlength="400">
-                    </div>
+                    <div class="admin-field"><label>🌐 Общий вебхук</label><input type="text" id="adminWebhook" maxlength="400"></div>
                 </div>
                 <p id="adminSiteMsg" class="error"></p>
                 <div class="modal-actions"><button id="saveSiteSettings">💾 Сохранить</button></div>
@@ -945,7 +976,7 @@
             <h2>🤝 Принять заявку</h2>
             <p id="acceptTradeName" class="auth-clan-name"></p>
             <p id="acceptTradeInfo" class="accept-trade-info"></p>
-            <input type="text" id="acceptTradeNickname" placeholder="Ваш игровой ник" maxlength="32" autocomplete="nickname">
+            <input type="text" id="acceptTradeNickname" placeholder="Ваш игровой ник" maxlength="32">
             <p id="acceptTradeError" class="error"></p>
             <div class="modal-actions">
                 <button id="doAcceptTrade">Принять</button>
@@ -960,8 +991,8 @@
             <p id="tradeEditName" class="auth-clan-name"></p>
             <div class="tm-fg"><label>Название *</label><input type="text" id="tradeEditItemName" maxlength="60"></div>
             <div class="tm-frow">
-                <div class="tm-fg"><label>Цена за ед. *</label><input type="number" id="tradeEditPrice" min="1" step="1"></div>
-                <div class="tm-fg"><label>Количество *</label><input type="number" id="tradeEditQty" min="1" step="1"></div>
+                <div class="tm-fg"><label>Цена *</label><input type="number" id="tradeEditPrice" min="1" step="1"></div>
+                <div class="tm-fg"><label>Кол-во *</label><input type="number" id="tradeEditQty" min="1" step="1"></div>
             </div>
             <div class="tm-fg"><label>Порт</label><input type="text" id="tradeEditPort" maxlength="60"></div>
             <div class="tm-fg"><label>Примечание</label><textarea id="tradeEditNote" maxlength="140" rows="2"></textarea></div>
@@ -978,9 +1009,8 @@
             <h2>🔐 Вход администратора</h2>
             <input type="email" id="adminEmail" placeholder="Email" autocomplete="username">
             <input type="password" id="adminPassword" placeholder="Пароль" autocomplete="current-password">
-            <input type="text" id="adminNickname" placeholder="Ваш игровой ник" maxlength="32" autocomplete="nickname">
+            <input type="text" id="adminNickname" placeholder="Ваш игровой ник" maxlength="32">
             <p id="adminAuthError" class="error"></p>
-            <p class="hint" style="margin:0;font-size:12px;">💡 Ник будет отображаться в чате, торговле и заявках.</p>
             <div class="modal-actions">
                 <button id="doAdminLogin">Войти</button>
                 <button id="cancelAdminLogin" class="secondary">Отмена</button>
@@ -1015,37 +1045,47 @@
         </div>
     </div>
 
+    <div id="mapFullscreen" class="map-fs" hidden>
+        <div class="map-fs-toolbar">
+            <div class="map-fs-title" id="map-fs-title">Карта</div>
+            <div class="map-fs-actions">
+                <button id="map-fs-zoom-in" title="Приблизить">➕</button>
+                <button id="map-fs-zoom-out" title="Отдалить">➖</button>
+                <button id="map-fs-reset" title="Сбросить">⌂</button>
+                <button id="map-fs-close" title="Закрыть">✕</button>
+            </div>
+        </div>
+        <div class="map-fs-stage" id="map-fs-stage">
+            <img id="map-fs-img" src="" alt="Карта" draggable="false">
+        </div>
+    </div>
+
     <div id="addClanModal" class="modal" hidden>
         <div class="modal-content admin-panel-wide">
             <h2>➕ Новая гильдия</h2>
             <div class="admin-field"><label>Игра</label><select id="newClanGame"></select></div>
-            <div class="admin-field"><label>Союз (необязательно)</label><select id="newClanAlliance"></select></div>
-            <div class="admin-field"><label>ID (латиница)</label><input type="text" id="newClanId" placeholder="clan3" maxlength="20"></div>
+            <div class="admin-field"><label>Союз</label><select id="newClanAlliance"></select></div>
+            <div class="admin-field"><label>ID (латиница)</label><input type="text" id="newClanId" maxlength="20"></div>
             <div class="admin-field"><label>Название</label><input type="text" id="newClanName" maxlength="60"></div>
-            <div class="admin-field"><label>👑 Ник главы гильдии</label><input type="text" id="newClanLeaderNick" placeholder="Тайпан56" maxlength="40"></div>
+            <div class="admin-field"><label>👑 Ник главы</label><input type="text" id="newClanLeaderNick" maxlength="40"></div>
             <div class="admin-field"><label>Описание</label><textarea id="newClanDesc" rows="3"></textarea></div>
             <div class="admin-field"><label>Правила</label><textarea id="newClanRules" rows="5"></textarea></div>
-            <div class="admin-field"><label>Пароль гильдии</label><input type="text" id="newClanPass"></div>
+            <div class="admin-field"><label>Пароль</label><input type="text" id="newClanPass"></div>
             <div class="admin-field"><label>Админ-пароль</label><input type="text" id="newClanAdminPass"></div>
-            <div class="admin-field"><label>Discord</label><input type="text" id="newClanDiscord" placeholder="https://discord.gg/xxxxx"></div>
-            <div class="admin-field"><label>Телефон (необязательно)</label><input type="text" id="newClanPhone" placeholder="+7 999 123-45-67" maxlength="30"></div>
-
+            <div class="admin-field"><label>Discord</label><input type="text" id="newClanDiscord" maxlength="200"></div>
+            <div class="admin-field"><label>Телефон</label><input type="text" id="newClanPhone" maxlength="30"></div>
             <div class="admin-field">
-                <label>Логотип гильдии (необязательно)</label>
+                <label>Логотип</label>
                 <div class="logo-upload">
                     <input type="file" id="newClanImageFile" accept="image/*,video/mp4,video/webm" hidden>
-                    <button type="button" id="newClanImagePick" class="logo-pick-btn">📷 Загрузить файл</button>
-                    <div id="newClanImagePreview" class="logo-preview" hidden>
-                        <img id="newClanImagePreviewImg" src="" alt="">
-                        <button type="button" id="newClanImageClear" class="logo-clear">✕</button>
-                    </div>
+                    <button type="button" id="newClanImagePick" class="logo-pick-btn">📷 Загрузить</button>
+                    <div id="newClanImagePreview" class="logo-preview" hidden><img id="newClanImagePreviewImg" src="" alt=""><button type="button" id="newClanImageClear" class="logo-clear">✕</button></div>
                     <span id="newClanImageName" class="logo-name"></span>
                 </div>
-                <input type="text" id="newClanImage" placeholder="Или ссылка: https://... или путь images/clan3.png" maxlength="500">
+                <input type="text" id="newClanImage" placeholder="Или ссылка/путь" maxlength="500">
             </div>
-
             <div class="admin-field">
-                <label>Флаг (если нет лого)</label>
+                <label>Флаг</label>
                 <select id="newClanFlag">
                     <option value="neutral">Нейтральный</option>
                     <option value="pirate">Пиратский</option>
@@ -1055,7 +1095,7 @@
                 </select>
                 <div id="newClanFlagPreview" class="flag-preview"></div>
             </div>
-            <div class="admin-field"><label>Фон</label><input type="text" id="newClanBg" placeholder="images/bg-clan3.jpg"></div>
+            <div class="admin-field"><label>Фон</label><input type="text" id="newClanBg" maxlength="200"></div>
             <p id="addClanMsg" class="error"></p>
             <div class="modal-actions">
                 <button id="saveNewClan">💾 Создать</button>
@@ -1067,16 +1107,15 @@
     <div id="clanRequestModal" class="modal" hidden>
         <div class="modal-content admin-panel-wide">
             <h2>➕ Заявка на создание гильдии</h2>
-            <p class="hint" style="margin:0;">Заполни форму — владелец рассмотрит заявку и создаст гильдию.</p>
-            <div class="admin-field"><label>Название гильдии *</label><input type="text" id="crName" maxlength="60" placeholder="Например: Чёрные Паруса"></div>
-            <div class="admin-field"><label>👑 Ник главы гильдии</label><input type="text" id="crLeaderNick" placeholder="Тайпан56" maxlength="40"></div>
+            <div class="admin-field"><label>Название *</label><input type="text" id="crName" maxlength="60"></div>
+            <div class="admin-field"><label>👑 Ник главы</label><input type="text" id="crLeaderNick" maxlength="40"></div>
             <div class="admin-field"><label>Описание</label><textarea id="crDesc" rows="2" maxlength="500"></textarea></div>
             <div class="admin-field"><label>Правила</label><textarea id="crRules" rows="3" maxlength="2000"></textarea></div>
-            <div class="admin-field"><label>Ваш игровой ник *</label><input type="text" id="crRequesterNick" maxlength="32" placeholder="Капитан"></div>
-            <div class="admin-field"><label>Email для связи (не обязательно)</label><input type="email" id="crEmail" maxlength="200"></div>
-            <div class="admin-field"><label>Discord (не обязательно)</label><input type="text" id="crDiscord" maxlength="200" placeholder="https://discord.gg/..."></div>
-            <div class="admin-field"><label>Пароль для входа в гильдию *</label><input type="text" id="crPassword" maxlength="60"></div>
-            <div class="admin-field"><label>Админ-пароль гильдии</label><input type="text" id="crAdminPassword" maxlength="60"></div>
+            <div class="admin-field"><label>Ваш игровой ник *</label><input type="text" id="crRequesterNick" maxlength="32"></div>
+            <div class="admin-field"><label>Email</label><input type="email" id="crEmail" maxlength="200"></div>
+            <div class="admin-field"><label>Discord</label><input type="text" id="crDiscord" maxlength="200"></div>
+            <div class="admin-field"><label>Пароль *</label><input type="text" id="crPassword" maxlength="60"></div>
+            <div class="admin-field"><label>Админ-пароль</label><input type="text" id="crAdminPassword" maxlength="60"></div>
             <div class="admin-field"><label>Игра</label><select id="crGameId"></select></div>
             <div class="admin-field">
                 <label>Флаг</label>
@@ -1088,10 +1127,10 @@
                     <option value="russia">Российской империи</option>
                 </select>
             </div>
-            <div class="admin-field"><label>Ссылка на логотип (не обязательно)</label><input type="text" id="crImage" maxlength="500" placeholder="https://... или images/clan.png"></div>
+            <div class="admin-field"><label>Ссылка на логотип</label><input type="text" id="crImage" maxlength="500"></div>
             <p id="clanRequestMsg" class="error"></p>
             <div class="modal-actions">
-                <button id="clanRequestSubmit">📨 Отправить заявку</button>
+                <button id="clanRequestSubmit">📨 Отправить</button>
                 <button id="clanRequestCancel" class="secondary">Отмена</button>
             </div>
         </div>
@@ -1101,13 +1140,10 @@
         <div class="modal-content">
             <h2>🤝 Предложить союз</h2>
             <p id="allianceRequestTarget" class="auth-clan-name"></p>
-            <div class="admin-field">
-                <label>Сообщение (необязательно)</label>
-                <textarea id="allianceRequestMsg" rows="3" maxlength="300" placeholder="Расскажите о своей гильдии..."></textarea>
-            </div>
+            <div class="admin-field"><label>Сообщение</label><textarea id="allianceRequestMsg" rows="3" maxlength="300"></textarea></div>
             <p id="allianceRequestError" class="error"></p>
             <div class="modal-actions">
-                <button id="doAllianceRequest">📨 Отправить предложение</button>
+                <button id="doAllianceRequest">📨 Отправить</button>
                 <button id="cancelAllianceRequest" class="secondary">Отмена</button>
             </div>
         </div>
@@ -1145,7 +1181,7 @@
     <div id="editModal" class="modal" hidden>
         <div class="modal-content">
             <h2>✏️ Редактировать запись</h2>
-            <input type="text" id="editPlayerGuild" placeholder="Гильдия игрока" maxlength="40">
+            <input type="text" id="editPlayerGuild" placeholder="Гильдия" maxlength="40">
             <input type="text" id="editNickname" placeholder="Никнейм" maxlength="32">
             <input type="text" id="editFaction" placeholder="Фракция" maxlength="40">
             <input type="text" id="editNote" placeholder="Заметка" maxlength="120">
@@ -1160,15 +1196,15 @@
     <div id="buildEditModal" class="modal" hidden>
         <div class="modal-content admin-panel-wide">
             <h2 id="buildEditTitle">✏️ Редактировать билд</h2>
-            <div class="admin-field" id="buildEditRankField" hidden><label>Ранг</label><textarea id="buildEditRank" rows="1" maxlength="10"></textarea></div>
-            <div class="admin-field"><label>Название корабля</label><textarea id="buildEditShip" rows="1" maxlength="60"></textarea></div>
+            <div class="admin-field" id="buildEditRankField" hidden><label>Ранг</label><input type="text" id="buildEditRank" maxlength="10"></div>
+            <div class="admin-field"><label>Название корабля</label><input type="text" id="buildEditShip" maxlength="60"></div>
             <div class="admin-field"><label>Апгрейды</label><textarea id="buildEditUpgrades" rows="3"></textarea></div>
             <div class="admin-field"><label>Малые пушки</label><textarea id="buildEditWeapS" rows="2"></textarea></div>
             <div class="admin-field"><label>Средние пушки</label><textarea id="buildEditWeapM" rows="2"></textarea></div>
             <div class="admin-field"><label>Большие пушки</label><textarea id="buildEditWeapL" rows="2"></textarea></div>
-            <div class="admin-field"><label>Расходник 1</label><textarea id="buildEditCons1" rows="1" maxlength="40"></textarea></div>
-            <div class="admin-field"><label>Расходник 2</label><textarea id="buildEditCons2" rows="1" maxlength="40"></textarea></div>
-            <div class="admin-field"><label>Расходник 3</label><textarea id="buildEditCons3" rows="1" maxlength="40"></textarea></div>
+            <div class="admin-field"><label>Расходник 1</label><input type="text" id="buildEditCons1" maxlength="40"></div>
+            <div class="admin-field"><label>Расходник 2</label><input type="text" id="buildEditCons2" maxlength="40"></div>
+            <div class="admin-field"><label>Расходник 3</label><input type="text" id="buildEditCons3" maxlength="40"></div>
             <div class="admin-field"><label>Трюм</label><textarea id="buildEditCargo" rows="2"></textarea></div>
             <div class="admin-field"><label>Специалисты</label><textarea id="buildEditSpecs" rows="4"></textarea></div>
             <div class="admin-field"><label>Привязать к</label><select id="buildEditScope"></select></div>
@@ -1218,20 +1254,17 @@
     <div id="resourceEditModal" class="modal" hidden>
         <div class="modal-content admin-panel-wide">
             <h2 id="resourceEditTitle">✏️ Редактировать ресурс</h2>
-            <div class="admin-field"><label>ID (латиница)</label><input type="text" id="re-id" maxlength="40" placeholder="wood"></div>
-            <div class="admin-field"><label>Название</label><input type="text" id="re-name" maxlength="80" placeholder="Дерево"></div>
-            <div class="admin-field"><label>Латинское (код)</label><input type="text" id="re-latin" maxlength="40" placeholder="WOOD"></div>
-            <div class="admin-field"><label>Цена (G)</label><input type="number" id="re-price" min="0" step="1" placeholder="0"></div>
-            <div class="admin-field"><label>Эмодзи (если нет картинки)</label><input type="text" id="re-icon" maxlength="4" placeholder="📦"></div>
+            <div class="admin-field"><label>ID (латиница)</label><input type="text" id="re-id" maxlength="40"></div>
+            <div class="admin-field"><label>Название</label><input type="text" id="re-name" maxlength="80"></div>
+            <div class="admin-field"><label>Латинское (код)</label><input type="text" id="re-latin" maxlength="40"></div>
+            <div class="admin-field"><label>Цена (G)</label><input type="number" id="re-price" min="0" step="1"></div>
+            <div class="admin-field"><label>Эмодзи</label><input type="text" id="re-icon" maxlength="4"></div>
             <div class="admin-field">
                 <label>Картинка ресурса</label>
                 <div class="logo-upload">
                     <input type="file" id="re-image-file" accept="image/*" hidden>
                     <button type="button" id="re-image-pick" class="logo-pick-btn">📷 Загрузить файл</button>
-                    <div id="re-image-preview" class="logo-preview" hidden>
-                        <img id="re-image-preview-img" src="" alt="">
-                        <button type="button" id="re-image-clear" class="logo-clear">✕</button>
-                    </div>
+                    <div id="re-image-preview" class="logo-preview" hidden><img id="re-image-preview-img" src="" alt=""><button type="button" id="re-image-clear" class="logo-clear">✕</button></div>
                     <span id="re-image-name" class="logo-name"></span>
                 </div>
                 <input type="text" id="re-image-url" placeholder="Или путь: images/resources/wood.png" maxlength="500" style="margin-top:6px;">
@@ -1245,10 +1278,7 @@
     </div>
 
     <div id="notifPanel" class="notif-panel" hidden>
-        <div class="notif-header">
-            <h3>🔔 Уведомления</h3>
-            <button id="notifMarkAllRead" class="notif-action">Прочитать все</button>
-        </div>
+        <div class="notif-header"><h3>🔔 Уведомления</h3><button id="notifMarkAllRead" class="notif-action">Прочитать все</button></div>
         <div id="notifList" class="notif-list"></div>
     </div>
 
@@ -1280,13 +1310,9 @@
                 <h2>📰 Новости ВКонтакте</h2>
                 <button id="closeVkNews" class="vk-news-close" title="Закрыть">✕</button>
             </header>
-            <div id="vkNewsList" class="vk-news-modal-body">
-                <div class="vk-news-loading">Загрузка новостей…</div>
-            </div>
+            <div id="vkNewsList" class="vk-news-modal-body"><div class="vk-news-loading">Загрузка новостей…</div></div>
             <footer class="vk-news-modal-footer">
-                <a id="vkNewsSourceLink" href="https://vk.ru/@worldofseabattle" target="_blank" rel="noopener" class="vk-news-link">
-                    Открыть сообщество ВКонтакте →
-                </a>
+                <a id="vkNewsSourceLink" href="https://vk.ru/@worldofseabattle" target="_blank" rel="noopener" class="vk-news-link">Открыть сообщество ВКонтакте →</a>
                 <span>💡 Esc — закрыть</span>
             </footer>
         </div>

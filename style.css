@@ -1525,3 +1525,93 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
     margin-bottom: 0;
     padding-bottom: 10px;
 }
+/* ════════════════════════════════════════════════════════════════════════
+   v2.4.0 — Админ-навигация с выпадающими группами
+   ════════════════════════════════════════════════════════════════════════ */
+.admin-nav { display: flex; flex-direction: column; gap: 6px; flex: 1; }
+.admin-nav-group { display: flex; flex-direction: column; gap: 2px; }
+.admin-nav-group-btn {
+    display: flex; align-items: center; gap: 10px;
+    padding: 11px 14px; width: 100%;
+    background: linear-gradient(180deg, rgba(59,130,246,.08), rgba(59,130,246,.02));
+    border: 1px solid rgba(59,130,246,.25);
+    color: var(--text); border-radius: 10px;
+    cursor: pointer; font-family: inherit; font-size: 14px; font-weight: 700;
+    text-align: left; transition: all .15s;
+}
+.admin-nav-group-btn:hover {
+    background: linear-gradient(180deg, rgba(59,130,246,.18), rgba(59,130,246,.05));
+    border-color: var(--accent); transform: translateX(2px);
+}
+.admin-nav-group-label { flex: 1; }
+.admin-nav-caret {
+    color: var(--muted); font-size: 12px;
+    transition: transform .2s;
+}
+.admin-nav-group.open .admin-nav-caret { transform: rotate(180deg); }
+.admin-nav-sub {
+    display: none;
+    flex-direction: column; gap: 3px;
+    padding: 6px 0 6px 12px;
+    margin-left: 8px;
+    border-left: 2px solid var(--border);
+}
+.admin-nav-group.open .admin-nav-sub { display: flex; }
+.admin-nav-sub .admin-nav-item { padding: 9px 12px; font-size: 13px; }
+
+/* ════════════════════════════════════════════════════════════════════════
+   v2.4.0 — Пикеры в формах билдов
+   ════════════════════════════════════════════════════════════════════════ */
+.build-picker-field {
+    display: flex; flex-direction: column; gap: 6px;
+    width: 100%;
+    padding: 10px 12px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 10px;
+}
+.build-picker-label {
+    font-size: 12px; font-weight: 700;
+    color: var(--muted); text-transform: uppercase;
+    letter-spacing: .5px;
+}
+.build-picker-controls {
+    display: flex; gap: 6px; flex-wrap: wrap;
+}
+.build-picker-controls > * { flex: 1; min-width: 160px; }
+.build-catalog-select {
+    padding: 8px 12px;
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text); font-family: inherit; font-size: 13px;
+    cursor: pointer;
+}
+.build-catalog-select:focus { outline: none; border-color: var(--accent); }
+.build-catalog-add {
+    flex: 0 0 auto !important; min-width: 44px !important; width: 44px;
+    padding: 8px; background: linear-gradient(180deg, var(--accent), var(--accent-hover));
+    color: #fff; border: none; border-radius: 8px;
+    cursor: pointer; font-size: 14px; font-weight: 700;
+    box-shadow: 0 2px 0 rgba(0,0,0,.3);
+}
+.build-catalog-add:hover { transform: translateY(-1px); filter: brightness(1.1); }
+.build-catalog-add:active { transform: translateY(1px); }
+.build-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; width: 100%; }
+.build-picker-field textarea,
+.build-picker-field input[type="text"] {
+    width: 100%; padding: 8px 12px;
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text); font-family: inherit; font-size: 13px;
+    resize: vertical;
+}
+.build-picker-field textarea:focus,
+.build-picker-field input[type="text"]:focus { outline: none; border-color: var(--accent); }
+
+@media (max-width: 700px) {
+    .build-row-3 { grid-template-columns: 1fr; }
+    .build-picker-controls > * { min-width: 100%; }
+}

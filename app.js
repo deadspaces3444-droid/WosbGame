@@ -5,10 +5,10 @@
    ╚══════════════════════════════════════════════════════════════════════╝ */
 import { supabase } from './supabase.js';
 
-console.log('🚀 app.js v2.5.2');
+console.log('🚀 app.js v2.5.3');
 
 const ADMIN_EMAILS_FALLBACK = ['dead_antihrist@mail.ru'];
-const APP_VERSION = '2.5.2';
+const APP_VERSION = '2.5.3';
 const BINDING_OWNERS = ['kolibri@wosb.ru', 'dead_antihrist@mail.ru'];
 
 const CLAN_FLAGS = {
@@ -345,7 +345,11 @@ function canEditClan(clanId) {
     if (isOwner) return true;
     if (isAdmin) {
         if (myAdminClanId) return clanId === myAdminClanId;
-        if (isMod) return false;
+        if (isMod) {
+            const clan = clansCache[clanId];
+            const myNick = getViewerNick().toLowerCase();
+            return clan?.leader_nick?.trim().toLowerCase() === myNick;
+        }
         return true;
     }
     if (clanId === currentClan && currentClanIsAdmin) return true;
@@ -366,7 +370,11 @@ function canAccessClan(clanId) {
         return target.alliance_id === my.alliance_id;
     }
     if (isAdmin && !myAdminClanId && !isMod) return true;
-    if (isMod && !myAdminClanId) return false;
+    if (isMod && !myAdminClanId) {
+            const clan = clansCache[clanId];
+            const myNick = getViewerNick().toLowerCase();
+            return clan?.leader_nick?.trim().toLowerCase() === myNick;
+        }
     const myClan = getMyClanId();
     if (!myClan) return false;
     if (clanId === myClan) return true;
@@ -1761,7 +1769,7 @@ function applyAdminUI() {
         el.style.display = canEditClan(currentClan) ? 'flex' : 'none';
     });
     document.querySelectorAll('.owner-only').forEach(el => { el.hidden = !isOwner; });
-    const clearBtn = $('chatClear'); if (clearBtn) clearBtn.hidden = !isAdmin;
+    const clearBtn = $('chatClear'); if (clearBtn) clearBtn.hidden = !isAdmin && !canEditClan(currentClan);
     /* v2.5.2: убран renderAll() отсюда — вызывается явно в openClan */
     updateLeaderButtonsVisibility();
 }
@@ -1813,7 +1821,11 @@ function renderHomeCards() {
         let accessible = true;
         if (isOwner) accessible = true;
         else if (isAdmin && myAdminClanId) accessible = canAccessClan(clan.id);
-        else if (isMod && !myAdminClanId) accessible = false;
+        else if (isMod && !myAdminClanId) {
+            const clan = clansCache[clan.id];
+            const myNick = getViewerNick().toLowerCase();
+            accessible = clan?.leader_nick?.trim().toLowerCase() === myNick;
+        }
         else if (isAdmin) accessible = true;
         else accessible = !myClan || canAccessClan(clan.id);
         if (!accessible) btn.classList.add('locked');
@@ -2410,23 +2422,6 @@ async function deleteBuild(id, type) {
     await logAdminAction(`Удалил билд ${type.toUpperCase()}`, null, `id: ${id}`);
     renderBuilds(type);
 }
-async function handleBuildHash() {
-    const m = location.hash.match(/^#build=([a-f0-9-]+)$/i); if (!m) return;
-    const { data, error } = await supabase.from('builds').select('*').eq('id', m[1]).single();
-    if (error || !data) return;
-    const section = data.type === 'pvp' ? 'pvp' : 'pb';
-    document.querySelector(`.side-item[data-section="${section}"]`)?.click();
-    setTimeout(() => {
-        document.querySelectorAll('.build-card').forEach(c => {
-            if (c.querySelector('.build-ship')?.textContent === data.ship_name) {
-                c.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                c.style.boxShadow = '0 0 0 3px #b48aff';
-                setTimeout(() => c.style.boxShadow = '', 2500);
-            }
-        });
-    }, 600);
-}
-window.addEventListener('hashchange', () => { if (location.hash.startsWith('#build=')) handleBuildHash(); });
 
 /* ╔══════════════════════════════════════════════════════════════════════╗
    ║                                                                      ║
@@ -2533,13 +2528,7 @@ on('evAddBtn', 'click', async () => {
 
 /* ─── v2.5.0: карта события (редактор меток) ─── */
 function getMarkerMeta(type) { return EVENT_MARKER_TYPES[type] || EVENT_MARKER_TYPES.point; }
-function getMapUrls() {
-    const s = mapSettings || {};
-    return {
-        detailed: s.detailed_url || MAP_DEFAULT_DETAILED,
-        clean:    s.clean_url    || MAP_DEFAULT_CLEAN
-    };
-}
+
 function renderEventMapMarkers() {
     const layer = $('eventMapMarkers'); if (!layer) return;
     layer.innerHTML = '';

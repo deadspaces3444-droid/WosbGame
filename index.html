@@ -138,6 +138,63 @@
                 </div>
             </section>
 
+            <!-- 🔧 КАЛЬКУЛЯТОР СБОРКИ КОРАБЛЯ -->
+            <section id="shipBuilderSection" class="home-trade-section">
+                <h2 class="section-title">🔧 Калькулятор сборки корабля</h2>
+
+                <div class="builder-panel">
+                    <header class="builder-topbar">
+                        <div class="builder-target">
+                            <label>🎯 Собираю корабль:</label>
+                            <select id="builderTargetShip">
+                                <option value="">— Не выбран —</option>
+                            </select>
+                            <img id="builderTargetImg" class="builder-target-img" src="" alt="" hidden>
+                        </div>
+                        <div class="builder-actions-top">
+                            <button id="builderAddRow" class="builder-btn primary">➕ Добавить компонент</button>
+                            <button id="builderClear" class="builder-btn secondary">🗑 Очистить</button>
+                        </div>
+                    </header>
+
+                    <div class="builder-table-wrap">
+                        <table class="builder-table">
+                            <thead>
+                                <tr>
+                                    <th style="width:35%">Компонент</th>
+                                    <th style="width:15%">Кол-во</th>
+                                    <th style="width:20%">Средняя цена</th>
+                                    <th style="width:20%">Итого</th>
+                                    <th style="width:10%"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="builderRows"></tbody>
+                        </table>
+                    </div>
+
+                    <footer class="builder-footer">
+                        <div class="builder-summary">
+                            <div class="builder-stat">
+                                <span class="builder-stat-label">Позиций</span>
+                                <span class="builder-stat-value" id="builderCountPositions">0</span>
+                            </div>
+                            <div class="builder-stat">
+                                <span class="builder-stat-label">Найдено цен</span>
+                                <span class="builder-stat-value" id="builderCountPrices">0 / 0</span>
+                            </div>
+                            <div class="builder-stat builder-stat-total">
+                                <span class="builder-stat-label">💰 Средняя стоимость корабля</span>
+                                <span class="builder-stat-value" id="builderTotal">0 🪙</span>
+                            </div>
+                        </div>
+                        <div class="builder-actions-bottom">
+                            <button id="builderRecalc" class="builder-btn primary">🔄 Пересчитать</button>
+                            <button id="builderCopy" class="builder-btn secondary">📋 Скопировать результат</button>
+                        </div>
+                    </footer>
+                </div>
+            </section>
+
             <section id="applySection" class="apply-section">
                 <h2 class="section-title">📝 Подать заявку в гильдию</h2>
                 <div class="apply-card">
@@ -245,6 +302,7 @@
                 <button class="side-item" data-section="pvp"><span class="side-ico">⚔️</span><span>Билды ПВП</span></button>
                 <button class="side-item" data-section="pb"><span class="side-ico">🛡</span><span>Билды ПБ</span></button>
                 <button class="side-item" data-section="ships"><span class="side-ico">🚢</span><span>Корабли</span></button>
+                <button class="side-item" data-section="builder"><span class="side-ico">🔧</span><span>Сборка корабля</span></button>
                 <button class="side-item" data-section="contacts"><span class="side-ico">💬</span><span>Контакты</span></button>
                 <button class="side-item" data-section="members"><span class="side-ico">👥</span><span>Участники</span></button>
                 <button class="side-item" id="openTacticsBtn"><span class="side-ico">📖</span><span>Тактика боя</span></button>
@@ -386,10 +444,66 @@
                             <span class="ships-chip" data-type="Боевые">⚔️ Боевые</span>
                             <span class="ships-chip" data-type="Транспортные">📦 Транспортные</span>
                             <span class="ships-chip" data-type="Тяжёлые">🛡 Тяжёлые</span>
+                            <span class="ships-chip" data-type="Осадные">🏰 Осадные</span>
+                            <span class="ships-chip" data-type="Имперские">👑 Имперские</span>
                         </div>
                     </div>
 
                     <div id="shipsGrid" class="ships-grid-view"></div>
+                </div>
+
+                <div id="section-builder" class="clan-section">
+                    <h2>🔧 Сборка корабля</h2>
+                    <p class="hint">Собери корабль из компонентов — калькулятор посчитает среднюю стоимость по активным заявкам на бирже</p>
+                    <div class="builder-panel">
+                        <header class="builder-topbar">
+                            <div class="builder-target">
+                                <label>🎯 Собираю корабль:</label>
+                                <select id="builderTargetShip2">
+                                    <option value="">— Не выбран —</option>
+                                </select>
+                                <img id="builderTargetImg2" class="builder-target-img" src="" alt="" hidden>
+                            </div>
+                            <div class="builder-actions-top">
+                                <button id="builderAddRow2" class="builder-btn primary">➕ Добавить компонент</button>
+                                <button id="builderClear2" class="builder-btn secondary">🗑 Очистить</button>
+                            </div>
+                        </header>
+                        <div class="builder-table-wrap">
+                            <table class="builder-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width:35%">Компонент</th>
+                                        <th style="width:15%">Кол-во</th>
+                                        <th style="width:20%">Средняя цена</th>
+                                        <th style="width:20%">Итого</th>
+                                        <th style="width:10%"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="builderRows2"></tbody>
+                            </table>
+                        </div>
+                        <footer class="builder-footer">
+                            <div class="builder-summary">
+                                <div class="builder-stat">
+                                    <span class="builder-stat-label">Позиций</span>
+                                    <span class="builder-stat-value" id="builderCountPositions2">0</span>
+                                </div>
+                                <div class="builder-stat">
+                                    <span class="builder-stat-label">Найдено цен</span>
+                                    <span class="builder-stat-value" id="builderCountPrices2">0 / 0</span>
+                                </div>
+                                <div class="builder-stat builder-stat-total">
+                                    <span class="builder-stat-label">💰 Средняя стоимость корабля</span>
+                                    <span class="builder-stat-value" id="builderTotal2">0 🪙</span>
+                                </div>
+                            </div>
+                            <div class="builder-actions-bottom">
+                                <button id="builderRecalc2" class="builder-btn primary">🔄 Пересчитать</button>
+                                <button id="builderCopy2" class="builder-btn secondary">📋 Скопировать результат</button>
+                            </div>
+                        </footer>
+                    </div>
                 </div>
 
                 <div id="section-contacts" class="clan-section">
@@ -401,24 +515,20 @@
                     <h2>👑 Адмиралы</h2>
                     <p class="hint">Список адмиралов гильдии. Управление доступно главе клана.</p>
                     <div id="adminsList" class="members-list"></div>
-
                     <section class="add-form clan-admin-only" hidden style="flex-direction:column; align-items:stretch; gap:10px;">
                         <p class="hint" style="margin:0;">👑 Список адмиралов — по одному нику в строке.</p>
                         <textarea id="clanAdminNicksInput" rows="4" placeholder="Тайпан56&#10;SamuRay" style="width:100%;"></textarea>
                         <button type="button" id="clanAdminNicksSave" class="big-btn primary" style="align-self:flex-start;">💾 Сохранить адмиралов</button>
                         <span id="clanAdminNicksStatus" style="font-size:13px;font-weight:600;"></span>
                     </section>
-
                     <h2 style="margin-top:28px;">👥 Список участников гильдии</h2>
                     <p class="hint">Формат: <b>номер - ник</b> или просто ник, каждый с новой строки.</p>
-
                     <section class="add-form clan-admin-only" hidden style="flex-direction:column; align-items:stretch; gap:10px;">
                         <p class="hint" style="margin:0;">📂 Загрузи текстовый файл (или CSV) со списком участников.</p>
                         <input type="file" id="membersFileInput" accept=".txt,.csv,text/plain" hidden>
                         <button type="button" id="membersUploadBtn" class="big-btn secondary" style="align-self:flex-start;">📂 Загрузить участников из файла</button>
                         <span id="membersUploadStatus" style="color:var(--green);font-size:13px;font-weight:600;"></span>
                     </section>
-
                     <div id="membersList" class="members-list"></div>
                 </div>
 
@@ -1091,7 +1201,7 @@
 
     <footer class="site-footer">
         <span class="footer-left">Mist Time — Сергеев С.В</span>
-        <span class="footer-right">v2.0.0</span>
+        <span class="footer-right">v2.1.0</span>
     </footer>
 
     <script type="module" src="app.js"></script>

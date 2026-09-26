@@ -369,19 +369,58 @@
 
         <div class="clan-layout">
             <aside class="sidebar">
-                <button class="side-item active" data-section="lists"><span class="side-ico">📋</span><span>Списки</span></button>
-                <button class="side-item" data-section="events"><span class="side-ico">📅</span><span>События</span></button>
-                <button class="side-item" data-section="treasury"><span class="side-ico">💰</span><span>Казна</span></button>
-                <button class="side-item" data-section="pvp"><span class="side-ico">⚔️</span><span>Билды ПВП</span></button>
-                <button class="side-item" data-section="pb"><span class="side-ico">🛡</span><span>Билды ПБ</span></button>
-                <button class="side-item" data-section="ships"><span class="side-ico">🚢</span><span>Корабли</span></button>
-                <button class="side-item" data-section="builder"><span class="side-ico">🔧</span><span>Сборка корабля</span></button>
-                <button class="side-item" data-section="contacts"><span class="side-ico">💬</span><span>Контакты</span></button>
-                <button class="side-item" data-section="members"><span class="side-ico">👥</span><span>Участники</span></button>
-                <button class="side-item" id="openTacticsBtn"><span class="side-ico">📖</span><span>Тактика боя</span></button>
-                <button class="side-item" id="openChatBtn"><span class="side-ico">💭</span><span>Чат гильдии</span></button>
-                <button class="side-item clan-admin-only" data-section="applications" hidden><span class="side-ico">📝</span><span>Заявки</span></button>
-                <button class="side-item clan-admin-only" data-section="online" hidden><span class="side-ico">🟢</span><span>Онлайн</span></button>
+                <div class="nav-group" data-navgroup="clan-main">
+                    <button type="button" class="nav-group-header">
+                        <span class="nav-group-ico">📋</span>
+                        <span class="nav-group-label">Основное</span>
+                        <span class="nav-group-chevron">▾</span>
+                    </button>
+                    <div class="nav-group-body">
+                        <button class="side-item active" data-section="lists"><span class="side-ico">📋</span><span>Списки</span></button>
+                        <button class="side-item" data-section="events"><span class="side-ico">📅</span><span>События</span></button>
+                        <button class="side-item" data-section="treasury"><span class="side-ico">💰</span><span>Казна</span></button>
+                    </div>
+                </div>
+
+                <div class="nav-group" data-navgroup="clan-builds">
+                    <button type="button" class="nav-group-header">
+                        <span class="nav-group-ico">⚔️</span>
+                        <span class="nav-group-label">Билды</span>
+                        <span class="nav-group-chevron">▾</span>
+                    </button>
+                    <div class="nav-group-body">
+                        <button class="side-item" data-section="pvp"><span class="side-ico">⚔️</span><span>Билды ПВП</span></button>
+                        <button class="side-item" data-section="pb"><span class="side-ico">🛡</span><span>Билды ПБ</span></button>
+                        <button class="side-item" data-section="ships"><span class="side-ico">🚢</span><span>Корабли</span></button>
+                        <button class="side-item" data-section="builder"><span class="side-ico">🔧</span><span>Сборка корабля</span></button>
+                    </div>
+                </div>
+
+                <div class="nav-group" data-navgroup="clan-members">
+                    <button type="button" class="nav-group-header">
+                        <span class="nav-group-ico">👥</span>
+                        <span class="nav-group-label">Гильдия</span>
+                        <span class="nav-group-chevron">▾</span>
+                    </button>
+                    <div class="nav-group-body">
+                        <button class="side-item" data-section="members"><span class="side-ico">👥</span><span>Участники</span></button>
+                        <button class="side-item" data-section="contacts"><span class="side-ico">💬</span><span>Контакты</span></button>
+                        <button class="side-item clan-admin-only" data-section="applications" hidden><span class="side-ico">📝</span><span>Заявки</span></button>
+                        <button class="side-item clan-admin-only" data-section="online" hidden><span class="side-ico">🟢</span><span>Онлайн</span></button>
+                    </div>
+                </div>
+
+                <div class="nav-group" data-navgroup="clan-comm">
+                    <button type="button" class="nav-group-header">
+                        <span class="nav-group-ico">💬</span>
+                        <span class="nav-group-label">Общение</span>
+                        <span class="nav-group-chevron">▾</span>
+                    </button>
+                    <div class="nav-group-body">
+                        <button class="side-item" id="openChatBtn"><span class="side-ico">💭</span><span>Чат гильдии</span></button>
+                        <button class="side-item" id="openTacticsBtn"><span class="side-ico">📖</span><span>Тактика боя</span></button>
+                    </div>
+                </div>
             </aside>
 
             <div class="clan-main">
@@ -783,22 +822,81 @@
         <aside class="admin-sidebar">
             <div class="admin-sidebar-brand"><span class="admin-sidebar-logo">⚙️</span><span class="admin-sidebar-title">Админ-панель</span></div>
             <nav class="admin-nav">
-                <button class="admin-nav-item active" data-apanel="clans"><span class="admin-nav-ico">🏰</span><span>Гильдии</span></button>
-                <button class="admin-nav-item" data-apanel="alliances"><span class="admin-nav-ico">🤝</span><span>Союзы</span></button>
-                <button class="admin-nav-item" data-apanel="games"><span class="admin-nav-ico">🎮</span><span>Игры</span></button>
-                <button class="admin-nav-item" data-apanel="ships"><span class="admin-nav-ico">🚢</span><span>Корабли</span></button>
-                <button class="admin-nav-item" data-apanel="resources"><span class="admin-nav-ico">💲</span><span>Ценообразование</span></button>
-                <button class="admin-nav-item" data-apanel="shipcost"><span class="admin-nav-ico">🔨</span><span>Постройка</span></button>
-                <button class="admin-nav-item" data-apanel="catalog"><span class="admin-nav-ico">⚙️</span><span>Каталог</span></button>
-                <button class="admin-nav-item" data-apanel="ports"><span class="admin-nav-ico">⚓</span><span>Фракции и порты</span></button>
-                <button class="admin-nav-item" data-apanel="map"><span class="admin-nav-ico">🗺</span><span>Карта</span></button>
-                <button class="admin-nav-item" data-apanel="partners"><span class="admin-nav-ico">🤝</span><span>Партнёры</span></button>
-                <button class="admin-nav-item" data-apanel="faq"><span class="admin-nav-ico">❓</span><span>FAQ</span></button>
-                <button class="admin-nav-item" data-apanel="tactics"><span class="admin-nav-ico">📖</span><span>Тактика</span></button>
-                <button class="admin-nav-item" data-apanel="online"><span class="admin-nav-ico">👥</span><span>Онлайн</span></button>
-                <button class="admin-nav-item" data-apanel="admins"><span class="admin-nav-ico">👑</span><span>Админы</span></button>
-                <button class="admin-nav-item owner-only" data-apanel="clanRequests" hidden><span class="admin-nav-ico">📨</span><span>Заявки гильдий</span></button>
-                <button class="admin-nav-item" data-apanel="settings"><span class="admin-nav-ico">⚙️</span><span>Настройки</span></button>
+                <div class="nav-group" data-navgroup="admin-clans">
+                    <button type="button" class="nav-group-header">
+                        <span class="nav-group-ico">🏰</span>
+                        <span class="nav-group-label">Гильдии и игры</span>
+                        <span class="nav-group-chevron">▾</span>
+                    </button>
+                    <div class="nav-group-body">
+                        <button class="admin-nav-item active" data-apanel="clans"><span class="admin-nav-ico">🏰</span><span>Гильдии</span></button>
+                        <button class="admin-nav-item" data-apanel="alliances"><span class="admin-nav-ico">🤝</span><span>Союзы</span></button>
+                        <button class="admin-nav-item" data-apanel="games"><span class="admin-nav-ico">🎮</span><span>Игры</span></button>
+                        <button class="admin-nav-item owner-only" data-apanel="clanRequests" hidden><span class="admin-nav-ico">📨</span><span>Заявки гильдий</span></button>
+                    </div>
+                </div>
+
+                <div class="nav-group" data-navgroup="admin-economy">
+                    <button type="button" class="nav-group-header">
+                        <span class="nav-group-ico">💰</span>
+                        <span class="nav-group-label">Экономика</span>
+                        <span class="nav-group-chevron">▾</span>
+                    </button>
+                    <div class="nav-group-body">
+                        <button class="admin-nav-item" data-apanel="resources"><span class="admin-nav-ico">💲</span><span>Ценообразование</span></button>
+                        <button class="admin-nav-item" data-apanel="shipcost"><span class="admin-nav-ico">🔨</span><span>Постройка</span></button>
+                        <button class="admin-nav-item" data-apanel="catalog"><span class="admin-nav-ico">⚙️</span><span>Каталог</span></button>
+                    </div>
+                </div>
+
+                <div class="nav-group" data-navgroup="admin-world">
+                    <button type="button" class="nav-group-header">
+                        <span class="nav-group-ico">🗺</span>
+                        <span class="nav-group-label">Мир</span>
+                        <span class="nav-group-chevron">▾</span>
+                    </button>
+                    <div class="nav-group-body">
+                        <button class="admin-nav-item" data-apanel="ships"><span class="admin-nav-ico">🚢</span><span>Корабли</span></button>
+                        <button class="admin-nav-item" data-apanel="ports"><span class="admin-nav-ico">⚓</span><span>Фракции и порты</span></button>
+                        <button class="admin-nav-item" data-apanel="map"><span class="admin-nav-ico">🗺</span><span>Карта</span></button>
+                    </div>
+                </div>
+
+                <div class="nav-group" data-navgroup="admin-content">
+                    <button type="button" class="nav-group-header">
+                        <span class="nav-group-ico">📰</span>
+                        <span class="nav-group-label">Контент</span>
+                        <span class="nav-group-chevron">▾</span>
+                    </button>
+                    <div class="nav-group-body">
+                        <button class="admin-nav-item" data-apanel="partners"><span class="admin-nav-ico">🤝</span><span>Партнёры</span></button>
+                        <button class="admin-nav-item" data-apanel="faq"><span class="admin-nav-ico">❓</span><span>FAQ</span></button>
+                        <button class="admin-nav-item" data-apanel="tactics"><span class="admin-nav-ico">📖</span><span>Тактика</span></button>
+                    </div>
+                </div>
+
+                <div class="nav-group" data-navgroup="admin-users">
+                    <button type="button" class="nav-group-header">
+                        <span class="nav-group-ico">👥</span>
+                        <span class="nav-group-label">Пользователи</span>
+                        <span class="nav-group-chevron">▾</span>
+                    </button>
+                    <div class="nav-group-body">
+                        <button class="admin-nav-item" data-apanel="online"><span class="admin-nav-ico">👥</span><span>Онлайн</span></button>
+                        <button class="admin-nav-item" data-apanel="admins"><span class="admin-nav-ico">👑</span><span>Админы</span></button>
+                    </div>
+                </div>
+
+                <div class="nav-group" data-navgroup="admin-system">
+                    <button type="button" class="nav-group-header">
+                        <span class="nav-group-ico">⚙️</span>
+                        <span class="nav-group-label">Система</span>
+                        <span class="nav-group-chevron">▾</span>
+                    </button>
+                    <div class="nav-group-body">
+                        <button class="admin-nav-item" data-apanel="settings"><span class="admin-nav-ico">⚙️</span><span>Настройки</span></button>
+                    </div>
+                </div>
             </nav>
             <div class="admin-sidebar-footer"><button id="adminBackHome" class="admin-back-btn">← На главную</button></div>
         </aside>
@@ -1005,31 +1103,46 @@
                             <code>Группа - Название - Бонус, Бонус</code>
                             <span class="import-hint">Группы: Пираты, Моряки, Военные, Авантюристы</span>
                             <input type="file" id="biImportSpecsFile" accept=".txt,.csv,text/plain" hidden>
-                            <button type="button" id="biImportSpecsBtn" class="logo-pick-btn">📂 Загрузить специалистов</button>
+                            <div class="import-actions">
+                                <button type="button" id="biImportSpecsBtn" class="logo-pick-btn">📂 Загрузить</button>
+                                <button type="button" id="biClearSpecsBtn" class="logo-pick-btn danger">🗑 Очистить</button>
+                            </div>
                             <span id="biImportSpecsStatus" class="import-status"></span>
                         </div>
+
                         <div class="import-block">
                             <b>⚔️ Пушки</b>
                             <code>Размер - Название</code>
                             <span class="import-hint">Размеры: Лёгкие, Средние, Большие, Мортиры</span>
                             <input type="file" id="biImportWeaponsFile" accept=".txt,.csv,text/plain" hidden>
-                            <button type="button" id="biImportWeaponsBtn" class="logo-pick-btn">📂 Загрузить пушки</button>
+                            <div class="import-actions">
+                                <button type="button" id="biImportWeaponsBtn" class="logo-pick-btn">📂 Загрузить</button>
+                                <button type="button" id="biClearWeaponsBtn" class="logo-pick-btn danger">🗑 Очистить</button>
+                            </div>
                             <span id="biImportWeaponsStatus" class="import-status"></span>
                         </div>
+
                         <div class="import-block">
                             <b>🔧 Апгрейды</b>
                             <code>Название - Раздел - Бонус, Бонус</code>
                             <span class="import-hint">Разделы: Мортирные, Быстроходность, Экспедиционные, Защита, Наступление, Необычные</span>
                             <input type="file" id="biImportUpgradesFile" accept=".txt,.csv,text/plain" hidden>
-                            <button type="button" id="biImportUpgradesBtn" class="logo-pick-btn">📂 Загрузить апгрейды</button>
+                            <div class="import-actions">
+                                <button type="button" id="biImportUpgradesBtn" class="logo-pick-btn">📂 Загрузить</button>
+                                <button type="button" id="biClearUpgradesBtn" class="logo-pick-btn danger">🗑 Очистить</button>
+                            </div>
                             <span id="biImportUpgradesStatus" class="import-status"></span>
                         </div>
+
                         <div class="import-block">
                             <b>💥 Снаряды</b>
                             <code>Тип - Название</code>
                             <span class="import-hint">Типы: Чугунные, Зажигающие, Цепи, Картечь, Саксонские, Тяжёлые</span>
                             <input type="file" id="biImportShellsFile" accept=".txt,.csv,text/plain" hidden>
-                            <button type="button" id="biImportShellsBtn" class="logo-pick-btn">📂 Загрузить снаряды</button>
+                            <div class="import-actions">
+                                <button type="button" id="biImportShellsBtn" class="logo-pick-btn">📂 Загрузить</button>
+                                <button type="button" id="biClearShellsBtn" class="logo-pick-btn danger">🗑 Очистить</button>
+                            </div>
                             <span id="biImportShellsStatus" class="import-status"></span>
                         </div>
                     </div>

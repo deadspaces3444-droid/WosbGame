@@ -1,7 +1,8 @@
 import { supabase } from './supabase.js';
 
-console.log('🚀 app.js v2.3.3 (part 1)');
+console.log('🚀 app.js v2.3.3');
 
+/* ============ КОНСТАНТЫ ============ */
 const ADMIN_EMAILS_FALLBACK = ['dead_antihrist@mail.ru'];
 const APP_VERSION = '2.3.3';
 const BINDING_OWNERS = ['kolibri@wosb.ru', 'dead_antihrist@mail.ru'];
@@ -93,6 +94,7 @@ const SHELL_TYPES = {
     'тяжелые':    { en: 'heavy',      label: '🏋 Тяжёлые' }
 };
 
+/* ============ ГЛОБАЛЬНОЕ СОСТОЯНИЕ ============ */
 let gamesCache = {}, clansCache = {}, alliancesCache = {};
 let settingsCache = null, faqCache = [], partnersCache = [], tacticsCache = [], tradesCache = [];
 let shipsCache = [];
@@ -137,6 +139,7 @@ let evMapData = null;
 let evMapMarkers = [];
 let evMapNextId = 1;
 
+/* ============ DOM-ХЕЛПЕРЫ ============ */
 const $ = id => document.getElementById(id);
 function on(id, event, handler, opts) {
     const el = $(id);
@@ -204,6 +207,49 @@ function canEditBindings() {
     const myEmail = (currentSession?.user?.email || '').toLowerCase();
     return BINDING_OWNERS.map(e => e.toLowerCase()).includes(myEmail);
 }
+function parseLines(text) { if (!text) return []; return String(text).split('\n').map(s => s.trim()).filter(Boolean); }
+function parseBonus(text) {
+    const m = String(text).match(/^(.+?)\s*([+-]\s*\d+(?:[.,]\d+)?)\s*$/);
+    if (!m) return { stat: String(text).trim(), value: null };
+    return { stat: m[1].trim(), value: parseFloat(m[2].replace(/\s/g, '').replace(',', '.')) };
+}
+function parseBonuses(str) {
+    return String(str || '').split(',').map(s => s.trim()).filter(Boolean).map(parseBonus);
+}
+function parseSpecialists(text) {
+    return parseLines(text).map(line => {
+        const parts = line.split('|').map(p => p.trim()).filter(Boolean);
+        if (!parts.length) return null;
+        return { name: parts[0], bonuses: parts.slice(1).map(parseBonus) };
+    }).filter(Boolean);
+}
+function parseMembersList(text) {
+    if (!text) return [];
+    return String(text).split('\n').map(line => {
+        line = line.trim(); if (!line) return null;
+        const m = line.match(/^(\d+)\s*[-.)\]]?\s+(.+)$/);
+        if (m) return { num: m[1], name: m[2].trim() };
+        return { num: '', name: line };
+    }).filter(Boolean);
+}
+function normalizeNickList(raw) {
+    if (!raw) return [];
+    return String(raw).split('\n').map(s => s.trim().replace(/^\d+\s*[-.)\]]?\s*/, '').trim()).filter(Boolean).map(s => s.toLowerCase());
+}
+function tradeTimeAgo(iso) {
+    const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+    if (s < 60) return 'только что';
+    if (s < 3600) return `${Math.floor(s / 60)} мин назад`;
+    if (s < 86400) return `${Math.floor(s / 3600)} ч назад`;
+    return `${Math.floor(s / 86400)} дн назад`;
+}
+function tradeFmtGold(n) { return Number(n).toLocaleString('ru-RU') + ' 🪙'; }
+function tradePlural(n, one, few, many) {
+    const m10 = n % 10, m100 = n % 100;
+    if (m10 === 1 && m100 !== 11) return one;
+    if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return few;
+    return many;
+}
 
 /* ============ ПРАВА ============ */
 function canEditClan(clanId) {
@@ -255,6 +301,7 @@ function canAccessClan(clanId) {
     if (!my.alliance_id) return false;
     return target.alliance_id === my.alliance_id;
 }
+function isUnlocked() { return isAdmin || localStorage.getItem(UNLOCK_KEY) === '1'; }
 
 /* ============ ПЕРЕКЛЮЧАТЕЛЬ ПАРОЛЯ ============ */
 document.querySelectorAll('.pwd-toggle').forEach(btn => {
@@ -784,7 +831,6 @@ on('newClanImageClear', 'click', () => {
     const prev = $('newClanImagePreview'); if (prev) prev.hidden = true;
     const nm = $('newClanImageName'); if (nm) nm.textContent = '';
 });
-
 /* ============ САЙДБАР ГИЛЬДИИ ============ */
 document.querySelectorAll('.side-item').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -835,6 +881,7 @@ document.querySelectorAll('.admin-nav-item').forEach(btn => {
         if (panel === 'catalog') renderCatalogAdmin();
         if (panel === 'map') renderMapAdmin();
         if (panel === 'ports') { renderFactionsAdmin(); renderPortsAdmin(); renderRanksAdmin(); fillPortFactionSelect(); }
+        setTimeout(initCollapsibleAdminCards, 100);
     });
 });
 on('adminBackHome', 'click', () => { currentClan = null; showScreen('home'); });
@@ -1337,6 +1384,95 @@ function initCollapsibleSections() {
     });
 }
 
+/* ============ СВОРАЧИВАНИЕ КАРТОЧЕК В АДМИНКЕ И МОДАЛКАХ ============ */
+function initCollapsibleAdminCards() {
+    document.querySelectorAll('.admin-card').forEach((card, idx) => {
+        if (card.dataset.collapseReady) return;
+        const h3 = card.querySelector(':scope > h3');
+        if (!h3) return;
+        card.dataset.collapseReady = '1';
+
+        const id = 'admin-card-' + idx + '-' + (h3.textContent || '').trim().slice(0, 24).replace(/[^a-zа-яё0-9]+/gi, '');
+
+        h3.classList.add('collapsible-card-title');
+        const chevron = document.createElement('span');
+        chevron.className = 'collapse-chevron';
+        chevron.textContent = '▾';
+        h3.appendChild(chevron);
+
+        const body = document.createElement('div');
+        body.className = 'collapsible-card-body';
+        Array.from(card.children).forEach(k => { if (k !== h3) body.appendChild(k); });
+        card.appendChild(body);
+
+        const state = getCollapsedState();
+        const isCollapsed = !!state[id];
+        card.classList.toggle('collapsed', isCollapsed);
+        chevron.textContent = isCollapsed ? '▸' : '▾';
+
+        h3.addEventListener('click', (e) => {
+            if (e.target.closest('button, a, input, select')) return;
+            const nowCollapsed = !card.classList.contains('collapsed');
+            card.classList.toggle('collapsed', nowCollapsed);
+            chevron.textContent = nowCollapsed ? '▸' : '▾';
+            setCollapsedState(id, nowCollapsed);
+        });
+    });
+
+    document.querySelectorAll('.modal-content').forEach((modal, idx) => {
+        if (modal.dataset.collapseReady) return;
+        if (modal.querySelector('.modal-actions')) {
+            modal.dataset.collapseReady = '1';
+            wrapModalFieldsIntoGroups(modal, idx);
+        }
+    });
+}
+
+function wrapModalFieldsIntoGroups(modal, idx) {
+    const fields = Array.from(modal.querySelectorAll(':scope > .admin-field, :scope > input, :scope > select, :scope > textarea'));
+    if (fields.length < 7) return;
+
+    const groupsDef = [
+        { title: '🔧 Основное', from: 0, to: 3 },
+        { title: '⚙️ Дополнительно', from: 3, to: 6 },
+        { title: '📄 Прочее', from: 6, to: fields.length }
+    ];
+
+    const insertBeforeEl = modal.querySelector('.modal-actions') || modal.querySelector('.error');
+    if (!insertBeforeEl) return;
+
+    const state = getCollapsedState();
+
+    groupsDef.forEach((g, gi) => {
+        const slice = fields.slice(g.from, g.to);
+        if (!slice.length) return;
+
+        const groupId = 'modal-group-' + idx + '-' + gi;
+        const group = document.createElement('div');
+        group.className = 'modal-group';
+        if (state[groupId]) group.classList.add('collapsed');
+
+        const header = document.createElement('div');
+        header.className = 'modal-group-header';
+        header.innerHTML = `<span>${g.title}</span><span class="collapse-chevron">${state[groupId] ? '▸' : '▾'}</span>`;
+
+        const body = document.createElement('div');
+        body.className = 'modal-group-body';
+
+        slice.forEach(f => body.appendChild(f));
+        group.appendChild(header);
+        group.appendChild(body);
+        modal.insertBefore(group, insertBeforeEl);
+
+        header.addEventListener('click', () => {
+            const now = !group.classList.contains('collapsed');
+            group.classList.toggle('collapsed', now);
+            header.querySelector('.collapse-chevron').textContent = now ? '▸' : '▾';
+            setCollapsedState(groupId, now);
+        });
+    });
+}
+
 /* ============ ТАКТИКА ============ */
 async function loadTactics() {
     try {
@@ -1567,7 +1703,6 @@ function renderHomeCards() {
         grid.appendChild(btn);
     });
 }
-function isUnlocked() { return isAdmin || localStorage.getItem(UNLOCK_KEY) === '1'; }
 function handleClanClick(id) {
     if (isOwner) { openClan(id); return; }
     if (isMod && !myAdminClanId) { openClanInfo(id, { locked: true }); return; }
@@ -1665,10 +1800,6 @@ on('clanLoginBtn', 'click', () => {
     ($('clanNickname').value ? $('clanPassword') : $('clanNickname')).focus();
 });
 on('cancelClanLogin', 'click', () => { $('clanPassModal').hidden = true; });
-function normalizeNickList(raw) {
-    if (!raw) return [];
-    return String(raw).split('\n').map(s => s.trim().replace(/^\d+\s*[-.)\]]?\s*/, '').trim()).filter(Boolean).map(s => s.toLowerCase());
-}
 on('doClanLogin', 'click', async () => {
     const nick = val('clanNickname').trim();
     const entered = val('clanPassword');
@@ -1833,22 +1964,6 @@ async function loadList(tab) {
 }
 
 /* ============ БИЛДЫ ============ */
-function parseLines(text) { if (!text) return []; return String(text).split('\n').map(s => s.trim()).filter(Boolean); }
-function parseBonus(text) {
-    const m = String(text).match(/^(.+?)\s*([+-]\s*\d+(?:[.,]\d+)?)\s*$/);
-    if (!m) return { stat: String(text).trim(), value: null };
-    return { stat: m[1].trim(), value: parseFloat(m[2].replace(/\s/g, '').replace(',', '.')) };
-}
-function parseBonuses(str) {
-    return String(str || '').split(',').map(s => s.trim()).filter(Boolean).map(parseBonus);
-}
-function parseSpecialists(text) {
-    return parseLines(text).map(line => {
-        const parts = line.split('|').map(p => p.trim()).filter(Boolean);
-        if (!parts.length) return null;
-        return { name: parts[0], bonuses: parts.slice(1).map(parseBonus) };
-    }).filter(Boolean);
-}
 async function renderBuilds(type) {
     if (!currentClan) return;
     const container = $(type === 'pvp' ? 'pvpList' : 'pbList'); if (!container) return;
@@ -2420,15 +2535,6 @@ on('trAddBtn', 'click', async () => {
 });
 
 /* ============ УЧАСТНИКИ / АДМИНЫ ГИЛЬДИИ ============ */
-function parseMembersList(text) {
-    if (!text) return [];
-    return String(text).split('\n').map(line => {
-        line = line.trim(); if (!line) return null;
-        const m = line.match(/^(\d+)\s*[-.)\]]?\s+(.+)$/);
-        if (m) return { num: m[1], name: m[2].trim() };
-        return { num: '', name: line };
-    }).filter(Boolean);
-}
 function renderMembers() {
     if (!currentClan) return;
     const container = $('membersList'); if (!container) return;
@@ -2606,20 +2712,6 @@ const TRADE_CATEGORIES = [
     { id: 'consum', name: 'Расходник', icon: '🧪' }, { id: 'other', name: 'Прочее', icon: '📦' }
 ];
 function tradeCatById(id) { return TRADE_CATEGORIES.find(c => c.id === id) || TRADE_CATEGORIES[TRADE_CATEGORIES.length - 1]; }
-function tradeFmtGold(n) { return Number(n).toLocaleString('ru-RU') + ' 🪙'; }
-function tradePlural(n, one, few, many) {
-    const m10 = n % 10, m100 = n % 100;
-    if (m10 === 1 && m100 !== 11) return one;
-    if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return few;
-    return many;
-}
-function tradeTimeAgo(iso) {
-    const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-    if (s < 60) return 'только что';
-    if (s < 3600) return `${Math.floor(s / 60)} мин назад`;
-    if (s < 86400) return `${Math.floor(s / 3600)} ч назад`;
-    return `${Math.floor(s / 86400)} дн назад`;
-}
 function initTradeCategorySelect() {
     const sel = $('tm-category'); if (!sel) return;
     sel.innerHTML = TRADE_CATEGORIES.map(c => `<option value="${c.id}">${c.icon} ${c.name}</option>`).join('');
@@ -2949,7 +3041,7 @@ on('tm-submit', 'click', async () => {
     renderTrades();
 });
 
-/* ============ РЕДАКТИРОВАНИЕ / ПОВТОР / ПРИНЯТИЕ СДЕЛКИ ============ */
+/* ============ ПРИНЯТИЕ / РЕДАКТИРОВАНИЕ / ПОВТОР СДЕЛКИ ============ */
 function openTradeEditModal(t) {
     if (!t) return;
     editingTradeId = t.id;
@@ -3107,7 +3199,7 @@ on('applyBtn', 'click', async () => {
     $('applyClan').value = '';
 });
 
-/* ============ FAQ / ПАРТНЁРЫ / ТАКТИКА АДМИН ============ */
+/* ============ FAQ ============ */
 async function loadFaq() {
     const { data, error } = await supabase.from('faq').select('*').order('sort_order');
     if (error) return;
@@ -3149,6 +3241,8 @@ on('faqAddBtn', 'click', async () => {
     $('faqQ').value = ''; $('faqA').value = '';
     loadFaq();
 });
+
+/* ============ ПАРТНЁРЫ ============ */
 async function loadPartners() {
     const { data, error } = await supabase.from('partners').select('*').order('sort_order', { ascending: true }).order('created_at', { ascending: true });
     if (error) return;
@@ -3289,6 +3383,8 @@ on('partnerAddBtn', 'click', async () => {
     flashStatusEl(statusEl, '✔ Добавлено', '#6ee7a7');
     await loadPartners();
 });
+
+/* ============ ТАКТИКА АДМИН ============ */
 function renderTacticsAdmin() {
     const container = $('tacticsAdminList'); if (!container) return;
     container.innerHTML = '';
@@ -3360,1971 +3456,7 @@ on('tacAddBtn', 'click', async () => {
     flashStatusEl(statusEl, '✔ Добавлено', '#6ee7a7');
     await loadTactics();
 });
-
-/* ============================================================
-   КАТАЛОГ БИЛДОВ + ИМПОРТ
-   ============================================================ */
-function parseBonusLine(line) {
-    const m = String(line).trim().match(/^(.+?)\s*([+-]\s*\d+(?:[.,]\d+)?)\s*$/);
-    if (!m) return { stat: String(line).trim(), value: null };
-    return { stat: m[1].trim(), value: parseFloat(m[2].replace(/\s/g, '').replace(',', '.')) };
-}
-function normalizeGroupName(raw, map) {
-    const key = String(raw || '').trim().toLowerCase();
-    return map[key] || null;
-}
-function parseSpecialistsFile(text) {
-    const items = [], errors = [];
-    text.split(/\r?\n/).forEach((raw, idx) => {
-        const line = raw.trim();
-        if (!line || line.startsWith('#')) return;
-        const parts = line.split(/\s*[-–—]\s*/);
-        if (parts.length < 2) { errors.push(`Строка ${idx + 1}: пропущено « - »`); return; }
-        const grpRaw = parts[0].trim();
-        const name = (parts[1] || '').trim();
-        const bonusStr = parts.slice(2).join(' - ').trim();
-        const grp = normalizeGroupName(grpRaw, SPECIALIST_GROUPS);
-        if (!grp) { errors.push(`Строка ${idx + 1}: неизвестная группа «${grpRaw}»`); return; }
-        if (!name) { errors.push(`Строка ${idx + 1}: пустое имя`); return; }
-        items.push({ group: grp.en, name, bonuses: parseBonuses(bonusStr) });
-    });
-    return { items, errors };
-}
-function parseWeaponsFile(text) {
-    const items = [], errors = [];
-    text.split(/\r?\n/).forEach((raw, idx) => {
-        const line = raw.trim();
-        if (!line || line.startsWith('#')) return;
-        const parts = line.split(/\s*[-–—]\s*/);
-        if (parts.length < 2) { errors.push(`Строка ${idx + 1}: пропущено « - »`); return; }
-        const sizeRaw = parts[0].trim();
-        const name = parts.slice(1).join(' - ').trim();
-        const sz = normalizeGroupName(sizeRaw, WEAPON_SIZES);
-        if (!sz) { errors.push(`Строка ${idx + 1}: неизвестный размер «${sizeRaw}»`); return; }
-        if (!name) { errors.push(`Строка ${idx + 1}: пустое название`); return; }
-        items.push({ type: sz.type, name });
-    });
-    return { items, errors };
-}
-function parseUpgradesFile(text) {
-    const items = [], errors = [];
-    text.split(/\r?\n/).forEach((raw, idx) => {
-        const line = raw.trim();
-        if (!line || line.startsWith('#')) return;
-        const parts = line.split(/\s*[-–—]\s*/);
-        if (parts.length < 3) { errors.push(`Строка ${idx + 1}: нужно «Название - Раздел - Бонусы»`); return; }
-        const name = parts[0].trim();
-        const secRaw = parts[1].trim();
-        const bonusStr = parts.slice(2).join(' - ').trim();
-        const sec = normalizeGroupName(secRaw, UPGRADE_SECTIONS);
-        if (!sec) { errors.push(`Строка ${idx + 1}: неизвестный раздел «${secRaw}»`); return; }
-        if (!name) { errors.push(`Строка ${idx + 1}: пустое название`); return; }
-        items.push({ section: sec.en, name, bonuses: parseBonuses(bonusStr) });
-    });
-    return { items, errors };
-}
-function parseShellsFile(text) {
-    const items = [], errors = [];
-    text.split(/\r?\n/).forEach((raw, idx) => {
-        const line = raw.trim();
-        if (!line || line.startsWith('#')) return;
-        const parts = line.split(/\s*[-–—]\s*/);
-        if (parts.length < 2) { errors.push(`Строка ${idx + 1}: пропущено « - »`); return; }
-        const tRaw = parts[0].trim();
-        const name = parts.slice(1).join(' - ').trim();
-        const t = normalizeGroupName(tRaw, SHELL_TYPES);
-        if (!t) { errors.push(`Строка ${idx + 1}: неизвестный тип «${tRaw}»`); return; }
-        if (!name) { errors.push(`Строка ${idx + 1}: пустое название`); return; }
-        items.push({ type: t.en, name });
-    });
-    return { items, errors };
-}
-function bonusesToText(bonuses) {
-    return (bonuses || []).map(b => b.value === null ? b.stat : `${b.stat} ${b.value > 0 ? '+' : ''}${b.value}`).join(', ');
-}
-
-async function importSpecialists(items) {
-    let ok = 0, fail = 0;
-    for (const it of items) {
-        const { data: inserted, error } = await supabase.from('build_items').insert({
-            type: 'specialist',
-            subgroup: it.group,
-            name: it.name,
-            bonuses: bonusesToText(it.bonuses) || null,
-            is_active: true,
-            sort_order: 0
-        }).select('id').single();
-        if (error) { fail++; continue; }
-        if (it.bonuses.length && inserted?.id) {
-            const skills = it.bonuses.filter(b => b.value !== null).map((b, i) => ({
-                specialist_id: inserted.id,
-                stat_name: b.stat,
-                value: b.value,
-                sort_order: i * 10
-            }));
-            if (skills.length) await supabase.from('specialist_skills').insert(skills);
-        }
-        ok++;
-    }
-    return { ok, fail };
-}
-async function importWeapons(items) {
-    let ok = 0, fail = 0;
-    for (const it of items) {
-        const { error } = await supabase.from('build_items').insert({
-            type: it.type, subgroup: null, name: it.name, is_active: true, sort_order: 0
-        });
-        if (error) fail++; else ok++;
-    }
-    return { ok, fail };
-}
-async function importUpgrades(items) {
-    let ok = 0, fail = 0;
-    for (const it of items) {
-        const { error } = await supabase.from('build_items').insert({
-            type: 'upgrade', subgroup: it.section, name: it.name,
-            bonuses: bonusesToText(it.bonuses) || null, is_active: true, sort_order: 0
-        });
-        if (error) fail++; else ok++;
-    }
-    return { ok, fail };
-}
-async function importShells(items) {
-    let ok = 0, fail = 0;
-    for (const it of items) {
-        const { error } = await supabase.from('build_items').insert({
-            type: 'shell', subgroup: it.type, name: it.name, is_active: true, sort_order: 0
-        });
-        if (error) fail++; else ok++;
-    }
-    return { ok, fail };
-}
-
-async function loadBuildItems() {
-    const [items, skills] = await Promise.all([
-        supabase.from('build_items').select('*')
-            .order('type').order('subgroup').order('sort_order').order('name'),
-        supabase.from('specialist_skills').select('*').order('sort_order')
-    ]);
-    if (items.error) { console.warn('build_items:', items.error.message); buildItemsCache = []; }
-    else buildItemsCache = items.data || [];
-    specialistSkillsCache = {};
-    if (!skills.error) {
-        (skills.data || []).forEach(s => {
-            (specialistSkillsCache[s.specialist_id] ||= []).push(s);
-        });
-    }
-    fillBuildDatalists();
-}
-function subgroupLabel(type, sg) {
-    if (type === 'specialist') {
-        const found = Object.values(SPECIALIST_GROUPS).find(g => g.en === sg);
-        return found ? found.label : sg;
-    }
-    if (type === 'upgrade') {
-        const found = Object.values(UPGRADE_SECTIONS).find(s => s.en === sg);
-        return found ? found.label : sg;
-    }
-    if (type === 'shell') {
-        const found = Object.values(SHELL_TYPES).find(s => s.en === sg);
-        return found ? found.label : sg;
-    }
-    if (sg === 'sails') return '⛵ Паруса';
-    if (sg === '—') return '—';
-    return sg;
-}
-function fillBuildDatalists() {
-    const map = {
-        weapon_small:  'weaponsSmallList',
-        weapon_medium: 'weaponsMediumList',
-        weapon_large:  'weaponsLargeList',
-        weapon_mortar: 'weaponsMortarList',
-        module:        'modulesList',
-        ammo:          'ammoList',
-        shell:         'shellsList',
-        blueprint:     'blueprintsList',
-        consumable:    'consumablesList',
-        cargo:         'cargoList',
-        specialist:    'specialistsList'
-    };
-    Object.entries(map).forEach(([type, dlId]) => {
-        const dl = document.getElementById(dlId);
-        if (!dl) return;
-        const items = buildItemsCache.filter(x => x.type === type && x.is_active !== false);
-        dl.innerHTML = items.map(x => `<option value="${escapeHtml(x.name)}">`).join('');
-    });
-    const upgrades = buildItemsCache.filter(x => x.type === 'upgrade' && x.is_active !== false);
-    const sails = upgrades.filter(x => (x.subgroup || '').toLowerCase() === 'sails');
-    const others = upgrades.filter(x => (x.subgroup || '').toLowerCase() !== 'sails');
-    const uL = document.getElementById('upgradesList');
-    if (uL) uL.innerHTML = others.map(x => `<option value="${escapeHtml(x.name)}">`).join('');
-    const sL = document.getElementById('sailsList');
-    if (sL) sL.innerHTML = sails.map(x => `<option value="${escapeHtml(x.name)}">`).join('');
-}
-function renderCatalogAdmin() {
-    const container = $('catalogTree'); if (!container) return;
-    container.innerHTML = '';
-    if (!buildItemsCache.length) {
-        container.innerHTML = '<div class="empty">Каталог пуст. Добавь первый элемент сверху.</div>';
-        return;
-    }
-    const byType = {};
-    buildItemsCache.forEach(it => {
-        const t = it.type || 'other';
-        (byType[t] ||= []).push(it);
-    });
-    Object.keys(byType).sort().forEach(type => {
-        const typeDet = document.createElement('details');
-        typeDet.className = 'catalog-node';
-        typeDet.innerHTML = `<summary class="catalog-summary">
-            ${CATALOG_ICONS[type] || '⚙️'} ${type}
-            <span class="catalog-count">${byType[type].length}</span>
-        </summary>`;
-        const typeBody = document.createElement('div');
-        typeBody.className = 'catalog-body';
-        const bySub = {};
-        byType[type].forEach(it => {
-            const sg = it.subgroup || '—';
-            (bySub[sg] ||= []).push(it);
-        });
-        Object.keys(bySub).sort().forEach(sg => {
-            const sgDet = document.createElement('details');
-            sgDet.className = 'catalog-node sub';
-            sgDet.innerHTML = `<summary class="catalog-summary">
-                📁 ${subgroupLabel(type, sg)}
-                <span class="catalog-count">${bySub[sg].length}</span>
-            </summary>`;
-            const sgBody = document.createElement('div');
-            sgBody.className = 'catalog-body';
-            bySub[sg].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0) || (a.name || '').localeCompare(b.name || ''));
-            bySub[sg].forEach(it => sgBody.appendChild(buildCatalogItem(it)));
-            sgDet.appendChild(sgBody);
-            typeBody.appendChild(sgDet);
-        });
-        typeDet.appendChild(typeBody);
-        container.appendChild(typeDet);
-    });
-}
-function buildCatalogItem(item) {
-    const isSpec = item.type === 'specialist';
-    const skills = specialistSkillsCache[item.id] || [];
-    const skillsHtml = skills.map(sk => skillRowHtml(sk)).join('');
-    const d = document.createElement('details');
-    d.className = 'catalog-node item';
-    d.innerHTML = `
-        <summary class="catalog-summary">
-            ${escapeHtml(item.name)}
-            ${item.is_active === false ? '<span class="catalog-hidden">скрыт</span>' : ''}
-        </summary>
-        <div class="catalog-body">
-            <div class="catalog-row">
-                <div><label>Название</label><input data-f="name" value="${escapeHtml(item.name)}"></div>
-                <div><label>Подгруппа</label><input data-f="subgroup" value="${escapeHtml(item.subgroup || '')}"></div>
-                <div><label>Цена 🪙</label><input type="number" data-f="price" min="0" step="1" value="${item.price != null ? item.price : 0}"></div>
-                <div><label>Порядок</label><input type="number" data-f="sort_order" value="${item.sort_order ?? 0}"></div>
-                <div><label>Активен</label>
-                    <select data-f="is_active">
-                        <option value="true"  ${item.is_active !== false ? 'selected' : ''}>Да</option>
-                        <option value="false" ${item.is_active === false ? 'selected' : ''}>Нет</option>
-                    </select>
-                </div>
-            </div>
-            ${!isSpec ? `
-                <div><label>Бонусы (текст)</label>
-                    <textarea data-f="bonuses" rows="2">${escapeHtml(item.bonuses || '')}</textarea>
-                </div>` : `
-                <div class="skills-block">
-                    <div class="skills-head">
-                        <b>Навыки специалиста</b>
-                        <button type="button" data-act="add-skill">➕ Навык</button>
-                    </div>
-                    <div data-skills-container>${skillsHtml || '<div class="empty" style="padding:8px;">Нет навыков</div>'}</div>
-                </div>`}
-            <p class="error" data-msg></p>
-            <div class="modal-actions">
-                <button data-act="save">💾 Сохранить</button>
-                <button data-act="del" class="danger">🗑 Удалить</button>
-            </div>
-        </div>`;
-    d.querySelector('[data-act="save"]').onclick = async (e) => {
-        e.preventDefault();
-        const body = d.querySelector('.catalog-body');
-        const msg = body.querySelector('[data-msg]');
-        const payload = {};
-        body.querySelectorAll('[data-f]').forEach(el => {
-            const k = el.dataset.f;
-            if (k === 'is_active') { payload[k] = el.value === 'true'; return; }
-            if (el.type === 'number') { payload[k] = el.value === '' ? 0 : Number(el.value); return; }
-            payload[k] = el.value.trim() || null;
-        });
-        const { error } = await supabase.from('build_items').update(payload).eq('id', item.id);
-        if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
-        if (isSpec) {
-            for (const row of body.querySelectorAll('[data-skill-id]')) {
-                const id = Number(row.dataset.skillId);
-                const stat_name = row.querySelector('[data-skill-f="stat_name"]').value.trim();
-                const value = Number(row.querySelector('[data-skill-f="value"]').value) || 0;
-                if (!stat_name) continue;
-                await supabase.from('specialist_skills').update({ stat_name, value }).eq('id', id);
-            }
-        }
-        Object.assign(item, payload);
-        msg.textContent = '✔ Сохранено'; msg.style.color = '#6ee7a7';
-        setTimeout(() => { msg.textContent = ''; }, 1500);
-        fillBuildDatalists();
-    };
-    d.querySelector('[data-act="del"]').onclick = async (e) => {
-        e.preventDefault();
-        if (!confirm(`Удалить «${item.name}»?`)) return;
-        if (isSpec) await supabase.from('specialist_skills').delete().eq('specialist_id', item.id);
-        const { error } = await supabase.from('build_items').delete().eq('id', item.id);
-        if (error) return alert(error.message);
-        buildItemsCache = buildItemsCache.filter(x => x.id !== item.id);
-        delete specialistSkillsCache[item.id];
-        d.remove();
-        fillBuildDatalists();
-    };
-    if (isSpec) {
-        const addBtn = d.querySelector('[data-act="add-skill"]');
-        if (addBtn) addBtn.onclick = async (e) => {
-            e.preventDefault();
-            const container = d.querySelector('[data-skills-container]');
-            const { data, error } = await supabase.from('specialist_skills')
-                .insert({ specialist_id: item.id, stat_name: 'Новый навык', value: 0, sort_order: 99 })
-                .select().single();
-            if (error) return alert(error.message);
-            (specialistSkillsCache[item.id] ||= []).push(data);
-            const empty = container.querySelector('.empty');
-            if (empty) empty.remove();
-            const tmp = document.createElement('div');
-            tmp.innerHTML = skillRowHtml(data);
-            const row = tmp.firstElementChild;
-            container.appendChild(row);
-            bindCatalogSkillRow(row, item.id);
-        };
-        d.querySelectorAll('[data-skill-id]').forEach(row => bindCatalogSkillRow(row, item.id));
-    }
-    return d;
-}
-function skillRowHtml(sk) {
-    return `
-        <div class="skill-row" data-skill-id="${sk.id}">
-            <input type="text" data-skill-f="stat_name" value="${escapeHtml(sk.stat_name)}" placeholder="Название стата">
-            <input type="number" step="0.1" data-skill-f="value" value="${sk.value ?? 0}" placeholder="+/-">
-            <button type="button" data-skill-act="del" title="Удалить">✕</button>
-        </div>`;
-}
-function bindCatalogSkillRow(row, specId) {
-    const btn = row.querySelector('[data-skill-act="del"]');
-    if (!btn) return;
-    btn.onclick = async (e) => {
-        e.preventDefault();
-        const id = Number(row.dataset.skillId);
-        if (!confirm('Удалить навык?')) return;
-        const { error } = await supabase.from('specialist_skills').delete().eq('id', id);
-        if (error) return alert(error.message);
-        specialistSkillsCache[specId] = (specialistSkillsCache[specId] || []).filter(s => s.id !== id);
-        row.remove();
-    };
-}
-on('biAddBtn', 'click', async () => {
-    const msg = $('biMsg');
-    const payload = {
-        type: $('biType').value,
-        subgroup: $('biSub').value.trim() || null,
-        name: $('biName').value.trim(),
-        price: Number($('biPrice').value) || 0,
-        bonuses: $('biBonuses').value.trim() || null,
-        is_active: true,
-        sort_order: 0
-    };
-    if (!payload.name) { msg.textContent = 'Название обязательно'; msg.style.color = '#ff7a7a'; return; }
-    const { data, error } = await supabase.from('build_items').insert(payload).select().single();
-    if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
-    buildItemsCache.push(data);
-    msg.textContent = '✔ Добавлено'; msg.style.color = '#6ee7a7';
-    ['biSub','biName','biBonuses'].forEach(id => { const el = $(id); if (el) el.value = ''; });
-    $('biPrice').value = 0;
-    renderCatalogAdmin();
-    fillBuildDatalists();
-});
-
-/* ============ ИМПОРТ ФАЙЛОВ ============ */
-function setupImportHandler(btnId, fileId, statusId, parserFn, importFn) {
-    on(btnId, 'click', () => { const f = $(fileId); if (f) { f.value = ''; f.click(); } });
-    on(fileId, 'change', async e => {
-        const file = e.target.files[0]; if (!file) return;
-        const statusEl = $(statusId);
-        if (statusEl) { statusEl.textContent = '⏳ Чтение…'; statusEl.style.color = '#7db9ff'; }
-        try {
-            const text = await file.text();
-            const { items, errors } = parserFn(text);
-            if (!items.length) {
-                if (statusEl) { statusEl.textContent = '⚠️ Не найдено ни одной строки'; statusEl.style.color = '#ff7a7a'; }
-                return;
-            }
-            if (errors.length && !confirm(`Найдено ${errors.length} ошибок:\n${errors.slice(0, 5).join('\n')}${errors.length > 5 ? '\n...' : ''}\n\nИмпортировать остальные ${items.length} записей?`)) return;
-            const { ok, fail } = await importFn(items);
-            if (statusEl) {
-                statusEl.textContent = `✔ Загружено ${ok}${fail ? `, ошибок ${fail}` : ''}`;
-                statusEl.style.color = fail ? '#ffd479' : '#6ee7a7';
-            }
-            await loadBuildItems();
-            renderCatalogAdmin();
-            await logAdminAction('Импорт из файла', file.name, `успешно: ${ok}, ошибок: ${fail}`);
-        } catch (err) {
-            if (statusEl) { statusEl.textContent = '❌ Ошибка: ' + err.message; statusEl.style.color = '#ff7a7a'; }
-        }
-    });
-}
-setupImportHandler('biImportSpecsBtn', 'biImportSpecsFile', 'biImportSpecsStatus', parseSpecialistsFile, importSpecialists);
-setupImportHandler('biImportWeaponsBtn', 'biImportWeaponsFile', 'biImportWeaponsStatus', parseWeaponsFile, importWeapons);
-setupImportHandler('biImportUpgradesBtn', 'biImportUpgradesFile', 'biImportUpgradesStatus', parseUpgradesFile, importUpgrades);
-setupImportHandler('biImportShellsBtn', 'biImportShellsFile', 'biImportShellsStatus', parseShellsFile, importShells);
-
-/* ============================================================
-   РЕСУРСЫ — ТАБЛИЦА
-   ============================================================ */
-const PRICING_GROUPS = [
-    { id: 'raw',       name: '🪵 Сырьё',         cls: 'pricing-group-raw' },
-    { id: 'processed', name: '⚙️ Обработанные',  cls: 'pricing-group-processed' },
-    { id: 'consum',    name: '🧪 Расходники',    cls: 'pricing-group-consum' },
-    { id: 'valuable',  name: '💎 Ценности',      cls: 'pricing-group-valuable' },
-    { id: 'other',     name: '📦 Прочее',        cls: 'pricing-group-other' }
-];
-async function loadResourcePrices() {
-    const { data, error } = await supabase
-        .from('resource_prices')
-        .select('*')
-        .order('sort_order', { ascending: true })
-        .order('name', { ascending: true });
-    if (error) { console.warn('resource_prices load error:', error.message); resourcesCache = []; }
-    else resourcesCache = data || [];
-    renderPricingGrid();
-    renderResourcePricesHome();
-    if (builderHomeCtrl) builderHomeCtrl.refresh();
-    if (builderClanCtrl) builderClanCtrl.refresh();
-}
-function renderPricingGrid() {
-    const container = $('pricingGroups'); if (!container) return;
-    const q = ($('pricing-search')?.value || '').trim().toLowerCase();
-    let list = resourcesCache.slice();
-    if (q) list = list.filter(r =>
-        (r.name || '').toLowerCase().includes(q) ||
-        (r.name_latin || '').toLowerCase().includes(q) ||
-        (r.id || '').toLowerCase().includes(q)
-    );
-    if (!list.length) {
-        container.innerHTML = `<div class="pricing-empty">${q ? 'Ничего не найдено' : 'Пока нет ресурсов. Нажми «📥 Импорт базового набора».'}</div>`;
-        return;
-    }
-    const byGroup = {};
-    PRICING_GROUPS.forEach(g => { byGroup[g.id] = []; });
-    list.forEach(r => {
-        const gid = r.group_name || 'other';
-        (byGroup[gid] || (byGroup[gid] = [])).push(r);
-    });
-    container.innerHTML = '';
-    PRICING_GROUPS.forEach(g => {
-        const items = byGroup[g.id] || [];
-        if (!items.length) return;
-        items.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0) || (a.name || '').localeCompare(b.name || ''));
-        const section = document.createElement('section');
-        section.className = 'pricing-group ' + g.cls;
-        const title = document.createElement('h3');
-        title.className = 'pricing-group-title';
-        title.innerHTML = `${g.name} <span class="count">· ${items.length}</span>`;
-        section.appendChild(title);
-        const wrap = document.createElement('div');
-        wrap.className = 'pricing-table-wrap';
-        const table = document.createElement('table');
-        table.className = 'pricing-table';
-        table.innerHTML = `
-            <thead>
-                <tr>
-                    <th class="pt-col-icon"></th>
-                    <th class="pt-col-name">Ресурс</th>
-                    <th class="pt-col-price">Цена</th>
-                    <th class="pt-col-actions"></th>
-                </tr>
-            </thead>
-            <tbody></tbody>`;
-        const tbody = table.querySelector('tbody');
-        items.forEach(r => {
-            const iconHtml = r.image_url
-                ? `<img src="${escapeHtml(r.image_url)}" alt="" onerror="this.parentNode.innerHTML='${escapeHtml(r.icon || '📦')}'">`
-                : (r.icon || '📦');
-            const latin = (r.name_latin || r.id || '').toUpperCase();
-            const tr = document.createElement('tr');
-            tr.dataset.id = r.id;
-            tr.innerHTML = `
-                <td class="pt-col-icon"><span class="pt-icon">${iconHtml}</span></td>
-                <td class="pt-col-name">
-                    <span class="pt-name">${escapeHtml(r.name)}</span>
-                    <span class="pt-latin">${escapeHtml(latin)}</span>
-                </td>
-                <td class="pt-col-price">
-                    <div class="pt-price-wrap">
-                        <span class="pt-coin">🪙</span>
-                        <input type="number" class="pricing-card-input"
-                               data-id="${escapeHtml(r.id)}"
-                               value="${Number(r.price) || 0}"
-                               min="0" step="1">
-                    </div>
-                </td>
-                <td class="pt-col-actions">
-                    <button class="pricing-card-btn edit" data-id="${escapeHtml(r.id)}" title="Редактировать">✏️</button>
-                    <button class="pricing-card-btn del"  data-id="${escapeHtml(r.id)}" title="Удалить">🗑</button>
-                </td>`;
-            tbody.appendChild(tr);
-        });
-        wrap.appendChild(table);
-        section.appendChild(wrap);
-        container.appendChild(section);
-    });
-    container.querySelectorAll('.pricing-card-input').forEach(inp => {
-        inp.addEventListener('input', e => {
-            const id = e.target.dataset.id;
-            clearTimeout(pricingSaveTimers[id]);
-            pricingSaveTimers[id] = setTimeout(() => saveResourcePrice(id, e.target.value), 700);
-        });
-        inp.addEventListener('keydown', e => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                const id = e.target.dataset.id;
-                clearTimeout(pricingSaveTimers[id]);
-                saveResourcePrice(id, e.target.value);
-                e.target.blur();
-            }
-        });
-    });
-    container.querySelectorAll('.pricing-card-btn.del').forEach(btn =>
-        btn.addEventListener('click', () => deleteResourcePrice(btn.dataset.id))
-    );
-    container.querySelectorAll('.pricing-card-btn.edit').forEach(btn =>
-        btn.addEventListener('click', () => openResourceEditModal(btn.dataset.id))
-    );
-}
-async function saveResourcePrice(id, rawPrice) {
-    const price = parseFloat(rawPrice) || 0;
-    const status = $('pricingStatus');
-    const { error } = await supabase.from('resource_prices')
-        .update({ price, updated_at: new Date().toISOString(), updated_by: getViewerNick() || 'admin' })
-        .eq('id', id);
-    if (error) { if (status) { status.textContent = '❌ ' + error.message; status.style.color = '#ff7a7a'; setTimeout(() => status.textContent = '', 2500); } return; }
-    const r = resourcesCache.find(x => x.id === id);
-    if (r) r.price = price;
-    if (status) { status.textContent = '✔ Сохранено'; status.style.color = '#6ee7a7'; setTimeout(() => status.textContent = '', 1500); }
-    renderResourcePricesHome();
-    renderShipCostPublic();
-}
-async function deleteResourcePrice(id) {
-    const r = resourcesCache.find(x => x.id === id);
-    if (!r) return;
-    if (!confirm(`Удалить ресурс «${r.name}»?`)) return;
-    const { error } = await supabase.from('resource_prices').delete().eq('id', id);
-    if (error) return alert(error.message);
-    await logAdminAction('Удалил ресурс', r.name);
-    await loadResourcePrices();
-}
-function openResourceEditModal(id) {
-    const r = id ? resourcesCache.find(x => x.id === id) : null;
-    editingResourceId = r ? r.id : null;
-    $('resourceEditTitle').textContent = r ? '✏️ Редактировать ресурс' : '➕ Новый ресурс';
-    $('re-id').value = r?.id || '';
-    $('re-id').disabled = !!r;
-    $('re-name').value = r?.name || '';
-    $('re-latin').value = r?.name_latin || '';
-    $('re-group').value = r?.group_name || 'raw';
-    $('re-price').value = r?.price ?? 0;
-    $('re-icon').value = r?.icon || '📦';
-    $('re-image-url').value = (r?.image_url && !r.image_url.startsWith('data:')) ? r.image_url : '';
-    delete $('re-image-url').dataset.dataUrl;
-    if (r?.image_url) { $('re-image-preview-img').src = r.image_url; $('re-image-preview').hidden = false; }
-    else $('re-image-preview').hidden = true;
-    $('re-image-name').textContent = '';
-    $('re-msg').textContent = '';
-    $('resourceEditModal').hidden = false;
-    $('re-name').focus();
-}
-on('pricingAddBtn', 'click', () => openResourceEditModal(null));
-on('re-cancel', 'click', () => { $('resourceEditModal').hidden = true; editingResourceId = null; });
-on('resourceEditModal', 'click', e => { if (e.target.id === 'resourceEditModal') { $('resourceEditModal').hidden = true; editingResourceId = null; } });
-on('re-image-pick', 'click', () => { const f = $('re-image-file'); if (f) { f.value = ''; f.click(); } });
-on('re-image-file', 'change', async e => {
-    const file = e.target.files[0]; if (!file) return;
-    if (file.size > 2 * 1024 * 1024) { alert('Максимум 2 МБ'); return; }
-    try {
-        const dataUrl = await compressLogo(file, 128, 0.9);
-        $('re-image-preview-img').src = dataUrl;
-        $('re-image-preview').hidden = false;
-        $('re-image-name').textContent = file.name;
-        $('re-image-url').value = '';
-        $('re-image-url').dataset.dataUrl = dataUrl;
-    } catch (err) { alert('Ошибка: ' + err.message); }
-});
-on('re-image-clear', 'click', () => {
-    $('re-image-preview').hidden = true; $('re-image-file').value = '';
-    $('re-image-name').textContent = ''; $('re-image-url').value = '';
-    delete $('re-image-url').dataset.dataUrl;
-});
-on('re-image-url', 'input', () => {
-    delete $('re-image-url').dataset.dataUrl;
-    const url = val('re-image-url').trim();
-    if (url) { $('re-image-preview-img').src = url; $('re-image-preview').hidden = false; }
-    else $('re-image-preview').hidden = true;
-});
-on('re-save', 'click', async () => {
-    const msg = $('re-msg'); msg.textContent = '';
-    const id = (editingResourceId || val('re-id').trim().toLowerCase().replace(/[^a-z0-9_-]/g, ''));
-    const name = val('re-name').trim();
-    const latin = (val('re-latin').trim() || id).toUpperCase();
-    const group = val('re-group') || 'raw';
-    const price = parseFloat(val('re-price')) || 0;
-    const icon = val('re-icon').trim() || '📦';
-    const urlField = val('re-image-url').trim();
-    const image = urlField || $('re-image-url').dataset.dataUrl ||
-                  (editingResourceId ? resourcesCache.find(x => x.id === editingResourceId)?.image_url : null);
-    if (!id) { msg.textContent = 'Укажи ID'; msg.style.color = '#ff7a7a'; return; }
-    if (!name) { msg.textContent = 'Укажи название'; msg.style.color = '#ff7a7a'; return; }
-    const payload = {
-        id, name, name_latin: latin, group_name: group,
-        icon, image_url: image, price, category: 'resource',
-        sort_order: resourcesCache.find(x => x.id === id)?.sort_order ?? (resourcesCache.length + 1) * 10,
-        updated_at: new Date().toISOString(),
-        updated_by: getViewerNick() || 'admin'
-    };
-    let error;
-    if (editingResourceId) ({ error } = await supabase.from('resource_prices').update(payload).eq('id', id));
-    else ({ error } = await supabase.from('resource_prices').insert(payload));
-    if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
-    await logAdminAction(editingResourceId ? 'Обновил ресурс' : 'Добавил ресурс', name);
-    $('resourceEditModal').hidden = true;
-    editingResourceId = null;
-    await loadResourcePrices();
-});
-const RESOURCE_PRESET = [
-    ['wood','Дерево','WOOD','🪵','images/resources/wood.png',3.9,10,'raw'],
-    ['iron','Железо','IRON','⛓','images/resources/iron.png',12,20,'raw'],
-    ['fabric','Ткань','FABRIC','🧵','images/resources/fabric.png',3.5,30,'raw'],
-    ['resin','Смола','RESIN','🛢','images/resources/resin.png',54,40,'raw'],
-    ['coal','Уголь','COAL','⚫','images/resources/coal.png',25.5,50,'raw'],
-    ['volcanic_ore','Вулк. руда','VOLCANIC ORE','🪨','images/resources/volcanic_ore.png',370,60,'raw'],
-    ['copper','Медь','COPPER','🟠','images/resources/plate.png',65,70,'processed'],
-    ['beam','Балка','BEAM','🪵','images/resources/beam.png',779,90,'processed'],
-    ['canvas','Парус','CANVAS','🧶','images/resources/canvas.png',230,100,'processed'],
-    ['bulkhead','Переборка','BULKHEAD','🛡','images/resources/bulkhead.png',1120,110,'processed'],
-    ['plate','Плита','PLATE','🔩','images/resources/plate.png',1500,120,'processed'],
-    ['bronze','Бронза','BRONZE','🥉','images/resources/bronze.png',1150,130,'processed'],
-    ['rum','Ром','RUM','🥃','images/resources/rum.png',13.5,80,'consum'],
-    ['salt','Соль','SALT','🧂','images/resources/salt.png',0,210,'consum'],
-    ['wreckage','Обломки','WRECKAGE','📦','images/resources/pouch.png',100,140,'valuable'],
-    ['battle_mark','Боевая метка','BATTLE MARK','🎖','images/resources/bronze.png',755,150,'valuable'],
-    ['blueprint_fragment','Фрагмент чертежа','BL. FRAGMENT','📜','images/resources/blueprint_fragment.png',18400,160,'valuable'],
-    ['blueprint_imp','Имп. чертёж','IMP. BLUE','📜','images/resources/blueprint.png',2000000,170,'valuable'],
-    ['escudo','Эскудо','ESCUDO','🪙','images/resources/escudo.png',4000,180,'valuable'],
-    ['pirate_token','Пиратский жетон','PIR. TOKEN','☠️','images/resources/pirate_token.png',0,190,'valuable'],
-    ['license','Лицензия','CONST. LICE','📃','images/resources/license.png',550000,200,'valuable'],
-    ['copper_ingot','Медный слиток','CU INGOT','🟧','images/resources/copper_ingot.png',0,220,'processed']
-];
-on('pricingPresetBtn', 'click', async () => {
-    if (!confirm('Загрузить базовый набор из 22 ресурсов? Существующие с такими ID будут перезаписаны.')) return;
-    const btn = $('pricingPresetBtn'); btn.disabled = true; btn.textContent = '⏳…';
-    let count = 0;
-    for (const [id, name, latin, icon, image_url, price, sort, group] of RESOURCE_PRESET) {
-        const payload = {
-            id, name, name_latin: latin, icon, image_url, price,
-            category: 'resource', sort_order: sort, group_name: group || 'raw',
-            updated_at: new Date().toISOString(), updated_by: 'preset'
-        };
-        const { error } = await supabase.from('resource_prices').upsert(payload, { onConflict: 'id' });
-        if (!error) count++;
-    }
-    btn.disabled = false; btn.textContent = '📥 Импорт базового набора';
-    await logAdminAction('Импорт пресета ресурсов', null, `загружено: ${count}`);
-    await loadResourcePrices();
-    alert(`✔ Загружено ${count} из ${RESOURCE_PRESET.length}`);
-});
-on('pricingAuto', 'change', async (e) => {
-    const on = e.target.checked; const msg = $('pricingAutoMsg');
-    if (!on) { if (msg) msg.textContent = ''; return; }
-    if (msg) { msg.textContent = '⏳ считаю…'; msg.style.color = '#7db9ff'; }
-    const active = tradesCache.filter(t => t.status !== 'done' && t.type === 'sell' && t.category === 'resource');
-    if (!active.length) { if (msg) { msg.textContent = 'Нет активных заявок'; msg.style.color = '#ff7a7a'; } e.target.checked = false; return; }
-    const sums = {};
-    active.forEach(t => {
-        const k = (t.name || '').trim().toLowerCase();
-        if (!sums[k]) sums[k] = { gold: 0, qty: 0 };
-        sums[k].gold += (Number(t.price) || 0) * (Number(t.qty) || 0);
-        sums[k].qty += Number(t.qty) || 0;
-    });
-    let updated = 0;
-    for (const r of resourcesCache) {
-        const k = (r.name || '').trim().toLowerCase();
-        if (sums[k] && sums[k].qty > 0) {
-            const avg = Math.round(sums[k].gold / sums[k].qty);
-            const { error } = await supabase.from('resource_prices').update({ price: avg, updated_at: new Date().toISOString(), updated_by: 'auto' }).eq('id', r.id);
-            if (!error) { r.price = avg; updated++; }
-        }
-    }
-    await logAdminAction('Авто-цены', null, `обновлено: ${updated}`);
-    renderPricingGrid(); renderResourcePricesHome();
-    if (msg) { msg.textContent = `✔ обновлено ${updated}`; msg.style.color = '#6ee7a7'; setTimeout(() => msg.textContent = '', 3000); }
-});
-on('pricingCollapse', 'click', () => { const p = document.querySelector('.pricing-panel'); if (p) p.classList.toggle('collapsed'); });
-on('pricing-search', 'input', renderPricingGrid);
-function renderResourcePricesHome() {
-    const tbody = $('res-tbody'); if (!tbody) return;
-    const q = ($('res-search')?.value || '').trim().toLowerCase();
-    const sort = $('res-sort')?.value || 'name-asc';
-    let list = resourcesCache.slice();
-    if (q) list = list.filter(r => (r.name || '').toLowerCase().includes(q));
-    list.sort((a, b) => {
-        switch (sort) {
-            case 'name-desc': return (b.name || '').localeCompare(a.name || '');
-            case 'price-asc': return (a.price || 0) - (b.price || 0);
-            case 'price-desc': return (b.price || 0) - (a.price || 0);
-            case 'updated-desc': return new Date(b.updated_at || 0) - new Date(a.updated_at || 0);
-            default: return (a.name || '').localeCompare(b.name || '');
-        }
-    });
-    if (!list.length) { tbody.innerHTML = `<tr><td colspan="3" class="res-empty">${q ? 'Ничего не найдено' : 'Справочник пуст'}</td></tr>`; return; }
-    const fmt = n => Number(n).toLocaleString('ru-RU');
-    tbody.innerHTML = '';
-    list.forEach(r => {
-        const img = r.image_url
-            ? `<img src="${escapeHtml(r.image_url)}" alt="" onerror="this.style.display='none'">`
-            : `<span style="font-size:18px;">${escapeHtml(r.icon || '📦')}</span>`;
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td><span class="res-name">${img}${escapeHtml(r.name)}</span></td>
-            <td><span class="res-cell-price avg">${fmt(r.price)} 🪙</span></td>
-            <td style="font-size:11px;color:var(--muted);">${r.updated_at ? new Date(r.updated_at).toLocaleDateString('ru-RU') : '—'}</td>`;
-        tbody.appendChild(tr);
-    });
-    const upd = $('res-updated');
-    if (upd) upd.textContent = 'обновлено ' + new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-}
-on('res-search', 'input', renderResourcePricesHome);
-on('res-sort', 'change', renderResourcePricesHome);
-on('res-refresh', 'click', loadResourcePrices);
-
-/* ============================================================
-   ПОСТРОЙКА КОРАБЛЯ + СКИДКИ
-   ============================================================ */
-async function loadRecipes() {
-    const { data, error } = await supabase.from('ship_recipes').select('*').order('sort_order').order('id');
-    if (error) { console.warn('ship_recipes load:', error.message); recipesCache = []; }
-    else recipesCache = data || [];
-    renderRecipeShipSelect();
-    renderRecipeRows();
-    renderShipCostPublic();
-}
-async function loadDiscounts() {
-    const { data, error } = await supabase.from('discounts').select('*').order('sort_order').order('id');
-    if (error) { console.warn('discounts load:', error.message); discountsCache = []; }
-    else discountsCache = data || [];
-    renderDiscountsAdmin();
-    renderShipCostPublic();
-    fillScCities();
-}
-function fillScCities() {
-    const sel = $('sc-city'); if (!sel) return;
-    const cur = sel.value;
-    sel.innerHTML = '<option value="">— Не указан —</option>' +
-        portsCache.map(p => `<option value="${escapeHtml(p.name)}">${escapeHtml(p.name)}</option>`).join('');
-    if (cur && portsCache.some(p => p.name === cur)) sel.value = cur;
-}
-function fillScShipSelect() {
-    const sel = $('sc-ship'); if (!sel) return;
-    const cur = sel.value;
-    sel.innerHTML = '<option value="">— Выберите корабль —</option>';
-    shipsCache.slice().sort((a, b) => a.name.localeCompare(b.name)).forEach(s => {
-        const o = document.createElement('option');
-        o.value = s.name; o.textContent = `${ROMAN[s.level] || s.level} · ${s.name}`;
-        o.dataset.image = s.image_url || '';
-        sel.appendChild(o);
-    });
-    if (cur) sel.value = cur;
-}
-function fillScFactionSelect() {
-    const sel = $('sc-faction'); if (!sel) return;
-    const cur = sel.value;
-    sel.innerHTML = '<option value="">— Не указана —</option>' +
-        factionsCache.filter(f => f.type !== 'neutral').map(f => `<option value="${escapeHtml(f.name)}">${escapeHtml(f.name)}</option>`).join('');
-    if (cur) sel.value = cur;
-}
-function getActiveDiscounts(city, faction) {
-    const today = new Date().toISOString().slice(0, 10);
-    return discountsCache.filter(d => {
-        if (!d.is_active) return false;
-        if (d.date_from && d.date_from > today) return false;
-        if (d.date_to   && d.date_to   < today) return false;
-        if (d.type === 'city'    && (!d.city    || d.city    !== city))    return false;
-        if (d.type === 'faction' && (!d.faction || d.faction !== faction)) return false;
-        return true;
-    });
-}
-function renderShipCostPublic() {
-    const sel = $('sc-ship'); if (!sel) return;
-    const shipName = sel.value;
-    const img = $('sc-ship-img');
-    const empty = $('sc-empty');
-    const content = $('sc-content');
-    if (!shipName) {
-        if (img) img.hidden = true;
-        if (empty) empty.hidden = false;
-        if (content) content.hidden = true;
-        return;
-    }
-    const opt = sel.selectedOptions[0];
-    if (img && opt?.dataset.image) { img.src = opt.dataset.image; img.hidden = false; }
-    else if (img) img.hidden = true;
-    const recipe = recipesCache.filter(r => r.ship_id === shipName);
-    if (!recipe.length) {
-        if (empty) { empty.hidden = false; empty.textContent = 'Для этого корабля рецепт не задан.'; }
-        if (content) content.hidden = true;
-        return;
-    }
-    if (empty) empty.hidden = true;
-    if (content) content.hidden = false;
-    const tbody = $('sc-tbody'); if (!tbody) return;
-    tbody.innerHTML = '';
-    let baseSum = 0;
-    recipe.forEach(r => {
-        const res = resourcesCache.find(x => x.id === r.resource_id);
-        const price = res ? Number(res.price) || 0 : 0;
-        const qty   = Number(r.quantity) || 0;
-        const sum   = price * qty;
-        baseSum += sum;
-        const imgHtml = res?.image_url
-            ? `<img src="${escapeHtml(res.image_url)}" alt="">`
-            : `<span style="font-size:18px;">${escapeHtml(res?.icon || '📦')}</span>`;
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td><span class="sc-res-name">${imgHtml}${escapeHtml(res?.name || r.resource_id)}</span></td>
-            <td class="sc-qty">${qty.toLocaleString('ru-RU')}</td>
-            <td class="sc-price">${price.toLocaleString('ru-RU')} 🪙</td>
-            <td class="sc-sum">${Math.round(sum).toLocaleString('ru-RU')} 🪙</td>`;
-        tbody.appendChild(tr);
-    });
-    const city = val('sc-city');
-    const faction = val('sc-faction');
-    const active = getActiveDiscounts(city, faction);
-    const dl = $('sc-discounts-list');
-    const block = document.querySelector('.sc-discounts');
-    if (dl) {
-        if (!active.length) { if (block) block.hidden = true; dl.innerHTML = ''; }
-        else {
-            if (block) block.hidden = false;
-            dl.innerHTML = active.map(d => `
-                <div class="sc-disc-row">
-                    <span class="sc-disc-name">${escapeHtml(d.name)}
-                        <span class="sc-disc-badge ${d.type}">${
-                            d.type === 'seasonal' ? '🗓 сезон' :
-                            d.type === 'city' ? '⚓ ' + escapeHtml(d.city || '') :
-                            '🏴 ' + escapeHtml(d.faction || '')
-                        }</span>
-                    </span>
-                    <span class="sc-disc-value">−${d.value}%</span>
-                </div>`).join('');
-        }
-    }
-    const totalPercent = active.reduce((s, d) => s + (Number(d.value) || 0), 0);
-    const discountSum = baseSum * totalPercent / 100;
-    const finalSum = Math.max(0, baseSum - discountSum);
-    const fmt = n => Math.round(n).toLocaleString('ru-RU') + ' 🪙';
-    const baseEl = $('sc-base'); if (baseEl) baseEl.textContent = fmt(baseSum);
-    const dEl = $('sc-discounts-sum'); if (dEl) dEl.textContent = '−' + fmt(discountSum);
-    const fEl = $('sc-final'); if (fEl) fEl.textContent = fmt(finalSum);
-}
-on('sc-ship', 'change', renderShipCostPublic);
-on('sc-city', 'change', renderShipCostPublic);
-on('sc-faction', 'change', renderShipCostPublic);
-function renderRecipeShipSelect() {
-    const sel = $('recipe-ship'); if (!sel) return;
-    const cur = sel.value;
-    sel.innerHTML = '<option value="">— Выберите корабль —</option>';
-    shipsCache.slice().sort((a, b) => a.name.localeCompare(b.name)).forEach(s => {
-        const o = document.createElement('option');
-        o.value = s.name; o.textContent = `${ROMAN[s.level] || s.level} · ${s.name}`;
-        sel.appendChild(o);
-    });
-    if (cur) sel.value = cur;
-}
-function renderRecipeRows() {
-    const container = $('recipe-rows'); if (!container) return;
-    const ship = val('recipe-ship');
-    if (!ship) { container.innerHTML = '<p class="hint" style="margin:0;">Выберите корабль — появятся его компоненты.</p>'; return; }
-    const rows = recipesCache.filter(r => r.ship_id === ship).sort((a, b) => (a.sort_order||0) - (b.sort_order||0));
-    container.innerHTML = '';
-    if (!rows.length) { container.innerHTML = '<p class="hint" style="margin:0;">Рецепт пуст. Нажмите «➕ Добавить ресурс».</p>'; return; }
-    rows.forEach(r => addRecipeRowUI(r.resource_id, r.quantity, r.id));
-}
-function addRecipeRowUI(resourceId = '', qty = 1, id = null) {
-    const container = $('recipe-rows'); if (!container) return;
-    if (container.querySelector('.hint')) container.innerHTML = '';
-    const row = document.createElement('div');
-    row.className = 'recipe-row';
-    if (id) row.dataset.id = id;
-    row.innerHTML = `
-        <img class="rr-img" src="" alt="" hidden>
-        <select class="rr-res">
-            <option value="">— Ресурс —</option>
-            ${resourcesCache.map(r => `<option value="${escapeHtml(r.id)}" ${r.id === resourceId ? 'selected' : ''}>${escapeHtml(r.name)}</option>`).join('')}
-        </select>
-        <input type="number" class="rr-qty" min="1" step="1" value="${Number(qty) || 1}">
-        <button class="rr-del" title="Удалить">✕</button>`;
-    const sel = row.querySelector('.rr-res');
-    const img = row.querySelector('.rr-img');
-    const updateImg = () => {
-        const r = resourcesCache.find(x => x.id === sel.value);
-        if (r?.image_url) { img.src = r.image_url; img.hidden = false; }
-        else { img.hidden = true; img.src = ''; }
-    };
-    sel.addEventListener('change', updateImg);
-    updateImg();
-    row.querySelector('.rr-del').addEventListener('click', () => row.remove());
-    container.appendChild(row);
-}
-on('recipe-ship', 'change', renderRecipeRows);
-on('recipe-add-row', 'click', () => {
-    if (!val('recipe-ship')) { alert('Сначала выберите корабль'); return; }
-    addRecipeRowUI();
-});
-on('recipe-clear', 'click', async () => {
-    const ship = val('recipe-ship'); if (!ship) return;
-    if (!confirm(`Удалить рецепт корабля «${ship}»?`)) return;
-    const { error } = await supabase.from('ship_recipes').delete().eq('ship_id', ship);
-    if (error) return alert('Ошибка: ' + error.message);
-    await logAdminAction('Удалил рецепт', ship);
-    await loadRecipes();
-});
-on('recipe-save', 'click', async () => {
-    const ship = val('recipe-ship');
-    const msg = $('recipe-msg'); msg.textContent = '';
-    if (!ship) { msg.textContent = 'Выберите корабль'; msg.style.color = '#ff7a7a'; return; }
-    const rows = [...document.querySelectorAll('#recipe-rows .recipe-row')].map(r => ({
-        resource_id: r.querySelector('.rr-res').value,
-        quantity: Number(r.querySelector('.rr-qty').value) || 0
-    })).filter(r => r.resource_id && r.quantity > 0);
-    const seen = new Set();
-    for (const r of rows) {
-        if (seen.has(r.resource_id)) { msg.textContent = 'Ресурс повторяется: ' + r.resource_id; msg.style.color = '#ff7a7a'; return; }
-        seen.add(r.resource_id);
-    }
-    const { error: delErr } = await supabase.from('ship_recipes').delete().eq('ship_id', ship);
-    if (delErr) { msg.textContent = 'Ошибка удаления: ' + delErr.message; msg.style.color = '#ff7a7a'; return; }
-    if (rows.length) {
-        const payload = rows.map((r, i) => ({ ship_id: ship, resource_id: r.resource_id, quantity: r.quantity, sort_order: i * 10 }));
-        const { error } = await supabase.from('ship_recipes').insert(payload);
-        if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
-    }
-    await logAdminAction('Сохранил рецепт', ship, `компонентов: ${rows.length}`);
-    msg.textContent = '✔ Рецепт сохранён'; msg.style.color = '#6ee7a7';
-    await loadRecipes();
-    if (builderHomeCtrl) builderHomeCtrl.recalc();
-    if (builderClanCtrl) builderClanCtrl.recalc();
-});
-function renderDiscountsAdmin() {
-    const container = $('discounts-list'); if (!container) return;
-    container.innerHTML = '';
-    if (!discountsCache.length) { container.innerHTML = '<div class="empty">Скидок пока нет</div>'; return; }
-    discountsCache.forEach(d => {
-        const typeLabels = { seasonal: '🗓 Сезонная', city: '⚓ Городская', faction: '🏴 Фракционная' };
-        const range = (d.date_from || d.date_to) ? `${d.date_from || '…'} → ${d.date_to || '…'}` : 'без ограничения';
-        const el = document.createElement('div');
-        el.className = 'partners-admin-item';
-        el.innerHTML = `
-            <div class="logo-mini"><span>💸</span></div>
-            <div class="txt">
-                <b>${escapeHtml(d.name)} <span style="color:var(--green)">−${d.value}%</span></b>
-                <span style="color:var(--muted);font-size:11px;">
-                    ${typeLabels[d.type] || d.type}
-                    ${d.city ? ' · ' + escapeHtml(d.city) : ''}
-                    ${d.faction ? ' · ' + escapeHtml(d.faction) : ''}
-                    · ${range} · ${d.is_active ? '🟢 активна' : '⚫ выкл'}
-                </span>
-                ${d.note ? `<span style="color:var(--muted);font-size:11px;font-style:italic;">${escapeHtml(d.note)}</span>` : ''}
-            </div>
-            <div class="actions">
-                <button class="edit" title="Вкл/выкл">${d.is_active ? '🟢' : '⚫'}</button>
-                <button class="delete" title="Удалить">🗑</button>
-            </div>`;
-        el.querySelector('.edit').addEventListener('click', async () => {
-            const { error } = await supabase.from('discounts').update({ is_active: !d.is_active }).eq('id', d.id);
-            if (error) return alert(error.message);
-            await loadDiscounts();
-        });
-        el.querySelector('.delete').addEventListener('click', async () => {
-            if (!confirm(`Удалить скидку «${d.name}»?`)) return;
-            await supabase.from('discounts').delete().eq('id', d.id);
-            await logAdminAction('Удалил скидку', d.name);
-            await loadDiscounts();
-        });
-        container.appendChild(el);
-    });
-}
-function onDiscountTypeChange() {
-    const type = val('disc-type');
-    const cityField = $('disc-city-field');
-    const factionField = $('disc-faction-field');
-    if (cityField) cityField.hidden = type !== 'city';
-    if (factionField) factionField.hidden = type !== 'faction';
-}
-on('disc-type', 'change', onDiscountTypeChange);
-function fillDiscountCitySelect() {
-    const sel = $('disc-city-select'); if (!sel) return;
-    const cur = sel.value;
-    sel.innerHTML = '<option value="">— Не выбран —</option>' +
-        portsCache.map(p => `<option value="${escapeHtml(p.name)}">${escapeHtml(p.name)}</option>`).join('');
-    if (cur && portsCache.some(p => p.name === cur)) sel.value = cur;
-}
-function fillDiscountFactionSelect() {
-    const sel = $('disc-faction-select'); if (!sel) return;
-    const cur = sel.value;
-    sel.innerHTML = '<option value="">— Не выбрана —</option>' +
-        factionsCache.map(f => `<option value="${escapeHtml(f.name)}">${escapeHtml(f.name)}</option>`).join('');
-    if (cur) sel.value = cur;
-}
-on('disc-add', 'click', async () => {
-    const msg = $('disc-msg'); msg.textContent = '';
-    const name = val('disc-name').trim();
-    const type = val('disc-type');
-    const value = parseFloat(val('disc-value')) || 0;
-    const city = val('disc-city-select') || null;
-    const faction = val('disc-faction-select') || null;
-    const dateFrom = val('disc-from') || null;
-    const dateTo = val('disc-to') || null;
-    const note = val('disc-note').trim() || null;
-    const isActive = $('disc-active').checked;
-    if (!name) { msg.textContent = 'Укажи название'; msg.style.color = '#ff7a7a'; return; }
-    if (value <= 0 || value > 100) { msg.textContent = 'Процент 0–100'; msg.style.color = '#ff7a7a'; return; }
-    if (type === 'city' && !city) { msg.textContent = 'Укажи город'; msg.style.color = '#ff7a7a'; return; }
-    if (type === 'faction' && !faction) { msg.textContent = 'Укажи фракцию'; msg.style.color = '#ff7a7a'; return; }
-    const { error } = await supabase.from('discounts').insert({
-        name, type, value, city, faction,
-        date_from: dateFrom, date_to: dateTo,
-        note, is_active: isActive,
-        sort_order: (discountsCache.length + 1) * 10
-    });
-    if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
-    await logAdminAction('Добавил скидку', name, `${type} −${value}%`);
-    msg.textContent = '✔ Скидка добавлена'; msg.style.color = '#6ee7a7';
-    ['disc-name','disc-city-select','disc-faction-select','disc-from','disc-to','disc-note'].forEach(i => { const el = $(i); if (el) el.value = ''; });
-    $('disc-value').value = 5;
-    await loadDiscounts();
-});
-
-/* ============================================================
-   КАРТА МИРА
-   ============================================================ */
-async function loadMapSettings() {
-    const { data, error } = await supabase.from('map_settings').select('*').eq('id', 'main').maybeSingle();
-    if (error) { console.warn('map_settings load:', error.message); mapSettings = null; }
-    else mapSettings = data;
-    renderMapPreview();
-    renderMapAdmin();
-}
-function getMapUrls() {
-    const s = mapSettings || {};
-    return {
-        detailed: s.detailed_url || MAP_DEFAULT_DETAILED,
-        clean:    s.clean_url    || MAP_DEFAULT_CLEAN,
-        title:    s.title        || 'World of Sea Battle — Карта',
-        note:     s.note         || '',
-        defaultView: s.default_view || 'detailed'
-    };
-}
-function renderMapPreview() {
-    const urls = getMapUrls();
-    const titleEl = $('map-title'); if (titleEl) titleEl.textContent = urls.title;
-    const noteEl  = $('map-note');  if (noteEl)  noteEl.textContent = urls.note;
-    const img = $('map-preview-img'); if (!img) return;
-    document.querySelectorAll('.map-view-btn').forEach(b => b.classList.toggle('active', b.dataset.view === currentMapView));
-    const src = currentMapView === 'clean' ? urls.clean : urls.detailed;
-    img.src = src || '';
-    img.onerror = () => {
-        if (currentMapView === 'detailed' && urls.clean) { img.src = urls.clean; }
-        else if (currentMapView === 'clean' && urls.detailed) { img.src = urls.detailed; }
-        else { img.alt = 'Карта не загружена'; }
-    };
-}
-function openMapFullscreen() {
-    const urls = getMapUrls();
-    const fs = $('mapFullscreen'); if (!fs) return;
-    const img = $('map-fs-img');
-    const src = currentMapView === 'clean' ? urls.clean : urls.detailed;
-    if (!src) { alert('Карта не настроена'); return; }
-    img.src = src;
-    img.onerror = () => { img.src = currentMapView === 'clean' ? urls.detailed : urls.clean; };
-    const titleEl = $('map-fs-title'); if (titleEl) titleEl.textContent = urls.title;
-    mapFsZoom = 1; mapFsX = 0; mapFsY = 0; applyMapFsTransform();
-    fs.hidden = false;
-    document.body.style.overflow = 'hidden';
-}
-function closeMapFullscreen() {
-    const fs = $('mapFullscreen'); if (!fs) return;
-    fs.hidden = true;
-    document.body.style.overflow = '';
-}
-function applyMapFsTransform() {
-    const img = $('map-fs-img'); if (!img) return;
-    img.style.transform = `translate(${mapFsX}px, ${mapFsY}px) scale(${mapFsZoom})`;
-}
-function setMapFsZoom(z) {
-    mapFsZoom = Math.max(0.5, Math.min(6, z));
-    if (mapFsZoom <= 1) { mapFsX = 0; mapFsY = 0; }
-    applyMapFsTransform();
-}
-function resetMapFs() { mapFsZoom = 1; mapFsX = 0; mapFsY = 0; applyMapFsTransform(); }
-on('map-open', 'click', openMapFullscreen);
-on('map-preview', 'click', openMapFullscreen);
-document.querySelectorAll('.map-view-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-        currentMapView = btn.dataset.view;
-        renderMapPreview();
-        const fs = $('mapFullscreen');
-        if (fs && !fs.hidden) {
-            const urls = getMapUrls();
-            const img = $('map-fs-img');
-            if (img) img.src = currentMapView === 'clean' ? urls.clean : urls.detailed;
-            resetMapFs();
-        }
-    });
-});
-on('map-fs-close', 'click', closeMapFullscreen);
-on('map-fs-zoom-in', 'click', () => setMapFsZoom(mapFsZoom + 0.25));
-on('map-fs-zoom-out', 'click', () => setMapFsZoom(mapFsZoom - 0.25));
-on('map-fs-reset', 'click', resetMapFs);
-on('map-fs-stage', 'wheel', e => { e.preventDefault(); setMapFsZoom(mapFsZoom + (e.deltaY < 0 ? 0.15 : -0.15)); }, { passive: false });
-on('map-fs-stage', 'mousedown', e => {
-    if (mapFsZoom <= 1) return;
-    mapFsDragging = true;
-    mapFsDragStart = { x: e.clientX - mapFsX, y: e.clientY - mapFsY };
-    $('map-fs-stage').classList.add('dragging');
-});
-document.addEventListener('mousemove', e => {
-    if (!mapFsDragging) return;
-    mapFsX = e.clientX - mapFsDragStart.x;
-    mapFsY = e.clientY - mapFsDragStart.y;
-    applyMapFsTransform();
-});
-document.addEventListener('mouseup', () => {
-    if (!mapFsDragging) return;
-    mapFsDragging = false;
-    $('map-fs-stage')?.classList.remove('dragging');
-});
-on('map-fs-stage', 'mouseleave', () => { mapFsDragging = false; });
-document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') {
-        const fs = $('mapFullscreen');
-        if (fs && !fs.hidden) closeMapFullscreen();
-    }
-});
-function renderMapAdmin() {
-    const urls = getMapUrls();
-    const t = $('map-title-input'); if (t) t.value = urls.title;
-    const n = $('map-note-input');  if (n) n.value = urls.note;
-    const dv = $('map-default-view'); if (dv) dv.value = urls.defaultView;
-    const det = $('map-detailed-url'); if (det) det.value = (urls.detailed && !urls.detailed.startsWith('data:')) ? urls.detailed : '';
-    const cln = $('map-clean-url');    if (cln) cln.value = (urls.clean    && !urls.clean.startsWith('data:'))    ? urls.clean    : '';
-    const detPrev = $('map-detailed-preview');
-    const detImg  = $('map-detailed-preview-img');
-    if (urls.detailed) { detImg.src = urls.detailed; detPrev.hidden = false; } else detPrev.hidden = true;
-    const clnPrev = $('map-clean-preview');
-    const clnImg  = $('map-clean-preview-img');
-    if (urls.clean) { clnImg.src = urls.clean; clnPrev.hidden = false; } else clnPrev.hidden = true;
-    mapDetailedData = null;
-    mapCleanData = null;
-    const msg = $('map-admin-msg'); if (msg) msg.textContent = '';
-}
-on('map-detailed-pick', 'click', () => { const f = $('map-detailed-file'); if (f) { f.value = ''; f.click(); } });
-on('map-detailed-file', 'change', async e => {
-    const file = e.target.files[0]; if (!file) return;
-    if (file.size > 8 * 1024 * 1024) { alert('Максимум 8 МБ'); return; }
-    try {
-        const dataUrl = await compressImage(file, 3000, 0.9);
-        mapDetailedData = dataUrl;
-        $('map-detailed-preview-img').src = dataUrl;
-        $('map-detailed-preview').hidden = false;
-        $('map-detailed-name').textContent = file.name;
-        $('map-detailed-url').value = '';
-    } catch (err) { alert('Ошибка: ' + err.message); }
-});
-on('map-detailed-clear', 'click', () => {
-    mapDetailedData = null;
-    $('map-detailed-preview').hidden = true;
-    $('map-detailed-name').textContent = '';
-    $('map-detailed-file').value = '';
-    $('map-detailed-url').value = '';
-});
-on('map-clean-pick', 'click', () => { const f = $('map-clean-file'); if (f) { f.value = ''; f.click(); } });
-on('map-clean-file', 'change', async e => {
-    const file = e.target.files[0]; if (!file) return;
-    if (file.size > 8 * 1024 * 1024) { alert('Максимум 8 МБ'); return; }
-    try {
-        const dataUrl = await compressImage(file, 3000, 0.9);
-        mapCleanData = dataUrl;
-        $('map-clean-preview-img').src = dataUrl;
-        $('map-clean-preview').hidden = false;
-        $('map-clean-name').textContent = file.name;
-        $('map-clean-url').value = '';
-    } catch (err) { alert('Ошибка: ' + err.message); }
-});
-on('map-clean-clear', 'click', () => {
-    mapCleanData = null;
-    $('map-clean-preview').hidden = true;
-    $('map-clean-name').textContent = '';
-    $('map-clean-file').value = '';
-    $('map-clean-url').value = '';
-});
-on('map-reset-urls', 'click', () => {
-    $('map-detailed-url').value = MAP_DEFAULT_DETAILED;
-    $('map-clean-url').value    = MAP_DEFAULT_CLEAN;
-    mapDetailedData = null; mapCleanData = null;
-    $('map-detailed-preview').hidden = false;
-    $('map-detailed-preview-img').src = MAP_DEFAULT_DETAILED;
-    $('map-clean-preview').hidden = false;
-    $('map-clean-preview-img').src = MAP_DEFAULT_CLEAN;
-});
-on('map-save', 'click', async () => {
-    const msg = $('map-admin-msg'); msg.textContent = '';
-    const title = val('map-title-input').trim() || 'World of Sea Battle — Карта';
-    const note = val('map-note-input').trim() || null;
-    const defaultView = val('map-default-view') || 'detailed';
-    const detailedUrl = mapDetailedData || val('map-detailed-url').trim() || null;
-    const cleanUrl    = mapCleanData    || val('map-clean-url').trim()    || null;
-    const { error } = await supabase.from('map_settings').upsert({
-        id: 'main', title, note, default_view: defaultView,
-        detailed_url: detailedUrl, clean_url: cleanUrl,
-        updated_at: new Date().toISOString()
-    }, { onConflict: 'id' });
-    if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
-    await logAdminAction('Обновил карту', title);
-    msg.textContent = '✔ Карта сохранена'; msg.style.color = '#6ee7a7';
-    await loadMapSettings();
-});
-
-/* ============ ФРАКЦИИ / ПОРТЫ / РАНГИ ============ */
-async function loadFactions() {
-    const { data, error } = await supabase.from('factions').select('*').order('sort_order');
-    if (error) { factionsCache = []; return; }
-    factionsCache = data || [];
-    renderFactionsAdmin();
-    fillPortFactionSelect();
-    fillDiscountFactionSelect();
-    fillScFactionSelect();
-}
-async function loadPorts() {
-    const { data, error } = await supabase.from('ports').select('*').order('sort_order').order('name');
-    if (error) { portsCache = []; return; }
-    portsCache = data || [];
-    renderPortsAdmin();
-    fillDiscountCitySelect();
-    fillScCities();
-}
-async function loadRanks() {
-    const { data, error } = await supabase.from('ship_ranks').select('*').order('rank', { ascending: false });
-    if (error) { ranksCache = []; return; }
-    ranksCache = data || [];
-    renderRanksAdmin();
-}
-function renderFactionsAdmin() {
-    const container = $('factions-admin-list'); if (!container) return;
-    container.innerHTML = '';
-    if (!factionsCache.length) { container.innerHTML = '<div class="empty">Нет фракций</div>'; return; }
-    const typeLabels = { military: '⚔️ Военная', trade: '💰 Торговая', pirate: '☠️ Пиратская', neutral: '🕊 Нейтральная' };
-    factionsCache.forEach(f => {
-        const el = document.createElement('div');
-        el.className = 'partners-admin-item';
-        el.innerHTML = `
-            <div class="logo-mini" style="background:${escapeHtml(f.color || '#8a93a3')}22;color:${escapeHtml(f.color || '#8a93a3')};"><span>🏴</span></div>
-            <div class="txt">
-                <b style="color:${escapeHtml(f.color || 'var(--text)')}">${escapeHtml(f.name)}</b>
-                <span style="color:var(--muted);font-size:11px;">${typeLabels[f.type] || f.type}${f.description ? ' · ' + escapeHtml(f.description) : ''}</span>
-            </div>
-            <div class="actions">
-                <button class="edit" title="Редактировать">✏️</button>
-            </div>`;
-        el.querySelector('.edit').addEventListener('click', () => openFactionEditModal(f));
-        container.appendChild(el);
-    });
-}
-function renderPortsAdmin() {
-    const container = $('ports-admin-list'); if (!container) return;
-    container.innerHTML = '';
-    if (!portsCache.length) { container.innerHTML = '<div class="empty">Нет портов</div>'; return; }
-    const typeLabels = { city: '🏙 Город', port: '⚓ Порт', neutral_bay: '🕊 Нейтральная', pirate_bay: '☠️ Пиратская' };
-    portsCache.forEach(p => {
-        const faction = factionsCache.find(f => f.id === p.faction_id);
-        const el = document.createElement('div');
-        el.className = 'partners-admin-item';
-        el.innerHTML = `
-            <div class="logo-mini"><span>${p.type === 'pirate_bay' ? '☠️' : p.type === 'neutral_bay' ? '🕊' : p.type === 'city' ? '🏙' : '⚓'}</span></div>
-            <div class="txt">
-                <b>${escapeHtml(p.name)}</b>
-                <span style="color:var(--muted);font-size:11px;">
-                    ${typeLabels[p.type] || p.type}
-                    ${faction ? ' · ' + escapeHtml(faction.name) : ''}
-                    ${p.can_be_captured ? ' · ⚔️ захватываемый' : ' · 🔒 не захватывается'}
-                    ${p.region ? ' · 📍 ' + escapeHtml(p.region) : ''}
-                </span>
-                ${p.note ? `<span style="color:var(--muted);font-size:11px;font-style:italic;">${escapeHtml(p.note)}</span>` : ''}
-            </div>
-            <div class="actions">
-                <button class="edit" title="Редактировать">✏️</button>
-                <button class="delete" title="Удалить">🗑</button>
-            </div>`;
-        el.querySelector('.edit').addEventListener('click', () => openPortEditModal(p));
-        el.querySelector('.txt b').addEventListener('dblclick', () => openPortEditModal(p));
-        el.querySelector('.delete').addEventListener('click', async () => {
-            if (!confirm(`Удалить порт «${p.name}»?`)) return;
-            await supabase.from('ports').delete().eq('id', p.id);
-            await loadPorts();
-        });
-        container.appendChild(el);
-    });
-}
-function renderRanksAdmin() {
-    const container = $('ranks-admin-list'); if (!container) return;
-    container.innerHTML = '';
-    if (!ranksCache.length) { container.innerHTML = '<div class="empty">Нет данных о рангах</div>'; return; }
-    ranksCache.forEach(r => {
-        const el = document.createElement('div');
-        el.className = 'partners-admin-item';
-        el.innerHTML = `
-            <div class="logo-mini"><span>${ROMAN[r.rank] || r.rank}</span></div>
-            <div class="txt">
-                <b>${escapeHtml(r.name)}</b>
-                <span style="color:var(--muted);font-size:11px;">
-                    Мин. уровень: ${r.min_level || '—'}
-                    ${r.requires_blueprint ? ' · 📜 нужен чертёж' : ''}
-                    ${r.note ? ' · ' + escapeHtml(r.note) : ''}
-                </span>
-            </div>`;
-        container.appendChild(el);
-    });
-}
-function fillPortFactionSelect() {
-    const sel = $('port-faction'); if (!sel) return;
-    const cur = sel.value;
-    sel.innerHTML = '<option value="">— Без фракции —</option>' +
-        factionsCache.map(f => `<option value="${escapeHtml(f.id)}">${escapeHtml(f.name)}</option>`).join('');
-    if (cur) sel.value = cur;
-}
-function openPortEditModal(port) {
-    if (!port) return;
-    $('portEditTitle').textContent = '✏️ Редактировать порт';
-    $('pe-id').value = port.id;
-    $('pe-name').value = port.name || '';
-    $('pe-type').value = port.type || 'city';
-    $('pe-region').value = port.region || '';
-    $('pe-note').value = port.note || '';
-    $('pe-capturable').checked = port.can_be_captured !== false;
-    const sel = $('pe-faction');
-    sel.innerHTML = '<option value="">— Без фракции —</option>' +
-        factionsCache.map(f => `<option value="${escapeHtml(f.id)}" ${f.id === port.faction_id ? 'selected' : ''}>${escapeHtml(f.name)}</option>`).join('');
-    $('pe-msg').textContent = '';
-    $('portEditModal').hidden = false;
-    $('pe-name').focus();
-}
-on('pe-cancel', 'click', () => { $('portEditModal').hidden = true; });
-on('portEditModal', 'click', e => { if (e.target.id === 'portEditModal') $('portEditModal').hidden = true; });
-on('pe-save', 'click', async () => {
-    const id = $('pe-id').value;
-    const name = val('pe-name').trim();
-    const type = val('pe-type');
-    const factionId = val('pe-faction') || null;
-    const region = val('pe-region').trim() || null;
-    const capturable = $('pe-capturable').checked;
-    const note = val('pe-note').trim() || null;
-    const msg = $('pe-msg'); msg.textContent = '';
-    if (!name) { msg.textContent = 'Укажи название'; msg.style.color = '#ff7a7a'; return; }
-    if (portsCache.some(p => p.name === name && String(p.id) !== String(id))) { msg.textContent = 'Порт с таким именем уже есть'; msg.style.color = '#ff7a7a'; return; }
-    const { error } = await supabase.from('ports').update({ name, type, faction_id: factionId, region, can_be_captured: capturable, note }).eq('id', id);
-    if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
-    await logAdminAction('Обновил порт', name);
-    $('portEditModal').hidden = true;
-    await loadPorts();
-});
-function openFactionEditModal(faction) {
-    if (!faction) return;
-    $('factionEditTitle').textContent = '✏️ Редактировать фракцию';
-    $('fe-id').value = faction.id;
-    $('fe-name').value = faction.name || '';
-    $('fe-type').value = faction.type || 'military';
-    $('fe-color').value = faction.color || '';
-    $('fe-desc').value = faction.description || '';
-    $('fe-msg').textContent = '';
-    $('factionEditModal').hidden = false;
-    $('fe-name').focus();
-}
-on('fe-cancel', 'click', () => { $('factionEditModal').hidden = true; });
-on('factionEditModal', 'click', e => { if (e.target.id === 'factionEditModal') $('factionEditModal').hidden = true; });
-on('fe-save', 'click', async () => {
-    const id = $('fe-id').value;
-    const name = val('fe-name').trim();
-    const type = val('fe-type');
-    const color = val('fe-color').trim() || null;
-    const desc = val('fe-desc').trim() || null;
-    const msg = $('fe-msg'); msg.textContent = '';
-    if (!name) { msg.textContent = 'Укажи название'; msg.style.color = '#ff7a7a'; return; }
-    const { error } = await supabase.from('factions').update({ name, type, color, description: desc }).eq('id', id);
-    if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
-    await logAdminAction('Обновил фракцию', name);
-    $('factionEditModal').hidden = true;
-    await loadFactions();
-    await loadPorts();
-});
-on('port-add', 'click', async () => {
-    const msg = $('port-msg'); msg.textContent = '';
-    const name = val('port-name').trim();
-    const type = val('port-type');
-    const factionId = val('port-faction') || null;
-    const region = val('port-region').trim() || null;
-    const capturable = $('port-capturable').checked;
-    const note = val('port-note').trim() || null;
-    if (!name) { msg.textContent = 'Укажи название'; msg.style.color = '#ff7a7a'; return; }
-    if (portsCache.some(p => p.name === name)) { msg.textContent = 'Такой порт уже есть'; msg.style.color = '#ff7a7a'; return; }
-    const { error } = await supabase.from('ports').insert({ name, type, faction_id: factionId, region, can_be_captured: capturable, note, sort_order: (portsCache.length + 1) * 10 });
-    if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
-    msg.textContent = '✔ Порт добавлен'; msg.style.color = '#6ee7a7';
-    ['port-name','port-region','port-note'].forEach(i => { const el = $(i); if (el) el.value = ''; });
-    $('port-capturable').checked = true;
-    await loadPorts();
-});
-on('ranks-reload', 'click', loadRanks);
-
-/* ============ СОЮЗЫ АДМИН ============ */
-on('allyAddBtn', 'click', async () => {
-    const id = val('allyId').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
-    const name = val('allyName').trim();
-    const desc = val('allyDesc').trim();
-    const type = val('allyType') || 'full';
-    const msg = $('allyMsg'); msg.textContent = '';
-    if (!id || !name) { msg.textContent = 'ID и название обязательны'; msg.style.color = '#ff7a7a'; return; }
-    if (alliancesCache[id]) { msg.textContent = 'ID занят'; msg.style.color = '#ff7a7a'; return; }
-    const { error } = await supabase.from('alliances').insert({ id, name, description: desc || null, type });
-    if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
-    ['allyId','allyName','allyDesc'].forEach(i => { const el = $(i); if (el) el.value = ''; });
-    $('allyType').value = 'full';
-    msg.textContent = '✔ Союз создан'; msg.style.color = '#6ee7a7';
-    await loadAlliances();
-});
-function openAllianceEdit(a) {
-    editingAlliance = a;
-    $('allyEditId').value = a.id;
-    $('allyEditName').value = a.name || '';
-    $('allyEditDesc').value = a.description || '';
-    $('allyEditType').value = a.type || 'full';
-    $('allyEditMsg').textContent = '';
-    $('allyEditModal').hidden = false;
-    $('allyEditName').focus();
-}
-on('cancelAllyEdit', 'click', () => { $('allyEditModal').hidden = true; editingAlliance = null; });
-on('saveAllyEdit', 'click', async () => {
-    if (!editingAlliance) return;
-    const name = val('allyEditName').trim();
-    const desc = val('allyEditDesc').trim();
-    const type = val('allyEditType') || 'full';
-    const msg = $('allyEditMsg');
-    if (!name) { msg.textContent = 'Укажи название'; msg.style.color = '#ff7a7a'; return; }
-    const { error } = await supabase.from('alliances').update({ name, description: desc || null, type }).eq('id', editingAlliance.id);
-    if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
-    $('allyEditModal').hidden = true; editingAlliance = null;
-    await loadAlliances();
-});
-async function deleteAlliance(id, name) {
-    if (!confirm(`Удалить союз «${name}»?`)) return;
-    await supabase.from('alliances').delete().eq('id', id);
-    await loadAlliances(); await loadClans();
-}
-
-/* ============ НАСТРОЙКИ / СТАТИСТИКА ============ */
-async function loadSettings() {
-    const { data, error } = await supabase.from('site_settings').select('*').eq('id', 'main').single();
-    if (error) return;
-    settingsCache = data;
-}
-async function loadStats() {
-    const row = $('statsRow'); if (!row) return;
-    row.innerHTML = '';
-    try {
-        const [e, f, n, p, b1, b2, c, t] = await Promise.all([
-            supabase.from('enemies').select('id', { count: 'exact', head: true }),
-            supabase.from('friends').select('id', { count: 'exact', head: true }),
-            supabase.from('neutral').select('id', { count: 'exact', head: true }),
-            supabase.from('personal').select('id', { count: 'exact', head: true }),
-            supabase.from('builds').select('id', { count: 'exact', head: true }).eq('type', 'pvp'),
-            supabase.from('builds').select('id', { count: 'exact', head: true }).eq('type', 'pb'),
-            supabase.from('clans_public').select('id', { count: 'exact', head: true }),
-            supabase.from('trades').select('id', { count: 'exact', head: true })
-        ]);
-        const stats = [
-            { label: 'Врагов', value: e.count || 0, ico: '🔴' },
-            { label: 'Друзей', value: f.count || 0, ico: '🟢' },
-            { label: 'Нейтралов', value: n.count || 0, ico: '🟡' },
-            { label: 'В личном', value: p.count || 0, ico: '🟠' },
-            { label: 'Билды ПВП', value: b1.count || 0, ico: '⚔️' },
-            { label: 'Билды ПБ', value: b2.count || 0, ico: '🛡' },
-            { label: 'Гильдий', value: c.count || 0, ico: '🏰' },
-            { label: 'Сделок', value: t.count || 0, ico: '💰' }
-        ];
-        stats.forEach(s => {
-            const el = document.createElement('div');
-            el.className = 'stat-card';
-            el.innerHTML = `<div class="stat-value">${s.ico} ${s.value}</div><div class="stat-label">${s.label}</div>`;
-            row.appendChild(el);
-        });
-    } catch (err) { }
-}
-
-/* ============ КОНТАКТЫ / ИГРЫ ============ */
-function renderContacts() {
-    const container = $('contactsList'); if (!container) return;
-    container.innerHTML = '';
-    let clans = [];
-    if (isOwner) clans = Object.values(clansCache);
-    else if (isAdmin && myAdminClanId) {
-        const my = clansCache[myAdminClanId];
-        if (my) clans = Object.values(clansCache).filter(c => c.id === myAdminClanId || (my.alliance_id && c.alliance_id === my.alliance_id));
-    } else if (isAdmin) clans = Object.values(clansCache);
-    else if (currentClan && clansCache[currentClan]?.alliance_id) {
-        const ally = clansCache[currentClan].alliance_id;
-        clans = Object.values(clansCache).filter(c => c.alliance_id === ally);
-    } else if (currentClan) clans = [clansCache[currentClan]].filter(Boolean);
-    if (!clans.length) { container.innerHTML = '<div class="empty">Гильдий пока нет</div>'; return; }
-    clans.forEach(clan => {
-        const card = document.createElement('div');
-        card.className = 'contact-card';
-        const hasLink = clan.discord && clan.discord.trim();
-        const hasPhone = clan.phone && clan.phone.trim();
-        const hasLeader = clan.leader_nick && clan.leader_nick.trim();
-        card.innerHTML = `
-            ${renderClanLogoHtml(clan, 'contact')}
-            <div class="contact-info">
-                <div class="contact-name">${escapeHtml(clan.name)}</div>
-                ${hasLeader ? `<div class="contact-leader">👑 ${escapeHtml(clan.leader_nick)}</div>` : ''}
-                ${hasPhone ? `<div class="contact-phone">${escapeHtml(clan.phone)}</div>` : ''}
-                <div class="contact-discord">${hasLink ? escapeHtml(clan.discord) : 'Ссылка не указана'}</div>
-            </div>
-            <div class="contact-actions">
-                ${hasLink ? `<a class="contact-btn" href="${escapeHtml(clan.discord)}" target="_blank" rel="noopener">💬 Discord</a>` : `<span class="contact-btn disabled">💬 Нет ссылки</span>`}
-                ${hasLeader ? `<button class="contact-msg-btn" data-nick="${escapeHtml(clan.leader_nick)}">✉️ Написать</button>` : `<span class="contact-msg-btn disabled">✉️ Нет ника</span>`}
-            </div>`;
-        const msgBtn = card.querySelector('.contact-msg-btn');
-        if (msgBtn && hasLeader) msgBtn.addEventListener('click', () => openPrivateChat(msgBtn.dataset.nick));
-        container.appendChild(card);
-    });
-}
-function renderGamesAdmin() {
-    const container = $('gamesAdminList'); if (!container) return;
-    container.innerHTML = '';
-    const list = Object.values(gamesCache);
-    if (!list.length) { container.innerHTML = '<div class="empty">Пока нет игр</div>'; return; }
-    list.forEach(g => {
-        const el = document.createElement('div');
-        el.className = 'games-admin-item';
-        const logoHtml = g.image ? `<img src="${escapeHtml(g.image)}" alt="" onerror="this.outerHTML='<span>🎮</span>'">` : `<span>🎮</span>`;
-        el.innerHTML = `
-            <div class="logo-mini">${logoHtml}</div>
-            <div class="txt"><b>${escapeHtml(g.name)}</b><span>ID: ${escapeHtml(g.id)}${g.bg ? ' · 🎨' : ''}</span></div>
-            <div class="actions">
-                <button class="edit">✏️</button>
-                <button class="delete">🗑</button>
-            </div>`;
-        el.querySelector('.edit').addEventListener('click', () => openGameEdit(g));
-        el.querySelector('.delete').addEventListener('click', () => deleteGame(g.id, g.name));
-        container.appendChild(el);
-    });
-}
-on('gameAddBtn', 'click', async () => {
-    const id = val('gameId').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
-    const name = val('gameName').trim(), image = val('gameImage').trim(), bg = val('gameBg').trim();
-    const statusEl = $('gameStatus');
-    if (!id) { flashStatusEl(statusEl, 'Укажи ID', '#ff7a7a'); return; }
-    if (!name) { flashStatusEl(statusEl, 'Укажи название', '#ff7a7a'); return; }
-    if (gamesCache[id]) { flashStatusEl(statusEl, 'ID существует', '#ff7a7a'); return; }
-    const { error } = await supabase.from('games').insert({ id, name, image: image || null, bg: bg || null, sort_order: Object.keys(gamesCache).length });
-    if (error) { flashStatusEl(statusEl, 'Ошибка: ' + error.message, '#ff7a7a'); return; }
-    ['gameId','gameName','gameImage','gameBg'].forEach(i => { const el = $(i); if (el) el.value = ''; });
-    flashStatusEl(statusEl, '✔ Добавлено', '#6ee7a7');
-    await loadGames();
-});
-function openGameEdit(g) {
-    editingGame = g;
-    $('gameEditId').value = g.id; $('gameEditName').value = g.name;
-    $('gameEditImage').value = g.image || ''; $('gameEditBg').value = g.bg || '';
-    $('gameEditMsg').textContent = ''; $('gameEditModal').hidden = false;
-    $('gameEditName').focus();
-}
-on('cancelGameEdit', 'click', () => { $('gameEditModal').hidden = true; editingGame = null; });
-on('saveGameEdit', 'click', async () => {
-    if (!editingGame) return;
-    const name = val('gameEditName').trim(), image = val('gameEditImage').trim(), bg = val('gameEditBg').trim();
-    const msg = $('gameEditMsg');
-    if (!name) { msg.textContent = 'Укажи название'; msg.style.color = '#ff7a7a'; return; }
-    const { error } = await supabase.from('games').update({ name, image: image || null, bg: bg || null }).eq('id', editingGame.id);
-    if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
-    $('gameEditModal').hidden = true; editingGame = null; await loadGames();
-});
-async function deleteGame(id, name) {
-    if (!confirm(`Удалить игру «${name}»?`)) return;
-    const { error } = await supabase.from('games').delete().eq('id', id);
-    if (error) return alert('Ошибка: ' + error.message);
-    if (currentGame === id) { currentGame = null; localStorage.removeItem(GAME_STORAGE_KEY); }
-    await loadGames(); await loadClans();
-}
-function renderAdminClanSelect() {
-    const sel = $('adminClanSelect'); if (!sel) return;
-    const cur = sel.value; sel.innerHTML = '';
-    Object.values(clansCache).forEach(c => { const o = document.createElement('option'); o.value = c.id; o.textContent = c.name; sel.appendChild(o); });
-    if (cur && clansCache[cur]) sel.value = cur;
-    updateAdminFields();
-}
-function renderGameSelectForClanAdmin() {
-    const sel = $('adminClanGame'); if (!sel) return;
-    const cur = sel.value; sel.innerHTML = '';
-    Object.values(gamesCache).forEach(g => { const o = document.createElement('option'); o.value = g.id; o.textContent = g.name; sel.appendChild(o); });
-    if (cur && gamesCache[cur]) sel.value = cur;
-}
-function renderNewClanGameSelect() {
-    const sel = $('newClanGame'); if (!sel) return;
-    const cur = sel.value; sel.innerHTML = '';
-    Object.values(gamesCache).forEach(g => { const o = document.createElement('option'); o.value = g.id; o.textContent = g.name; sel.appendChild(o); });
-    if (cur && gamesCache[cur]) sel.value = cur;
-    else if (currentGame && gamesCache[currentGame]) sel.value = currentGame;
-}
-function updateFlagPreview(selectId, previewId) {
-    const sel = $(selectId);
-    const prev = $(previewId);
-    if (!sel || !prev) return;
-    const flag = CLAN_FLAGS[sel.value] || CLAN_FLAGS.neutral;
-    prev.style.backgroundImage = `url("${flag}")`;
-}
-on('newClanFlag', 'change', () => updateFlagPreview('newClanFlag', 'newClanFlagPreview'));
-on('adminClanFlag', 'change', () => updateFlagPreview('adminClanFlag', 'adminClanFlagPreview'));
-on('adminClanSelect', 'change', updateAdminFields);
-function updateAdminFields() {
-    const cid = val('adminClanSelect');
-    const clan = clansCache[cid];
-    renderGameSelectForClanAdmin(); renderAllianceSelects();
-    if (clan) { $('adminClanGame').value = clan.game_id || 'wosb'; $('adminClanAlliance').value = clan.alliance_id || ''; }
-    $('adminCurrentPass').value = clan?.password || '—';
-    $('adminCurrentAdminPass').value = clan?.admin_password || '—';
-    $('adminNewPass').value = ''; $('adminNewAdminPass').value = '';
-    $('adminDiscord').value = clan?.discord || '';
-    const phoneEl = $('adminPhone'); if (phoneEl) phoneEl.value = clan?.phone || '';
-    $('adminNews').value = clan?.news || '';
-    $('adminRules').value = clan?.rules || '';
-    $('adminNicks').value = clan?.admin_nicks || '';
-    $('adminMembers').value = clan?.members_list || '';
-    const imgEl = $('adminClanImage');
-    const previewWrap = $('adminClanImagePreview');
-    const previewImg = $('adminClanImagePreviewImg');
-    const nameEl = $('adminClanImageName');
-    const fileEl = $('adminClanImageFile');
-    if (fileEl) fileEl.value = '';
-    if (clan?.image && clan.image.startsWith('data:')) {
-        clanLogoData = clan.image;
-        if (imgEl) imgEl.value = '';
-        if (previewImg) previewImg.src = clan.image.startsWith('data:image/') ? clan.image : '';
-        if (previewWrap) previewWrap.hidden = false;
-        if (nameEl) nameEl.textContent = clan.image.startsWith('data:video/') ? 'Загруженное видео' : 'Загруженный файл';
-    } else {
-        clanLogoData = null;
-        if (imgEl) imgEl.value = clan?.image || '';
-        if (previewWrap) previewWrap.hidden = true;
-        if (nameEl) nameEl.textContent = '';
-    }
-    const flagEl = $('adminClanFlag'); if (flagEl) flagEl.value = clan?.flag || 'neutral';
-    updateFlagPreview('adminClanFlag', 'adminClanFlagPreview');
-    const leaderEl = $('adminLeaderNick');
-    if (leaderEl) leaderEl.value = clan?.leader_nick || '';
-    $('adminPanelMsg').textContent = '';
-}
-on('saveAdminSettings', 'click', async () => {
-    const cid = val('adminClanSelect'); if (!cid) return;
-    const clan = clansCache[cid]; if (!clan) return;
-    const msg = $('adminPanelMsg');
-    const newPass = val('adminNewPass').trim();
-    const newAdminPass = val('adminNewAdminPass').trim();
-    const finalImage = clanLogoData || val('adminClanImage').trim() || null;
-    const payload = {
-        discord: val('adminDiscord').trim() || null,
-        phone: val('adminPhone').trim() || null,
-        news: val('adminNews') || null,
-        rules: val('adminRules'),
-        game_id: val('adminClanGame') || null,
-        alliance_id: val('adminClanAlliance') || null,
-        admin_nicks: val('adminNicks') || null,
-        members_list: val('adminMembers') || null,
-        image: finalImage,
-        flag: val('adminClanFlag') || 'neutral',
-        leader_nick: val('adminLeaderNick').trim() || null,
-        updated_at: new Date().toISOString()
-    };
-    if (newPass) payload.password = newPass;
-    if (newAdminPass) payload.admin_password = newAdminPass;
-    const { error } = await supabase.from('clans').update(payload).eq('id', cid);
-    if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
-    Object.assign(clansCache[cid], payload);
-    msg.textContent = '✔ Сохранено'; msg.style.color = '#6ee7a7';
-    $('adminNewPass').value = ''; $('adminNewAdminPass').value = '';
-    $('adminCurrentPass').value = clansCache[cid].password || '—';
-    $('adminCurrentAdminPass').value = clansCache[cid].admin_password || '—';
-    if (currentClan === cid) { renderMembers(); renderAdmins(); }
-    renderHomeCards(); renderContacts(); renderAlliancesAdmin(); updateAllianceBar();
-});
-on('deleteClanBtn', 'click', async () => {
-    const cid = val('adminClanSelect'); if (!cid) return;
-    const clan = clansCache[cid]; if (!clan) return alert('Гильдия не найдена');
-    if (!confirm(`Удалить гильдию «${clan.name}»?`)) return;
-    const typed = prompt(`Введи название для подтверждения:\n«${clan.name}»`);
-    if (typed !== clan.name) return alert('Не совпадает');
-    const btn = $('deleteClanBtn'); btn.disabled = true; btn.textContent = '⏳…';
-    try {
-        for (const t of TABS) await supabase.from(t).delete().eq('clan', cid);
-        await supabase.from('events').delete().eq('clan', cid).eq('is_shared', false);
-        await supabase.from('treasury').delete().eq('clan', cid);
-        await supabase.from('trades').delete().eq('clan', cid);
-        await supabase.from('builds').delete().eq('clan', cid).eq('is_shared', false);
-        const { error } = await supabase.from('clans').delete().eq('id', cid);
-        if (error) throw error;
-        delete clansCache[cid];
-        if (currentClan === cid) { currentClan = null; ['guild_last_clan','guild_unlocked','guild_my_clan'].forEach(k => localStorage.removeItem(k)); }
-        renderHomeCards(); renderAdminClanSelect(); renderScopeSelects(); renderContacts();
-        renderTradeClanSelect(); renderTradeClanFilters(); renderAlliancesAdmin(); applyBg();
-        $('adminPanelMsg').textContent = '✔ Удалено'; $('adminPanelMsg').style.color = '#6ee7a7';
-    } catch (err) { $('adminPanelMsg').textContent = 'Ошибка: ' + err.message; $('adminPanelMsg').style.color = '#ff7a7a'; }
-    finally { btn.disabled = false; btn.textContent = '🗑 Удалить гильдию'; }
-});
-function renderSiteFields() {
-    const s = settingsCache || {};
-    $('adminWebhook').value = s.discord_webhook || '';
-    const rssEl = $('adminNewsRss');
-    if (rssEl) rssEl.value = s.news_rss_url || 'https://vk.ru/@worldofseabattle';
-    $('adminSiteMsg').textContent = '';
-}
-on('saveSiteSettings', 'click', async () => {
-    const msg = $('adminSiteMsg'); msg.style.color = '';
-    const rssEl = $('adminNewsRss');
-    const payload = {
-        discord_webhook: val('adminWebhook').trim() || null,
-        news_rss_url: rssEl ? (rssEl.value.trim() || null) : null,
-        updated_at: new Date().toISOString()
-    };
-    const { error } = await supabase.from('site_settings').update(payload).eq('id', 'main');
-    if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
-    settingsCache = Object.assign({ id: 'main' }, settingsCache || {}, payload);
-    msg.textContent = '✔ Сохранено'; msg.style.color = '#6ee7a7';
-});
-
-/* ============ ДОБАВЛЕНИЕ / РЕДАКТИРОВАНИЕ ЗАПИСЕЙ ============ */
-on('openAddClan', 'click', () => {
-    ['newClanId','newClanName','newClanDesc','newClanRules','newClanPass','newClanAdminPass','newClanDiscord','newClanImage','newClanBg','newClanLeaderNick','newClanPhone'].forEach(id => { const el = $(id); if (el) el.value = ''; });
-    const flagEl = $('newClanFlag'); if (flagEl) flagEl.value = 'neutral';
-    updateFlagPreview('newClanFlag', 'newClanFlagPreview');
-    renderNewClanGameSelect(); renderAllianceSelects();
-    $('newClanAlliance').value = ''; $('addClanMsg').textContent = '';
-    newClanLogoData = null;
-    const _p = $('newClanImagePreview'); if (_p) _p.hidden = true;
-    const _n = $('newClanImageName'); if (_n) _n.textContent = '';
-    const _f = $('newClanImageFile'); if (_f) _f.value = '';
-    $('addClanModal').hidden = false; $('newClanId').focus();
-});
-on('cancelAddClan', 'click', () => { $('addClanModal').hidden = true; });
-on('saveNewClan', 'click', async () => {
-    const id = val('newClanId').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
-    const name = val('newClanName').trim();
-    const pass = val('newClanPass').trim();
-    const adminPass = val('newClanAdminPass').trim();
-    const game = val('newClanGame');
-    const alliance = val('newClanAlliance');
-    const msg = $('addClanMsg');
-    if (!id || !name || !pass) { msg.textContent = 'ID, название и пароль обязательны'; msg.style.color = '#ff7a7a'; return; }
-    if (!game) { msg.textContent = 'Выберите игру'; msg.style.color = '#ff7a7a'; return; }
-    if (clansCache[id]) { msg.textContent = 'ID занят'; msg.style.color = '#ff7a7a'; return; }
-    const finalImage = newClanLogoData || val('newClanImage').trim() || null;
-    const payload = {
-        id, name, game_id: game,
-        description: val('newClanDesc').trim(), rules: val('newClanRules'),
-        password: pass, admin_password: adminPass || null,
-        alliance_id: alliance || null,
-        discord: val('newClanDiscord').trim() || null,
-        phone: val('newClanPhone').trim() || null,
-        image: finalImage,
-        flag: val('newClanFlag') || 'neutral',
-        leader_nick: val('newClanLeaderNick').trim() || null,
-        bg: val('newClanBg').trim() || 'images/bg-main.jpg'
-    };
-    const { error } = await supabase.from('clans').insert(payload);
-    if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
-    clansCache[id] = payload;
-    renderHomeCards(); renderAdminClanSelect(); renderScopeSelects(); renderContacts();
-    renderTradeClanSelect(); renderTradeClanFilters(); renderApplyClanSelect(); renderAlliancesAdmin();
-    msg.textContent = '✔ Гильдия создана'; msg.style.color = '#6ee7a7';
-    setTimeout(() => { $('addClanModal').hidden = true; }, 800);
-});
-function openEditModal(tab, item) {
-    editingItem = { tab, id: item.id };
-    $('editPlayerGuild').value = item.player_guild || '';
-    $('editNickname').value = item.nickname || '';
-    $('editFaction').value = item.faction || '';
-    $('editNote').value = item.note || '';
-    $('editError').textContent = '';
-    $('editModal').hidden = false; $('editPlayerGuild').focus();
-}
-on('cancelEdit', 'click', () => { $('editModal').hidden = true; editingItem = null; });
-on('saveEdit', 'click', async () => {
-    if (!editingItem) return;
-    const pg = val('editPlayerGuild').trim(), nick = val('editNickname').trim();
-    if (!pg && !nick) { $('editError').textContent = 'Заполни Гильдию или Ник'; return; }
-    const { tab, id } = editingItem;
-    const data = { nickname: nick || null, player_guild: pg || null, faction: val('editFaction').trim() || null, note: val('editNote').trim() || null };
-    if (isAdmin) {
-        const { error } = await supabase.from(tab).update(data).eq('id', id);
-        if (error) { $('editError').textContent = 'Ошибка: ' + error.message; return; }
-    } else {
-        const { data: resp, error } = await supabase.rpc('clan_admin_action', {
-            action: 'update', target_table: tab, target_clan: currentClan,
-            entered_password: currentClanPass, record_id: id, data
-        });
-        if (error || resp?.error) { $('editError').textContent = 'Ошибка: ' + (resp?.error || error.message); return; }
-    }
-    $('editModal').hidden = true; editingItem = null; loadList(tab);
-});
-['editPlayerGuild','editNickname','editFaction','editNote'].forEach(id => {
-    on(id, 'keydown', e => { if (e.key === 'Enter') $('saveEdit').click(); });
-});
-on('addBtn', 'click', async () => {
-    if (!canEditClan(currentClan)) return;
-    const pg = val('playerGuild').trim(), nick = val('nickname').trim();
-    if (!pg && !nick) { flashStatus('Заполни Гильдию или Ник', '#ff7a7a'); return; }
-    const data = { nickname: nick || null, player_guild: pg || null, faction: val('faction').trim() || null, note: val('note').trim() || null };
-    if (isAdmin) {
-        const { error } = await supabase.from(currentTab).insert({ ...data, clan: currentClan });
-        if (error) { flashStatus('Ошибка: ' + error.message, '#ff7a7a'); return; }
-    } else {
-        const { data: resp, error } = await supabase.rpc('clan_admin_action', {
-            action: 'insert', target_table: currentTab, target_clan: currentClan,
-            entered_password: currentClanPass, data
-        });
-        if (error || resp?.error) { flashStatus('Ошибка: ' + (resp?.error || error.message), '#ff7a7a'); return; }
-    }
-    ['playerGuild','nickname','faction','note'].forEach(id => { const el = $(id); if (el) el.value = ''; });
-    $('playerGuild').focus();
-    flashStatus('✔ Добавлено', '#6ee7a7');
-    loadList(currentTab);
-});
-['playerGuild','nickname','faction','note'].forEach(id => {
-    on(id, 'keydown', e => { if (e.key === 'Enter') $('addBtn').click(); });
-});
-async function deleteItem(tab, id) {
-    if (!confirm('Удалить запись?')) return;
-    if (isAdmin) {
-        const { error } = await supabase.from(tab).delete().eq('id', id);
-        if (error) return alert(error.message);
-    } else {
-        const { data: resp, error } = await supabase.rpc('clan_admin_action', {
-            action: 'delete', target_table: tab, target_clan: currentClan,
-            entered_password: currentClanPass, record_id: id
-        });
-        if (error || resp?.error) return alert('Ошибка: ' + (resp?.error || error.message));
-    }
-    loadList(tab);
-}
-function openMoveModal(fromTab, id) { movingItem = { fromTab, id }; $('moveModal').hidden = false; }
-on('cancelMove', 'click', () => { $('moveModal').hidden = true; movingItem = null; });
-document.querySelectorAll('#moveModal [data-target]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-        if (!movingItem || !currentClan) return;
-        const { fromTab, id } = movingItem;
-        const toTab = btn.dataset.target;
-        $('moveModal').hidden = true; movingItem = null;
-        if (toTab === fromTab) return;
-        const { data, error } = await supabase.from(fromTab).select('*').eq('id', id).single();
-        if (error) return alert(error.message);
-        if (isAdmin) {
-            const { error: insErr } = await supabase.from(toTab).insert({
-                nickname: data.nickname, player_guild: data.player_guild,
-                faction: data.faction, note: data.note, clan: currentClan
-            });
-            if (insErr) return alert(insErr.message);
-            await supabase.from(fromTab).delete().eq('id', id);
-        } else {
-            const { data: resp1, error: err1 } = await supabase.rpc('clan_admin_action', {
-                action: 'insert', target_table: toTab, target_clan: currentClan,
-                entered_password: currentClanPass,
-                data: { nickname: data.nickname, player_guild: data.player_guild, faction: data.faction, note: data.note }
-            });
-            if (err1 || resp1?.error) return alert('Ошибка: ' + (resp1?.error || err1.message));
-            const { data: resp2, error: err2 } = await supabase.rpc('clan_admin_action', {
-                action: 'delete', target_table: fromTab, target_clan: currentClan,
-                entered_password: currentClanPass, record_id: id
-            });
-            if (err2 || resp2?.error) return alert('Ошибка: ' + (resp2?.error || err2.message));
-        }
-        loadList(fromTab); loadList(toTab);
-    });
-});
-
-/* ============ #build / ПРОФИЛЬ / УВЕДОМЛЕНИЯ ============ */
-async function handleBuildHash() {
-    const m = location.hash.match(/^#build=([a-f0-9-]+)$/i); if (!m) return;
-    const { data, error } = await supabase.from('builds').select('*').eq('id', m[1]).single();
-    if (error || !data) return;
-    const section = data.type === 'pvp' ? 'pvp' : 'pb';
-    document.querySelector(`.side-item[data-section="${section}"]`)?.click();
-    setTimeout(() => {
-        document.querySelectorAll('.build-card').forEach(c => {
-            if (c.querySelector('.build-ship')?.textContent === data.ship_name) {
-                c.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                c.style.boxShadow = '0 0 0 3px #b48aff';
-                setTimeout(() => c.style.boxShadow = '', 2500);
-            }
-        });
-    }, 600);
-}
-window.addEventListener('hashchange', () => { if (location.hash.startsWith('#build=')) handleBuildHash(); });
-async function openProfile(nickname) {
-    if (!nickname) return;
-    $('profileNickname').textContent = nickname;
-    const statsEl = $('profileStats');
-    statsEl.innerHTML = '<div class="empty">Загрузка…</div>';
-    $('profileModal').hidden = false;
-    try {
-        const [en, fr, ne, pe, tb, ts] = await Promise.all([
-            supabase.from('enemies').select('id', { count: 'exact', head: true }).eq('nickname', nickname),
-            supabase.from('friends').select('id', { count: 'exact', head: true }).eq('nickname', nickname),
-            supabase.from('neutral').select('id', { count: 'exact', head: true }).eq('nickname', nickname),
-            supabase.from('personal').select('id', { count: 'exact', head: true }).eq('nickname', nickname),
-            supabase.from('trades').select('id', { count: 'exact', head: true }).eq('nickname', nickname).eq('type', 'buy'),
-            supabase.from('trades').select('id', { count: 'exact', head: true }).eq('nickname', nickname).eq('type', 'sell')
-        ]);
-        const stats = [
-            { label: '🔴 В списках врагов', value: en.count || 0 },
-            { label: '🟢 В списках друзей', value: fr.count || 0 },
-            { label: '⚪ В нейтралитете', value: ne.count || 0 },
-            { label: '🟡 В «не трогать»', value: pe.count || 0 },
-            { label: '🛒 Заявок на покупку', value: tb.count || 0 },
-            { label: '💰 Заявок на продажу', value: ts.count || 0 }
-        ];
-        const { data: online } = await supabase.from('online_users').select('last_seen').eq('nickname', nickname).maybeSingle();
-        let onlineLabel = '⚫ Офлайн';
-        if (online?.last_seen) {
-            const diff = Date.now() - new Date(online.last_seen).getTime();
-            if (diff < 90000) onlineLabel = '🟢 Онлайн';
-            else if (diff < 3600000) onlineLabel = `🔵 Был ${Math.floor(diff/60000)} мин назад`;
-            else if (diff < 86400000) onlineLabel = `🔵 Был ${Math.floor(diff/3600000)} ч назад`;
-        }
-        stats.unshift({ label: '📡 Статус', value: onlineLabel });
-        statsEl.innerHTML = stats.map(s => `<div class="profile-stat-row"><span class="profile-stat-label">${s.label}</span><span class="profile-stat-value">${s.value}</span></div>`).join('');
-    } catch (err) { statsEl.innerHTML = `<div class="empty">Ошибка: ${err.message}</div>`; }
-}
-on('closeProfile', 'click', () => { $('profileModal').hidden = true; });
-on('profileModal', 'click', e => { if (e.target.id === 'profileModal') $('profileModal').hidden = true; });
+/* ============ УВЕДОМЛЕНИЯ ============ */
 async function loadNotifications() {
     const nick = getViewerNick();
     if (!nick) { notifications = []; renderNotifications(); return; }
@@ -5388,6 +3520,45 @@ on('notifMarkAllRead', 'click', async () => {
     ['notifBell', 'notifBell2'].forEach(id => { const b = $(id); if (b) b.classList.remove('has-notif'); });
     loadNotifications();
 });
+
+/* ============ ПРОФИЛЬ ============ */
+async function openProfile(nickname) {
+    if (!nickname) return;
+    $('profileNickname').textContent = nickname;
+    const statsEl = $('profileStats');
+    statsEl.innerHTML = '<div class="empty">Загрузка…</div>';
+    $('profileModal').hidden = false;
+    try {
+        const [en, fr, ne, pe, tb, ts] = await Promise.all([
+            supabase.from('enemies').select('id', { count: 'exact', head: true }).eq('nickname', nickname),
+            supabase.from('friends').select('id', { count: 'exact', head: true }).eq('nickname', nickname),
+            supabase.from('neutral').select('id', { count: 'exact', head: true }).eq('nickname', nickname),
+            supabase.from('personal').select('id', { count: 'exact', head: true }).eq('nickname', nickname),
+            supabase.from('trades').select('id', { count: 'exact', head: true }).eq('nickname', nickname).eq('type', 'buy'),
+            supabase.from('trades').select('id', { count: 'exact', head: true }).eq('nickname', nickname).eq('type', 'sell')
+        ]);
+        const stats = [
+            { label: '🔴 В списках врагов', value: en.count || 0 },
+            { label: '🟢 В списках друзей', value: fr.count || 0 },
+            { label: '⚪ В нейтралитете', value: ne.count || 0 },
+            { label: '🟡 В «не трогать»', value: pe.count || 0 },
+            { label: '🛒 Заявок на покупку', value: tb.count || 0 },
+            { label: '💰 Заявок на продажу', value: ts.count || 0 }
+        ];
+        const { data: online } = await supabase.from('online_users').select('last_seen').eq('nickname', nickname).maybeSingle();
+        let onlineLabel = '⚫ Офлайн';
+        if (online?.last_seen) {
+            const diff = Date.now() - new Date(online.last_seen).getTime();
+            if (diff < 90000) onlineLabel = '🟢 Онлайн';
+            else if (diff < 3600000) onlineLabel = `🔵 Был ${Math.floor(diff/60000)} мин назад`;
+            else if (diff < 86400000) onlineLabel = `🔵 Был ${Math.floor(diff/3600000)} ч назад`;
+        }
+        stats.unshift({ label: '📡 Статус', value: onlineLabel });
+        statsEl.innerHTML = stats.map(s => `<div class="profile-stat-row"><span class="profile-stat-label">${s.label}</span><span class="profile-stat-value">${s.value}</span></div>`).join('');
+    } catch (err) { statsEl.innerHTML = `<div class="empty">Ошибка: ${err.message}</div>`; }
+}
+on('closeProfile', 'click', () => { $('profileModal').hidden = true; });
+on('profileModal', 'click', e => { if (e.target.id === 'profileModal') $('profileModal').hidden = true; });
 
 /* ============ ЧАТ ============ */
 function setChatMode(mode) {
@@ -5639,7 +3810,7 @@ function closeRealtime() {
     if (notifChannel) { supabase.removeChannel(notifChannel); notifChannel = null; }
 }
 
-/* ============ НОВОСТИ ============ */
+/* ============ НОВОСТИ ВК ============ */
 function openVkNewsModal() {
     const modal = $('vkNewsModal'); if (!modal) return;
     modal.classList.remove('vk-news-fullscreen');
@@ -6085,7 +4256,6 @@ function renderAdmiralMembers() {
             <span class="member-name">${escapeHtml(m.name)}</span>
         </div>`).join('');
 }
-
 async function renderAdmiralApplications() {
     const container = $('admiralApplicationsList'); if (!container) return;
     container.innerHTML = '<div class="empty">Загрузка…</div>';
@@ -6165,64 +4335,1265 @@ on('admiralWriteLeadersBtn', 'click', () => openChat('leaders'));
 on('admiralWriteAdmiralsBtn', 'click', () => openChat('admirals'));
 on('admiralVoiceBtn', 'click', () => openChat('voice', { room: 'wosb_admirals_' + String(currentClan || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase() }));
 
-/* ============ СТАРТ ============ */
-(async () => {
-    const verEl = document.querySelector('.footer-right');
-    if (verEl) verEl.textContent = 'v' + APP_VERSION;
-    initTheme();
-    const { data: { session } } = await supabase.auth.getSession();
-    currentSession = session;
-    await loadSiteAdmins();
-    await loadGames();
-    await loadAlliances();
-    await loadClans();
-    await loadSettings();
-    await loadPartners();
-    renderApplyClanSelect();
-    await loadFaq();
-    await loadTactics();
-    await loadShips();
-    await loadResourcePrices();
-    await loadFactions();
-    await loadPorts();
-    await loadRanks();
-    await loadRecipes();
-    await loadDiscounts();
-    await loadMapSettings();
-    await loadBuildItems();
-    fillScShipSelect();
-    fillScFactionSelect();
-    fillScCities();
-    currentMapView = (mapSettings?.default_view) || 'detailed';
-    await loadStats();
-    initTradeCategorySelect();
-    initTradeCategoryFilters();
-    updateTradeFormTotal();
-    renderTradeClanSelect();
-    renderTradeClanFilters();
-    await renderTrades();
-    await loadNotifications();
-    initShipBuilders();
-    applyAdminUI();
-    updateFlagPreview('newClanFlag', 'newClanFlagPreview');
-    updateFlagPreview('adminClanFlag', 'adminClanFlagPreview');
-    onDiscountTypeChange();
-    initCollapsibleSections();
-    const lastClan = localStorage.getItem(LAST_CLAN_KEY);
-    if (lastClan && isUnlocked() && clansCache[lastClan]) {
-        openClan(lastClan, localStorage.getItem(CLAN_ADMIN_PASS_KEY) === '1');
-    } else {
-        showScreen('home');
-    }
-    startHeartbeat();
-    setTimeout(handleBuildHash, 800);
-    setInterval(() => {
-        const onlineSection = document.querySelector('.admin-section[data-apanel="online"]');
-        if (onlineSection && onlineSection.classList.contains('active') && isAdmin) renderAdminOnlineList();
-        const clanOnlineSection = $('section-online');
-        if (clanOnlineSection && clanOnlineSection.classList.contains('active') && canEditClan(currentClan)) {
-            renderClanOnlineList();
+/* ============ КАТАЛОГ БИЛДОВ + ИМПОРТ ============ */
+function parseBonusLine(line) {
+    const m = String(line).trim().match(/^(.+?)\s*([+-]\s*\d+(?:[.,]\d+)?)\s*$/);
+    if (!m) return { stat: String(line).trim(), value: null };
+    return { stat: m[1].trim(), value: parseFloat(m[2].replace(/\s/g, '').replace(',', '.')) };
+}
+function normalizeGroupName(raw, map) {
+    const key = String(raw || '').trim().toLowerCase();
+    return map[key] || null;
+}
+function parseSpecialistsFile(text) {
+    const items = [], errors = [];
+    text.split(/\r?\n/).forEach((raw, idx) => {
+        const line = raw.trim();
+        if (!line || line.startsWith('#')) return;
+        const parts = line.split(/\s*[-–—]\s*/);
+        if (parts.length < 2) { errors.push(`Строка ${idx + 1}: пропущено « - »`); return; }
+        const grpRaw = parts[0].trim();
+        const name = (parts[1] || '').trim();
+        const bonusStr = parts.slice(2).join(' - ').trim();
+        const grp = normalizeGroupName(grpRaw, SPECIALIST_GROUPS);
+        if (!grp) { errors.push(`Строка ${idx + 1}: неизвестная группа «${grpRaw}»`); return; }
+        if (!name) { errors.push(`Строка ${idx + 1}: пустое имя`); return; }
+        items.push({ group: grp.en, name, bonuses: parseBonuses(bonusStr) });
+    });
+    return { items, errors };
+}
+function parseWeaponsFile(text) {
+    const items = [], errors = [];
+    text.split(/\r?\n/).forEach((raw, idx) => {
+        const line = raw.trim();
+        if (!line || line.startsWith('#')) return;
+        const parts = line.split(/\s*[-–—]\s*/);
+        if (parts.length < 2) { errors.push(`Строка ${idx + 1}: пропущено « - »`); return; }
+        const sizeRaw = parts[0].trim();
+        const name = parts.slice(1).join(' - ').trim();
+        const sz = normalizeGroupName(sizeRaw, WEAPON_SIZES);
+        if (!sz) { errors.push(`Строка ${idx + 1}: неизвестный размер «${sizeRaw}»`); return; }
+        if (!name) { errors.push(`Строка ${idx + 1}: пустое название`); return; }
+        items.push({ type: sz.type, name });
+    });
+    return { items, errors };
+}
+function parseUpgradesFile(text) {
+    const items = [], errors = [];
+    text.split(/\r?\n/).forEach((raw, idx) => {
+        const line = raw.trim();
+        if (!line || line.startsWith('#')) return;
+        const parts = line.split(/\s*[-–—]\s*/);
+        if (parts.length < 3) { errors.push(`Строка ${idx + 1}: нужно «Название - Раздел - Бонусы»`); return; }
+        const name = parts[0].trim();
+        const secRaw = parts[1].trim();
+        const bonusStr = parts.slice(2).join(' - ').trim();
+        const sec = normalizeGroupName(secRaw, UPGRADE_SECTIONS);
+        if (!sec) { errors.push(`Строка ${idx + 1}: неизвестный раздел «${secRaw}»`); return; }
+        if (!name) { errors.push(`Строка ${idx + 1}: пустое название`); return; }
+        items.push({ section: sec.en, name, bonuses: parseBonuses(bonusStr) });
+    });
+    return { items, errors };
+}
+function parseShellsFile(text) {
+    const items = [], errors = [];
+    text.split(/\r?\n/).forEach((raw, idx) => {
+        const line = raw.trim();
+        if (!line || line.startsWith('#')) return;
+        const parts = line.split(/\s*[-–—]\s*/);
+        if (parts.length < 2) { errors.push(`Строка ${idx + 1}: пропущено « - »`); return; }
+        const tRaw = parts[0].trim();
+        const name = parts.slice(1).join(' - ').trim();
+        const t = normalizeGroupName(tRaw, SHELL_TYPES);
+        if (!t) { errors.push(`Строка ${idx + 1}: неизвестный тип «${tRaw}»`); return; }
+        if (!name) { errors.push(`Строка ${idx + 1}: пустое название`); return; }
+        items.push({ type: t.en, name });
+    });
+    return { items, errors };
+}
+function bonusesToText(bonuses) {
+    return (bonuses || []).map(b => b.value === null ? b.stat : `${b.stat} ${b.value > 0 ? '+' : ''}${b.value}`).join(', ');
+}
+async function importSpecialists(items) {
+    let ok = 0, fail = 0;
+    for (const it of items) {
+        const { data: inserted, error } = await supabase.from('build_items').insert({
+            type: 'specialist', subgroup: it.group, name: it.name,
+            bonuses: bonusesToText(it.bonuses) || null, is_active: true, sort_order: 0
+        }).select('id').single();
+        if (error) { fail++; continue; }
+        if (it.bonuses.length && inserted?.id) {
+            const skills = it.bonuses.filter(b => b.value !== null).map((b, i) => ({
+                specialist_id: inserted.id, stat_name: b.stat, value: b.value, sort_order: i * 10
+            }));
+            if (skills.length) await supabase.from('specialist_skills').insert(skills);
         }
-    }, 15000);
-})();
+        ok++;
+    }
+    return { ok, fail };
+}
+async function importWeapons(items) {
+    let ok = 0, fail = 0;
+    for (const it of items) {
+        const { error } = await supabase.from('build_items').insert({
+            type: it.type, subgroup: null, name: it.name, is_active: true, sort_order: 0
+        });
+        if (error) fail++; else ok++;
+    }
+    return { ok, fail };
+}
+async function importUpgrades(items) {
+    let ok = 0, fail = 0;
+    for (const it of items) {
+        const { error } = await supabase.from('build_items').insert({
+            type: 'upgrade', subgroup: it.section, name: it.name,
+            bonuses: bonusesToText(it.bonuses) || null, is_active: true, sort_order: 0
+        });
+        if (error) fail++; else ok++;
+    }
+    return { ok, fail };
+}
+async function importShells(items) {
+    let ok = 0, fail = 0;
+    for (const it of items) {
+        const { error } = await supabase.from('build_items').insert({
+            type: 'shell', subgroup: it.type, name: it.name, is_active: true, sort_order: 0
+        });
+        if (error) fail++; else ok++;
+    }
+    return { ok, fail };
+}
+async function loadBuildItems() {
+    const [items, skills] = await Promise.all([
+        supabase.from('build_items').select('*').order('type').order('subgroup').order('sort_order').order('name'),
+        supabase.from('specialist_skills').select('*').order('sort_order')
+    ]);
+    if (items.error) { console.warn('build_items:', items.error.message); buildItemsCache = []; }
+    else buildItemsCache = items.data || [];
+    specialistSkillsCache = {};
+    if (!skills.error) {
+        (skills.data || []).forEach(s => { (specialistSkillsCache[s.specialist_id] ||= []).push(s); });
+    }
+    fillBuildDatalists();
+}
+function subgroupLabel(type, sg) {
+    if (type === 'specialist') { const f = Object.values(SPECIALIST_GROUPS).find(g => g.en === sg); return f ? f.label : sg; }
+    if (type === 'upgrade') { const f = Object.values(UPGRADE_SECTIONS).find(s => s.en === sg); return f ? f.label : sg; }
+    if (type === 'shell') { const f = Object.values(SHELL_TYPES).find(s => s.en === sg); return f ? f.label : sg; }
+    if (sg === 'sails') return '⛵ Паруса';
+    if (sg === '—') return '—';
+    return sg;
+}
+function fillBuildDatalists() {
+    const map = {
+        weapon_small: 'weaponsSmallList', weapon_medium: 'weaponsMediumList',
+        weapon_large: 'weaponsLargeList', weapon_mortar: 'weaponsMortarList',
+        module: 'modulesList', ammo: 'ammoList', shell: 'shellsList',
+        blueprint: 'blueprintsList', consumable: 'consumablesList',
+        cargo: 'cargoList', specialist: 'specialistsList'
+    };
+    Object.entries(map).forEach(([type, dlId]) => {
+        const dl = document.getElementById(dlId);
+        if (!dl) return;
+        const items = buildItemsCache.filter(x => x.type === type && x.is_active !== false);
+        dl.innerHTML = items.map(x => `<option value="${escapeHtml(x.name)}">`).join('');
+    });
+    const upgrades = buildItemsCache.filter(x => x.type === 'upgrade' && x.is_active !== false);
+    const sails = upgrades.filter(x => (x.subgroup || '').toLowerCase() === 'sails');
+    const others = upgrades.filter(x => (x.subgroup || '').toLowerCase() !== 'sails');
+    const uL = document.getElementById('upgradesList');
+    if (uL) uL.innerHTML = others.map(x => `<option value="${escapeHtml(x.name)}">`).join('');
+    const sL = document.getElementById('sailsList');
+    if (sL) sL.innerHTML = sails.map(x => `<option value="${escapeHtml(x.name)}">`).join('');
+}
+function renderCatalogAdmin() {
+    const container = $('catalogTree'); if (!container) return;
+    container.innerHTML = '';
+    if (!buildItemsCache.length) {
+        container.innerHTML = '<div class="empty">Каталог пуст. Добавь первый элемент сверху.</div>';
+        return;
+    }
+    const byType = {};
+    buildItemsCache.forEach(it => { const t = it.type || 'other'; (byType[t] ||= []).push(it); });
+    Object.keys(byType).sort().forEach(type => {
+        const typeDet = document.createElement('details');
+        typeDet.className = 'catalog-node';
+        typeDet.innerHTML = `<summary class="catalog-summary">
+            ${CATALOG_ICONS[type] || '⚙️'} ${type}
+            <span class="catalog-count">${byType[type].length}</span>
+        </summary>`;
+        const typeBody = document.createElement('div');
+        typeBody.className = 'catalog-body';
+        const bySub = {};
+        byType[type].forEach(it => { const sg = it.subgroup || '—'; (bySub[sg] ||= []).push(it); });
+        Object.keys(bySub).sort().forEach(sg => {
+            const sgDet = document.createElement('details');
+            sgDet.className = 'catalog-node sub';
+            sgDet.innerHTML = `<summary class="catalog-summary">
+                📁 ${subgroupLabel(type, sg)}
+                <span class="catalog-count">${bySub[sg].length}</span>
+            </summary>`;
+            const sgBody = document.createElement('div');
+            sgBody.className = 'catalog-body';
+            bySub[sg].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0) || (a.name || '').localeCompare(b.name || ''));
+            bySub[sg].forEach(it => sgBody.appendChild(buildCatalogItem(it)));
+            sgDet.appendChild(sgBody);
+            typeBody.appendChild(sgDet);
+        });
+        typeDet.appendChild(typeBody);
+        container.appendChild(typeDet);
+    });
+}
+function buildCatalogItem(item) {
+    const isSpec = item.type === 'specialist';
+    const skills = specialistSkillsCache[item.id] || [];
+    const skillsHtml = skills.map(sk => skillRowHtml(sk)).join('');
+    const d = document.createElement('details');
+    d.className = 'catalog-node item';
+    d.innerHTML = `
+        <summary class="catalog-summary">
+            ${escapeHtml(item.name)}
+            ${item.is_active === false ? '<span class="catalog-hidden">скрыт</span>' : ''}
+        </summary>
+        <div class="catalog-body">
+            <div class="catalog-row">
+                <div><label>Название</label><input data-f="name" value="${escapeHtml(item.name)}"></div>
+                <div><label>Подгруппа</label><input data-f="subgroup" value="${escapeHtml(item.subgroup || '')}"></div>
+                <div><label>Цена 🪙</label><input type="number" data-f="price" min="0" step="1" value="${item.price != null ? item.price : 0}"></div>
+                <div><label>Порядок</label><input type="number" data-f="sort_order" value="${item.sort_order ?? 0}"></div>
+                <div><label>Активен</label>
+                    <select data-f="is_active">
+                        <option value="true"  ${item.is_active !== false ? 'selected' : ''}>Да</option>
+                        <option value="false" ${item.is_active === false ? 'selected' : ''}>Нет</option>
+                    </select>
+                </div>
+            </div>
+            ${!isSpec ? `
+                <div><label>Бонусы (текст)</label>
+                    <textarea data-f="bonuses" rows="2">${escapeHtml(item.bonuses || '')}</textarea>
+                </div>` : `
+                <div class="skills-block">
+                    <div class="skills-head">
+                        <b>Навыки специалиста</b>
+                        <button type="button" data-act="add-skill">➕ Навык</button>
+                    </div>
+                    <div data-skills-container>${skillsHtml || '<div class="empty" style="padding:8px;">Нет навыков</div>'}</div>
+                </div>`}
+            <p class="error" data-msg></p>
+            <div class="modal-actions">
+                <button data-act="save">💾 Сохранить</button>
+                <button data-act="del" class="danger">🗑 Удалить</button>
+            </div>
+        </div>`;
+    d.querySelector('[data-act="save"]').onclick = async (e) => {
+        e.preventDefault();
+        const body = d.querySelector('.catalog-body');
+        const msg = body.querySelector('[data-msg]');
+        const payload = {};
+        body.querySelectorAll('[data-f]').forEach(el => {
+            const k = el.dataset.f;
+            if (k === 'is_active') { payload[k] = el.value === 'true'; return; }
+            if (el.type === 'number') { payload[k] = el.value === '' ? 0 : Number(el.value); return; }
+            payload[k] = el.value.trim() || null;
+        });
+        const { error } = await supabase.from('build_items').update(payload).eq('id', item.id);
+        if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
+        if (isSpec) {
+            for (const row of body.querySelectorAll('[data-skill-id]')) {
+                const id = Number(row.dataset.skillId);
+                const stat_name = row.querySelector('[data-skill-f="stat_name"]').value.trim();
+                const value = Number(row.querySelector('[data-skill-f="value"]').value) || 0;
+                if (!stat_name) continue;
+                await supabase.from('specialist_skills').update({ stat_name, value }).eq('id', id);
+            }
+        }
+        Object.assign(item, payload);
+        msg.textContent = '✔ Сохранено'; msg.style.color = '#6ee7a7';
+        setTimeout(() => { msg.textContent = ''; }, 1500);
+        fillBuildDatalists();
+    };
+    d.querySelector('[data-act="del"]').onclick = async (e) => {
+        e.preventDefault();
+        if (!confirm(`Удалить «${item.name}»?`)) return;
+        if (isSpec) await supabase.from('specialist_skills').delete().eq('specialist_id', item.id);
+        const { error } = await supabase.from('build_items').delete().eq('id', item.id);
+        if (error) return alert(error.message);
+        buildItemsCache = buildItemsCache.filter(x => x.id !== item.id);
+        delete specialistSkillsCache[item.id];
+        d.remove();
+        fillBuildDatalists();
+    };
+    if (isSpec) {
+        const addBtn = d.querySelector('[data-act="add-skill"]');
+        if (addBtn) addBtn.onclick = async (e) => {
+            e.preventDefault();
+            const container = d.querySelector('[data-skills-container]');
+            const { data, error } = await supabase.from('specialist_skills')
+                .insert({ specialist_id: item.id, stat_name: 'Новый навык', value: 0, sort_order: 99 })
+                .select().single();
+            if (error) return alert(error.message);
+            (specialistSkillsCache[item.id] ||= []).push(data);
+            const empty = container.querySelector('.empty');
+            if (empty) empty.remove();
+            const tmp = document.createElement('div');
+            tmp.innerHTML = skillRowHtml(data);
+            const row = tmp.firstElementChild;
+            container.appendChild(row);
+            bindCatalogSkillRow(row, item.id);
+        };
+        d.querySelectorAll('[data-skill-id]').forEach(row => bindCatalogSkillRow(row, item.id));
+    }
+    return d;
+}
+function skillRowHtml(sk) {
+    return `
+        <div class="skill-row" data-skill-id="${sk.id}">
+            <input type="text" data-skill-f="stat_name" value="${escapeHtml(sk.stat_name)}" placeholder="Название стата">
+            <input type="number" step="0.1" data-skill-f="value" value="${sk.value ?? 0}" placeholder="+/-">
+            <button type="button" data-skill-act="del" title="Удалить">✕</button>
+        </div>`;
+}
+function bindCatalogSkillRow(row, specId) {
+    const btn = row.querySelector('[data-skill-act="del"]');
+    if (!btn) return;
+    btn.onclick = async (e) => {
+        e.preventDefault();
+        const id = Number(row.dataset.skillId);
+        if (!confirm('Удалить навык?')) return;
+        const { error } = await supabase.from('specialist_skills').delete().eq('id', id);
+        if (error) return alert(error.message);
+        specialistSkillsCache[specId] = (specialistSkillsCache[specId] || []).filter(s => s.id !== id);
+        row.remove();
+    };
+}
+on('biAddBtn', 'click', async () => {
+    const msg = $('biMsg');
+    const payload = {
+        type: $('biType').value,
+        subgroup: $('biSub').value.trim() || null,
+        name: $('biName').value.trim(),
+        price: Number($('biPrice').value) || 0,
+        bonuses: $('biBonuses').value.trim() || null,
+        is_active: true, sort_order: 0
+    };
+    if (!payload.name) { msg.textContent = 'Название обязательно'; msg.style.color = '#ff7a7a'; return; }
+    const { data, error } = await supabase.from('build_items').insert(payload).select().single();
+    if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
+    buildItemsCache.push(data);
+    msg.textContent = '✔ Добавлено'; msg.style.color = '#6ee7a7';
+    ['biSub','biName','biBonuses'].forEach(id => { const el = $(id); if (el) el.value = ''; });
+    $('biPrice').value = 0;
+    renderCatalogAdmin();
+    fillBuildDatalists();
+});
 
+/* ============ ИМПОРТ ФАЙЛОВ — ОБРАБОТЧИКИ ============ */
+function setupImportHandler(btnId, fileId, statusId, parserFn, importFn) {
+    on(btnId, 'click', () => { const f = $(fileId); if (f) { f.value = ''; f.click(); } });
+    on(fileId, 'change', async e => {
+        const file = e.target.files[0]; if (!file) return;
+        const statusEl = $(statusId);
+        if (statusEl) { statusEl.textContent = '⏳ Чтение…'; statusEl.style.color = '#7db9ff'; }
+        try {
+            const text = await file.text();
+            const { items, errors } = parserFn(text);
+            if (!items.length) {
+                if (statusEl) { statusEl.textContent = '⚠️ Не найдено ни одной строки'; statusEl.style.color = '#ff7a7a'; }
+                return;
+            }
+            if (errors.length && !confirm(`Найдено ${errors.length} ошибок:\n${errors.slice(0, 5).join('\n')}${errors.length > 5 ? '\n...' : ''}\n\nИмпортировать остальные ${items.length} записей?`)) return;
+            const { ok, fail } = await importFn(items);
+            if (statusEl) {
+                statusEl.textContent = `✔ Загружено ${ok}${fail ? `, ошибок ${fail}` : ''}`;
+                statusEl.style.color = fail ? '#ffd479' : '#6ee7a7';
+            }
+            await loadBuildItems();
+            renderCatalogAdmin();
+            await logAdminAction('Импорт из файла', file.name, `успешно: ${ok}, ошибок: ${fail}`);
+        } catch (err) {
+            if (statusEl) { statusEl.textContent = '❌ Ошибка: ' + err.message; statusEl.style.color = '#ff7a7a'; }
+        }
+    });
+}
+setupImportHandler('biImportSpecsBtn', 'biImportSpecsFile', 'biImportSpecsStatus', parseSpecialistsFile, importSpecialists);
+setupImportHandler('biImportWeaponsBtn', 'biImportWeaponsFile', 'biImportWeaponsStatus', parseWeaponsFile, importWeapons);
+setupImportHandler('biImportUpgradesBtn', 'biImportUpgradesFile', 'biImportUpgradesStatus', parseUpgradesFile, importUpgrades);
+setupImportHandler('biImportShellsBtn', 'biImportShellsFile', 'biImportShellsStatus', parseShellsFile, importShells);
+
+/* ============ РЕСУРСЫ — ТАБЛИЦА ЦЕН ============ */
+const PRICING_GROUPS = [
+    { id: 'raw',       name: '🪵 Сырьё',         cls: 'pricing-group-raw' },
+    { id: 'processed', name: '⚙️ Обработанные',  cls: 'pricing-group-processed' },
+    { id: 'consum',    name: '🧪 Расходники',    cls: 'pricing-group-consum' },
+    { id: 'valuable',  name: '💎 Ценности',      cls: 'pricing-group-valuable' },
+    { id: 'other',     name: '📦 Прочее',        cls: 'pricing-group-other' }
+];
+async function loadResourcePrices() {
+    const { data, error } = await supabase.from('resource_prices').select('*')
+        .order('sort_order', { ascending: true }).order('name', { ascending: true });
+    if (error) { console.warn('resource_prices load error:', error.message); resourcesCache = []; }
+    else resourcesCache = data || [];
+    renderPricingGrid();
+    renderResourcePricesHome();
+    if (builderHomeCtrl) builderHomeCtrl.refresh();
+    if (builderClanCtrl) builderClanCtrl.refresh();
+}
+function renderPricingGrid() {
+    const container = $('pricingGroups'); if (!container) return;
+    const q = ($('pricing-search')?.value || '').trim().toLowerCase();
+    let list = resourcesCache.slice();
+    if (q) list = list.filter(r =>
+        (r.name || '').toLowerCase().includes(q) ||
+        (r.name_latin || '').toLowerCase().includes(q) ||
+        (r.id || '').toLowerCase().includes(q)
+    );
+    if (!list.length) {
+        container.innerHTML = `<div class="pricing-empty">${q ? 'Ничего не найдено' : 'Пока нет ресурсов. Нажми «📥 Импорт базового набора».'}</div>`;
+        return;
+    }
+    const byGroup = {};
+    PRICING_GROUPS.forEach(g => { byGroup[g.id] = []; });
+    list.forEach(r => { const gid = r.group_name || 'other'; (byGroup[gid] || (byGroup[gid] = [])).push(r); });
+    container.innerHTML = '';
+    PRICING_GROUPS.forEach(g => {
+        const items = byGroup[g.id] || [];
+        if (!items.length) return;
+        items.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0) || (a.name || '').localeCompare(b.name || ''));
+        const section = document.createElement('section');
+        section.className = 'pricing-group ' + g.cls;
+        const title = document.createElement('h3');
+        title.className = 'pricing-group-title';
+        title.innerHTML = `${g.name} <span class="count">· ${items.length}</span>`;
+        section.appendChild(title);
+        const wrap = document.createElement('div');
+        wrap.className = 'pricing-table-wrap';
+        const table = document.createElement('table');
+        table.className = 'pricing-table';
+        table.innerHTML = `
+            <thead><tr>
+                <th class="pt-col-icon"></th>
+                <th class="pt-col-name">Ресурс</th>
+                <th class="pt-col-price">Цена</th>
+                <th class="pt-col-actions"></th>
+            </tr></thead><tbody></tbody>`;
+        const tbody = table.querySelector('tbody');
+        items.forEach(r => {
+            const iconHtml = r.image_url
+                ? `<img src="${escapeHtml(r.image_url)}" alt="" onerror="this.parentNode.innerHTML='${escapeHtml(r.icon || '📦')}'">`
+                : (r.icon || '📦');
+            const latin = (r.name_latin || r.id || '').toUpperCase();
+            const tr = document.createElement('tr');
+            tr.dataset.id = r.id;
+            tr.innerHTML = `
+                <td class="pt-col-icon"><span class="pt-icon">${iconHtml}</span></td>
+                <td class="pt-col-name">
+                    <span class="pt-name">${escapeHtml(r.name)}</span>
+                    <span class="pt-latin">${escapeHtml(latin)}</span>
+                </td>
+                <td class="pt-col-price">
+                    <div class="pt-price-wrap">
+                        <span class="pt-coin">🪙</span>
+                        <input type="number" class="pricing-card-input" data-id="${escapeHtml(r.id)}" value="${Number(r.price) || 0}" min="0" step="1">
+                    </div>
+                </td>
+                <td class="pt-col-actions">
+                    <button class="pricing-card-btn edit" data-id="${escapeHtml(r.id)}" title="Редактировать">✏️</button>
+                    <button class="pricing-card-btn del"  data-id="${escapeHtml(r.id)}" title="Удалить">🗑</button>
+                </td>`;
+            tbody.appendChild(tr);
+        });
+        wrap.appendChild(table);
+        section.appendChild(wrap);
+        container.appendChild(section);
+    });
+    container.querySelectorAll('.pricing-card-input').forEach(inp => {
+        inp.addEventListener('input', e => {
+            const id = e.target.dataset.id;
+            clearTimeout(pricingSaveTimers[id]);
+            pricingSaveTimers[id] = setTimeout(() => saveResourcePrice(id, e.target.value), 700);
+        });
+        inp.addEventListener('keydown', e => {
+            if (e.key === 'Enter') { e.preventDefault(); const id = e.target.dataset.id; clearTimeout(pricingSaveTimers[id]); saveResourcePrice(id, e.target.value); e.target.blur(); }
+        });
+    });
+    container.querySelectorAll('.pricing-card-btn.del').forEach(btn => btn.addEventListener('click', () => deleteResourcePrice(btn.dataset.id)));
+    container.querySelectorAll('.pricing-card-btn.edit').forEach(btn => btn.addEventListener('click', () => openResourceEditModal(btn.dataset.id)));
+}
+async function saveResourcePrice(id, rawPrice) {
+    const price = parseFloat(rawPrice) || 0;
+    const status = $('pricingStatus');
+    const { error } = await supabase.from('resource_prices')
+        .update({ price, updated_at: new Date().toISOString(), updated_by: getViewerNick() || 'admin' }).eq('id', id);
+    if (error) { if (status) { status.textContent = '❌ ' + error.message; status.style.color = '#ff7a7a'; setTimeout(() => status.textContent = '', 2500); } return; }
+    const r = resourcesCache.find(x => x.id === id);
+    if (r) r.price = price;
+    if (status) { status.textContent = '✔ Сохранено'; status.style.color = '#6ee7a7'; setTimeout(() => status.textContent = '', 1500); }
+    renderResourcePricesHome();
+    renderShipCostPublic();
+}
+async function deleteResourcePrice(id) {
+    const r = resourcesCache.find(x => x.id === id);
+    if (!r) return;
+    if (!confirm(`Удалить ресурс «${r.name}»?`)) return;
+    const { error } = await supabase.from('resource_prices').delete().eq('id', id);
+    if (error) return alert(error.message);
+    await logAdminAction('Удалил ресурс', r.name);
+    await loadResourcePrices();
+}
+function openResourceEditModal(id) {
+    const r = id ? resourcesCache.find(x => x.id === id) : null;
+    editingResourceId = r ? r.id : null;
+    $('resourceEditTitle').textContent = r ? '✏️ Редактировать ресурс' : '➕ Новый ресурс';
+    $('re-id').value = r?.id || ''; $('re-id').disabled = !!r;
+    $('re-name').value = r?.name || '';
+    $('re-latin').value = r?.name_latin || '';
+    $('re-group').value = r?.group_name || 'raw';
+    $('re-price').value = r?.price ?? 0;
+    $('re-icon').value = r?.icon || '📦';
+    $('re-image-url').value = (r?.image_url && !r.image_url.startsWith('data:')) ? r.image_url : '';
+    delete $('re-image-url').dataset.dataUrl;
+    if (r?.image_url) { $('re-image-preview-img').src = r.image_url; $('re-image-preview').hidden = false; }
+    else $('re-image-preview').hidden = true;
+    $('re-image-name').textContent = '';
+    $('re-msg').textContent = '';
+    $('resourceEditModal').hidden = false;
+    $('re-name').focus();
+}
+on('pricingAddBtn', 'click', () => openResourceEditModal(null));
+on('re-cancel', 'click', () => { $('resourceEditModal').hidden = true; editingResourceId = null; });
+on('resourceEditModal', 'click', e => { if (e.target.id === 'resourceEditModal') { $('resourceEditModal').hidden = true; editingResourceId = null; } });
+on('re-image-pick', 'click', () => { const f = $('re-image-file'); if (f) { f.value = ''; f.click(); } });
+on('re-image-file', 'change', async e => {
+    const file = e.target.files[0]; if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { alert('Максимум 2 МБ'); return; }
+    try {
+        const dataUrl = await compressLogo(file, 128, 0.9);
+        $('re-image-preview-img').src = dataUrl; $('re-image-preview').hidden = false;
+        $('re-image-name').textContent = file.name; $('re-image-url').value = '';
+        $('re-image-url').dataset.dataUrl = dataUrl;
+    } catch (err) { alert('Ошибка: ' + err.message); }
+});
+on('re-image-clear', 'click', () => {
+    $('re-image-preview').hidden = true; $('re-image-file').value = '';
+    $('re-image-name').textContent = ''; $('re-image-url').value = '';
+    delete $('re-image-url').dataset.dataUrl;
+});
+on('re-image-url', 'input', () => {
+    delete $('re-image-url').dataset.dataUrl;
+    const url = val('re-image-url').trim();
+    if (url) { $('re-image-preview-img').src = url; $('re-image-preview').hidden = false; }
+    else $('re-image-preview').hidden = true;
+});
+on('re-save', 'click', async () => {
+    const msg = $('re-msg'); msg.textContent = '';
+    const id = (editingResourceId || val('re-id').trim().toLowerCase().replace(/[^a-z0-9_-]/g, ''));
+    const name = val('re-name').trim();
+    const latin = (val('re-latin').trim() || id).toUpperCase();
+    const group = val('re-group') || 'raw';
+    const price = parseFloat(val('re-price')) || 0;
+    const icon = val('re-icon').trim() || '📦';
+    const urlField = val('re-image-url').trim();
+    const image = urlField || $('re-image-url').dataset.dataUrl ||
+                  (editingResourceId ? resourcesCache.find(x => x.id === editingResourceId)?.image_url : null);
+    if (!id) { msg.textContent = 'Укажи ID'; msg.style.color = '#ff7a7a'; return; }
+    if (!name) { msg.textContent = 'Укажи название'; msg.style.color = '#ff7a7a'; return; }
+    const payload = {
+        id, name, name_latin: latin, group_name: group,
+        icon, image_url: image, price, category: 'resource',
+        sort_order: resourcesCache.find(x => x.id === id)?.sort_order ?? (resourcesCache.length + 1) * 10,
+        updated_at: new Date().toISOString(), updated_by: getViewerNick() || 'admin'
+    };
+    let error;
+    if (editingResourceId) ({ error } = await supabase.from('resource_prices').update(payload).eq('id', id));
+    else ({ error } = await supabase.from('resource_prices').insert(payload));
+    if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
+    await logAdminAction(editingResourceId ? 'Обновил ресурс' : 'Добавил ресурс', name);
+    $('resourceEditModal').hidden = true; editingResourceId = null;
+    await loadResourcePrices();
+});
+const RESOURCE_PRESET = [
+    ['wood','Дерево','WOOD','🪵','images/resources/wood.png',3.9,10,'raw'],
+    ['iron','Железо','IRON','⛓','images/resources/iron.png',12,20,'raw'],
+    ['fabric','Ткань','FABRIC','🧵','images/resources/fabric.png',3.5,30,'raw'],
+    ['resin','Смола','RESIN','🛢','images/resources/resin.png',54,40,'raw'],
+    ['coal','Уголь','COAL','⚫','images/resources/coal.png',25.5,50,'raw'],
+    ['volcanic_ore','Вулк. руда','VOLCANIC ORE','🪨','images/resources/volcanic_ore.png',370,60,'raw'],
+    ['copper','Медь','COPPER','🟠','images/resources/plate.png',65,70,'processed'],
+    ['beam','Балка','BEAM','🪵','images/resources/beam.png',779,90,'processed'],
+    ['canvas','Парус','CANVAS','🧶','images/resources/canvas.png',230,100,'processed'],
+    ['bulkhead','Переборка','BULKHEAD','🛡','images/resources/bulkhead.png',1120,110,'processed'],
+    ['plate','Плита','PLATE','🔩','images/resources/plate.png',1500,120,'processed'],
+    ['bronze','Бронза','BRONZE','🥉','images/resources/bronze.png',1150,130,'processed'],
+    ['rum','Ром','RUM','🥃','images/resources/rum.png',13.5,80,'consum'],
+    ['salt','Соль','SALT','🧂','images/resources/salt.png',0,210,'consum'],
+    ['wreckage','Обломки','WRECKAGE','📦','images/resources/pouch.png',100,140,'valuable'],
+    ['battle_mark','Боевая метка','BATTLE MARK','🎖','images/resources/bronze.png',755,150,'valuable'],
+    ['blueprint_fragment','Фрагмент чертежа','BL. FRAGMENT','📜','images/resources/blueprint_fragment.png',18400,160,'valuable'],
+    ['blueprint_imp','Имп. чертёж','IMP. BLUE','📜','images/resources/blueprint.png',2000000,170,'valuable'],
+    ['escudo','Эскудо','ESCUDO','🪙','images/resources/escudo.png',4000,180,'valuable'],
+    ['pirate_token','Пиратский жетон','PIR. TOKEN','☠️','images/resources/pirate_token.png',0,190,'valuable'],
+    ['license','Лицензия','CONST. LICE','📃','images/resources/license.png',550000,200,'valuable'],
+    ['copper_ingot','Медный слиток','CU INGOT','🟧','images/resources/copper_ingot.png',0,220,'processed']
+];
+on('pricingPresetBtn', 'click', async () => {
+    if (!confirm('Загрузить базовый набор из 22 ресурсов? Существующие с такими ID будут перезаписаны.')) return;
+    const btn = $('pricingPresetBtn'); btn.disabled = true; btn.textContent = '⏳…';
+    let count = 0;
+    for (const [id, name, latin, icon, image_url, price, sort, group] of RESOURCE_PRESET) {
+        const payload = {
+            id, name, name_latin: latin, icon, image_url, price,
+            category: 'resource', sort_order: sort, group_name: group || 'raw',
+            updated_at: new Date().toISOString(), updated_by: 'preset'
+        };
+        const { error } = await supabase.from('resource_prices').upsert(payload, { onConflict: 'id' });
+        if (!error) count++;
+    }
+    btn.disabled = false; btn.textContent = '📥 Импорт базового набора';
+    await logAdminAction('Импорт пресета ресурсов', null, `загружено: ${count}`);
+    await loadResourcePrices();
+    alert(`✔ Загружено ${count} из ${RESOURCE_PRESET.length}`);
+});
+on('pricingAuto', 'change', async (e) => {
+    const on = e.target.checked; const msg = $('pricingAutoMsg');
+    if (!on) { if (msg) msg.textContent = ''; return; }
+    if (msg) { msg.textContent = '⏳ считаю…'; msg.style.color = '#7db9ff'; }
+    const active = tradesCache.filter(t => t.status !== 'done' && t.type === 'sell' && t.category === 'resource');
+    if (!active.length) { if (msg) { msg.textContent = 'Нет активных заявок'; msg.style.color = '#ff7a7a'; } e.target.checked = false; return; }
+    const sums = {};
+    active.forEach(t => {
+        const k = (t.name || '').trim().toLowerCase();
+        if (!sums[k]) sums[k] = { gold: 0, qty: 0 };
+        sums[k].gold += (Number(t.price) || 0) * (Number(t.qty) || 0);
+        sums[k].qty += Number(t.qty) || 0;
+    });
+    let updated = 0;
+    for (const r of resourcesCache) {
+        const k = (r.name || '').trim().toLowerCase();
+        if (sums[k] && sums[k].qty > 0) {
+            const avg = Math.round(sums[k].gold / sums[k].qty);
+            const { error } = await supabase.from('resource_prices').update({ price: avg, updated_at: new Date().toISOString(), updated_by: 'auto' }).eq('id', r.id);
+            if (!error) { r.price = avg; updated++; }
+        }
+    }
+    await logAdminAction('Авто-цены', null, `обновлено: ${updated}`);
+    renderPricingGrid(); renderResourcePricesHome();
+    if (msg) { msg.textContent = `✔ обновлено ${updated}`; msg.style.color = '#6ee7a7'; setTimeout(() => msg.textContent = '', 3000); }
+});
+on('pricingCollapse', 'click', () => { const p = document.querySelector('.pricing-panel'); if (p) p.classList.toggle('collapsed'); });
+on('pricing-search', 'input', renderPricingGrid);
+function renderResourcePricesHome() {
+    const tbody = $('res-tbody'); if (!tbody) return;
+    const q = ($('res-search')?.value || '').trim().toLowerCase();
+    const sort = $('res-sort')?.value || 'name-asc';
+    let list = resourcesCache.slice();
+    if (q) list = list.filter(r => (r.name || '').toLowerCase().includes(q));
+    list.sort((a, b) => {
+        switch (sort) {
+            case 'name-desc': return (b.name || '').localeCompare(a.name || '');
+            case 'price-asc': return (a.price || 0) - (b.price || 0);
+            case 'price-desc': return (b.price || 0) - (a.price || 0);
+            case 'updated-desc': return new Date(b.updated_at || 0) - new Date(a.updated_at || 0);
+            default: return (a.name || '').localeCompare(b.name || '');
+        }
+    });
+    if (!list.length) { tbody.innerHTML = `<tr><td colspan="3" class="res-empty">${q ? 'Ничего не найдено' : 'Справочник пуст'}</td></tr>`; return; }
+    const fmt = n => Number(n).toLocaleString('ru-RU');
+    tbody.innerHTML = '';
+    list.forEach(r => {
+        const img = r.image_url
+            ? `<img src="${escapeHtml(r.image_url)}" alt="" onerror="this.style.display='none'">`
+            : `<span style="font-size:18px;">${escapeHtml(r.icon || '📦')}</span>`;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><span class="res-name">${img}${escapeHtml(r.name)}</span></td>
+            <td><span class="res-cell-price avg">${fmt(r.price)} 🪙</span></td>
+            <td style="font-size:11px;color:var(--muted);">${r.updated_at ? new Date(r.updated_at).toLocaleDateString('ru-RU') : '—'}</td>`;
+        tbody.appendChild(tr);
+    });
+    const upd = $('res-updated');
+    if (upd) upd.textContent = 'обновлено ' + new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+}
+on('res-search', 'input', renderResourcePricesHome);
+on('res-sort', 'change', renderResourcePricesHome);
+on('res-refresh', 'click', loadResourcePrices);
+
+/* ============ ПОСТРОЙКА КОРАБЛЯ + СКИДКИ ============ */
+async function loadRecipes() {
+    const { data, error } = await supabase.from('ship_recipes').select('*').order('sort_order').order('id');
+    if (error) { console.warn('ship_recipes load:', error.message); recipesCache = []; }
+    else recipesCache = data || [];
+    renderRecipeShipSelect(); renderRecipeRows(); renderShipCostPublic();
+}
+async function loadDiscounts() {
+    const { data, error } = await supabase.from('discounts').select('*').order('sort_order').order('id');
+    if (error) { console.warn('discounts load:', error.message); discountsCache = []; }
+    else discountsCache = data || [];
+    renderDiscountsAdmin(); renderShipCostPublic(); fillScCities();
+}
+function fillScCities() {
+    const sel = $('sc-city'); if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">— Не указан —</option>' +
+        portsCache.map(p => `<option value="${escapeHtml(p.name)}">${escapeHtml(p.name)}</option>`).join('');
+    if (cur && portsCache.some(p => p.name === cur)) sel.value = cur;
+}
+function fillScShipSelect() {
+    const sel = $('sc-ship'); if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">— Выберите корабль —</option>';
+    shipsCache.slice().sort((a, b) => a.name.localeCompare(b.name)).forEach(s => {
+        const o = document.createElement('option');
+        o.value = s.name; o.textContent = `${ROMAN[s.level] || s.level} · ${s.name}`;
+        o.dataset.image = s.image_url || '';
+        sel.appendChild(o);
+    });
+    if (cur) sel.value = cur;
+}
+function fillScFactionSelect() {
+    const sel = $('sc-faction'); if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">— Не указана —</option>' +
+        factionsCache.filter(f => f.type !== 'neutral').map(f => `<option value="${escapeHtml(f.name)}">${escapeHtml(f.name)}</option>`).join('');
+    if (cur) sel.value = cur;
+}
+function getActiveDiscounts(city, faction) {
+    const today = new Date().toISOString().slice(0, 10);
+    return discountsCache.filter(d => {
+        if (!d.is_active) return false;
+        if (d.date_from && d.date_from > today) return false;
+        if (d.date_to   && d.date_to   < today) return false;
+        if (d.type === 'city'    && (!d.city    || d.city    !== city))    return false;
+        if (d.type === 'faction' && (!d.faction || d.faction !== faction)) return false;
+        return true;
+    });
+}
+function renderShipCostPublic() {
+    const sel = $('sc-ship'); if (!sel) return;
+    const shipName = sel.value;
+    const img = $('sc-ship-img');
+    const empty = $('sc-empty');
+    const content = $('sc-content');
+    if (!shipName) {
+        if (img) img.hidden = true;
+        if (empty) empty.hidden = false;
+        if (content) content.hidden = true;
+        return;
+    }
+    const opt = sel.selectedOptions[0];
+    if (img && opt?.dataset.image) { img.src = opt.dataset.image; img.hidden = false; }
+    else if (img) img.hidden = true;
+    const recipe = recipesCache.filter(r => r.ship_id === shipName);
+    if (!recipe.length) {
+        if (empty) { empty.hidden = false; empty.textContent = 'Для этого корабля рецепт не задан.'; }
+        if (content) content.hidden = true;
+        return;
+    }
+    if (empty) empty.hidden = true;
+    if (content) content.hidden = false;
+    const tbody = $('sc-tbody'); if (!tbody) return;
+    tbody.innerHTML = '';
+    let baseSum = 0;
+    recipe.forEach(r => {
+        const res = resourcesCache.find(x => x.id === r.resource_id);
+        const price = res ? Number(res.price) || 0 : 0;
+        const qty   = Number(r.quantity) || 0;
+        const sum   = price * qty;
+        baseSum += sum;
+        const imgHtml = res?.image_url
+            ? `<img src="${escapeHtml(res.image_url)}" alt="">`
+            : `<span style="font-size:18px;">${escapeHtml(res?.icon || '📦')}</span>`;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><span class="sc-res-name">${imgHtml}${escapeHtml(res?.name || r.resource_id)}</span></td>
+            <td class="sc-qty">${qty.toLocaleString('ru-RU')}</td>
+            <td class="sc-price">${price.toLocaleString('ru-RU')} 🪙</td>
+            <td class="sc-sum">${Math.round(sum).toLocaleString('ru-RU')} 🪙</td>`;
+        tbody.appendChild(tr);
+    });
+    const city = val('sc-city');
+    const faction = val('sc-faction');
+    const active = getActiveDiscounts(city, faction);
+    const dl = $('sc-discounts-list');
+    const block = document.querySelector('.sc-discounts');
+    if (dl) {
+        if (!active.length) { if (block) block.hidden = true; dl.innerHTML = ''; }
+        else {
+            if (block) block.hidden = false;
+            dl.innerHTML = active.map(d => `
+                <div class="sc-disc-row">
+                    <span class="sc-disc-name">${escapeHtml(d.name)}
+                        <span class="sc-disc-badge ${d.type}">${
+                            d.type === 'seasonal' ? '🗓 сезон' :
+                            d.type === 'city' ? '⚓ ' + escapeHtml(d.city || '') :
+                            '🏴 ' + escapeHtml(d.faction || '')
+                        }</span>
+                    </span>
+                    <span class="sc-disc-value">−${d.value}%</span>
+                </div>`).join('');
+        }
+    }
+    const totalPercent = active.reduce((s, d) => s + (Number(d.value) || 0), 0);
+    const discountSum = baseSum * totalPercent / 100;
+    const finalSum = Math.max(0, baseSum - discountSum);
+    const fmt = n => Math.round(n).toLocaleString('ru-RU') + ' 🪙';
+    const baseEl = $('sc-base'); if (baseEl) baseEl.textContent = fmt(baseSum);
+    const dEl = $('sc-discounts-sum'); if (dEl) dEl.textContent = '−' + fmt(discountSum);
+    const fEl = $('sc-final'); if (fEl) fEl.textContent = fmt(finalSum);
+}
+on('sc-ship', 'change', renderShipCostPublic);
+on('sc-city', 'change', renderShipCostPublic);
+on('sc-faction', 'change', renderShipCostPublic);
+function renderRecipeShipSelect() {
+    const sel = $('recipe-ship'); if (!sel) return;
+    const cur = sel.value; sel.innerHTML = '<option value="">— Выберите корабль —</option>';
+    shipsCache.slice().sort((a, b) => a.name.localeCompare(b.name)).forEach(s => {
+        const o = document.createElement('option');
+        o.value = s.name; o.textContent = `${ROMAN[s.level] || s.level} · ${s.name}`;
+        sel.appendChild(o);
+    });
+    if (cur) sel.value = cur;
+}
+function renderRecipeRows() {
+    const container = $('recipe-rows'); if (!container) return;
+    const ship = val('recipe-ship');
+    if (!ship) { container.innerHTML = '<p class="hint" style="margin:0;">Выберите корабль — появятся его компоненты.</p>'; return; }
+    const rows = recipesCache.filter(r => r.ship_id === ship).sort((a, b) => (a.sort_order||0) - (b.sort_order||0));
+    container.innerHTML = '';
+    if (!rows.length) { container.innerHTML = '<p class="hint" style="margin:0;">Рецепт пуст. Нажмите «➕ Добавить ресурс».</p>'; return; }
+    rows.forEach(r => addRecipeRowUI(r.resource_id, r.quantity, r.id));
+}
+function addRecipeRowUI(resourceId = '', qty = 1, id = null) {
+    const container = $('recipe-rows'); if (!container) return;
+    if (container.querySelector('.hint')) container.innerHTML = '';
+    const row = document.createElement('div');
+    row.className = 'recipe-row';
+    if (id) row.dataset.id = id;
+    row.innerHTML = `
+        <img class="rr-img" src="" alt="" hidden>
+        <select class="rr-res">
+            <option value="">— Ресурс —</option>
+            ${resourcesCache.map(r => `<option value="${escapeHtml(r.id)}" ${r.id === resourceId ? 'selected' : ''}>${escapeHtml(r.name)}</option>`).join('')}
+        </select>
+        <input type="number" class="rr-qty" min="1" step="1" value="${Number(qty) || 1}">
+        <button class="rr-del" title="Удалить">✕</button>`;
+    const sel = row.querySelector('.rr-res');
+    const img = row.querySelector('.rr-img');
+    const updateImg = () => {
+        const r = resourcesCache.find(x => x.id === sel.value);
+        if (r?.image_url) { img.src = r.image_url; img.hidden = false; }
+        else { img.hidden = true; img.src = ''; }
+    };
+    sel.addEventListener('change', updateImg);
+    updateImg();
+    row.querySelector('.rr-del').addEventListener('click', () => row.remove());
+    container.appendChild(row);
+}
+on('recipe-ship', 'change', renderRecipeRows);
+on('recipe-add-row', 'click', () => {
+    if (!val('recipe-ship')) { alert('Сначала выберите корабль'); return; }
+    addRecipeRowUI();
+});
+on('recipe-clear', 'click', async () => {
+    const ship = val('recipe-ship'); if (!ship) return;
+    if (!confirm(`Удалить рецепт корабля «${ship}»?`)) return;
+    const { error } = await supabase.from('ship_recipes').delete().eq('ship_id', ship);
+    if (error) return alert('Ошибка: ' + error.message);
+    await logAdminAction('Удалил рецепт', ship);
+    await loadRecipes();
+});
+on('recipe-save', 'click', async () => {
+    const ship = val('recipe-ship');
+    const msg = $('recipe-msg'); msg.textContent = '';
+    if (!ship) { msg.textContent = 'Выберите корабль'; msg.style.color = '#ff7a7a'; return; }
+    const rows = [...document.querySelectorAll('#recipe-rows .recipe-row')].map(r => ({
+        resource_id: r.querySelector('.rr-res').value,
+        quantity: Number(r.querySelector('.rr-qty').value) || 0
+    })).filter(r => r.resource_id && r.quantity > 0);
+    const seen = new Set();
+    for (const r of rows) {
+        if (seen.has(r.resource_id)) { msg.textContent = 'Ресурс повторяется: ' + r.resource_id; msg.style.color = '#ff7a7a'; return; }
+        seen.add(r.resource_id);
+    }
+    const { error: delErr } = await supabase.from('ship_recipes').delete().eq('ship_id', ship);
+    if (delErr) { msg.textContent = 'Ошибка удаления: ' + delErr.message; msg.style.color = '#ff7a7a'; return; }
+    if (rows.length) {
+        const payload = rows.map((r, i) => ({ ship_id: ship, resource_id: r.resource_id, quantity: r.quantity, sort_order: i * 10 }));
+        const { error } = await supabase.from('ship_recipes').insert(payload);
+        if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
+    }
+    await logAdminAction('Сохранил рецепт', ship, `компонентов: ${rows.length}`);
+    msg.textContent = '✔ Рецепт сохранён'; msg.style.color = '#6ee7a7';
+    await loadRecipes();
+    if (builderHomeCtrl) builderHomeCtrl.recalc();
+    if (builderClanCtrl) builderClanCtrl.recalc();
+});
+function renderDiscountsAdmin() {
+    const container = $('discounts-list'); if (!container) return;
+    container.innerHTML = '';
+    if (!discountsCache.length) { container.innerHTML = '<div class="empty">Скидок пока нет</div>'; return; }
+    discountsCache.forEach(d => {
+        const typeLabels = { seasonal: '🗓 Сезонная', city: '⚓ Городская', faction: '🏴 Фракционная' };
+        const range = (d.date_from || d.date_to) ? `${d.date_from || '…'} → ${d.date_to || '…'}` : 'без ограничения';
+        const el = document.createElement('div');
+        el.className = 'partners-admin-item';
+        el.innerHTML = `
+            <div class="logo-mini"><span>💸</span></div>
+            <div class="txt">
+                <b>${escapeHtml(d.name)} <span style="color:var(--green)">−${d.value}%</span></b>
+                <span style="color:var(--muted);font-size:11px;">
+                    ${typeLabels[d.type] || d.type}
+                    ${d.city ? ' · ' + escapeHtml(d.city) : ''}
+                    ${d.faction ? ' · ' + escapeHtml(d.faction) : ''}
+                    · ${range} · ${d.is_active ? '🟢 активна' : '⚫ выкл'}
+                </span>
+                ${d.note ? `<span style="color:var(--muted);font-size:11px;font-style:italic;">${escapeHtml(d.note)}</span>` : ''}
+            </div>
+            <div class="actions">
+                <button class="edit" title="Вкл/выкл">${d.is_active ? '🟢' : '⚫'}</button>
+                <button class="delete" title="Удалить">🗑</button>
+            </div>`;
+        el.querySelector('.edit').addEventListener('click', async () => {
+            const { error } = await supabase.from('discounts').update({ is_active: !d.is_active }).eq('id', d.id);
+            if (error) return alert(error.message);
+            await loadDiscounts();
+        });
+        el.querySelector('.delete').addEventListener('click', async () => {
+            if (!confirm(`Удалить скидку «${d.name}»?`)) return;
+            await supabase.from('discounts').delete().eq('id', d.id);
+            await logAdminAction('Удалил скидку', d.name);
+            await loadDiscounts();
+        });
+        container.appendChild(el);
+    });
+}
+function onDiscountTypeChange() {
+    const type = val('disc-type');
+    const cityField = $('disc-city-field');
+    const factionField = $('disc-faction-field');
+    if (cityField) cityField.hidden = type !== 'city';
+    if (factionField) factionField.hidden = type !== 'faction';
+}
+on('disc-type', 'change', onDiscountTypeChange);
+function fillDiscountCitySelect() {
+    const sel = $('disc-city-select'); if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">— Не выбран —</option>' +
+        portsCache.map(p => `<option value="${escapeHtml(p.name)}">${escapeHtml(p.name)}</option>`).join('');
+    if (cur && portsCache.some(p => p.name === cur)) sel.value = cur;
+}
+function fillDiscountFactionSelect() {
+    const sel = $('disc-faction-select'); if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">— Не выбрана —</option>' +
+        factionsCache.map(f => `<option value="${escapeHtml(f.name)}">${escapeHtml(f.name)}</option>`).join('');
+    if (cur) sel.value = cur;
+}
+on('disc-add', 'click', async () => {
+    const msg = $('disc-msg'); msg.textContent = '';
+    const name = val('disc-name').trim();
+    const type = val('disc-type');
+    const value = parseFloat(val('disc-value')) || 0;
+    const city = val('disc-city-select') || null;
+    const faction = val('disc-faction-select') || null;
+    const dateFrom = val('disc-from') || null;
+    const dateTo = val('disc-to') || null;
+    const note = val('disc-note').trim() || null;
+    const isActive = $('disc-active').checked;
+    if (!name) { msg.textContent = 'Укажи название'; msg.style.color = '#ff7a7a'; return; }
+    if (value <= 0 || value > 100) { msg.textContent = 'Процент 0–100'; msg.style.color = '#ff7a7a'; return; }
+    if (type === 'city' && !city) { msg.textContent = 'Укажи город'; msg.style.color = '#ff7a7a'; return; }
+    if (type === 'faction' && !faction) { msg.textContent = 'Укажи фракцию'; msg.style.color = '#ff7a7a'; return; }
+    const { error } = await supabase.from('discounts').insert({
+        name, type, value, city, faction,
+        date_from: dateFrom, date_to: dateTo,
+        note, is_active: isActive, sort_order: (discountsCache.length + 1) * 10
+    });
+    if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
+    await logAdminAction('Добавил скидку', name, `${type} −${value}%`);
+    msg.textContent = '✔ Скидка добавлена'; msg.style.color = '#6ee7a7';
+    ['disc-name','disc-city-select','disc-faction-select','disc-from','disc-to','disc-note'].forEach(i => { const el = $(i); if (el) el.value = ''; });
+    $('disc-value').value = 5;
+    await loadDiscounts();
+});
+
+/* ============ КАРТА МИРА ============ */
+async function loadMapSettings() {
+    const { data, error } = await supabase.from('map_settings').select('*').eq('id', 'main').maybeSingle();
+    if (error) { console.warn('map_settings load:', error.message); mapSettings = null; }
+    else mapSettings = data;
+    renderMapPreview(); renderMapAdmin();
+}
+function getMapUrls() {
+    const s = mapSettings || {};
+    return {
+        detailed: s.detailed_url || MAP_DEFAULT_DETAILED,
+        clean:    s.clean_url    || MAP_DEFAULT_CLEAN,
+        title:    s.title        || 'World of Sea Battle — Карта',
+        note:     s.note         || '',
+        defaultView: s.default_view || 'detailed'
+    };
+}
+function renderMapPreview() {
+    const urls = getMapUrls();
+    const titleEl = $('map-title'); if (titleEl) titleEl.textContent = urls.title;
+    const noteEl  = $('map-note');  if (noteEl)  noteEl.textContent = urls.note;
+    const img = $('map-preview-img'); if (!img) return;
+    document.querySelectorAll('.map-view-btn').forEach(b => b.classList.toggle('active', b.dataset.view === currentMapView));
+    const src = currentMapView === 'clean' ? urls.clean : urls.detailed;
+    img.src = src || '';
+    img.onerror = () => {
+        if (currentMapView === 'detailed' && urls.clean) { img.src = urls.clean; }
+        else if (currentMapView === 'clean' && urls.detailed) { img.src = urls.detailed; }
+        else { img.alt = 'Карта не загружена'; }
+    };
+}
+function openMapFullscreen() {
+    const urls = getMapUrls();
+    const fs = $('mapFullscreen'); if (!fs) return;
+    const img = $('map-fs-img');
+    const src = currentMapView === 'clean' ? urls.clean : urls.detailed;
+    if (!src) { alert('Карта не настроена'); return; }
+    img.src = src;
+    img.onerror = () => { img.src = currentMapView === 'clean' ? urls.detailed : urls.clean; };
+    const titleEl = $('map-fs-title'); if (titleEl) titleEl.textContent = urls.title;
+    mapFsZoom = 1; mapFsX = 0; mapFsY = 0; applyMapFsTransform();
+    fs.hidden = false;
+    document.body.style.overflow = 'hidden';
+}
+function closeMapFullscreen() {
+    const fs = $('mapFullscreen'); if (!fs) return;
+    fs.hidden = true; document.body.style.overflow = '';
+}
+function applyMapFsTransform() {
+    const img = $('map-fs-img'); if (!img) return;
+    img.style.transform = `translate(${mapFsX}px, ${mapFsY}px) scale(${mapFsZoom})`;
+}
+function setMapFsZoom(z) {
+    mapFsZoom = Math.max(0.5, Math.min(6, z));
+    if (mapFsZoom <= 1) { mapFsX = 0; mapFsY = 0; }
+    applyMapFsTransform();
+}
+function resetMapFs() { mapFsZoom = 1; mapFsX = 0; mapFsY = 0; applyMapFsTransform(); }
+on('map-open', 'click', openMapFullscreen);
+on('map-preview', 'click', openMapFullscreen);
+document.querySelectorAll('.map-view-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        currentMapView = btn.dataset.view;
+        renderMapPreview();
+        const fs = $('mapFullscreen');
+        if (fs && !fs.hidden) {
+            const urls = getMapUrls();
+            const img = $('map-fs-img');
+            if (img) img.src = currentMapView === 'clean' ? urls.clean : urls.detailed;
+            resetMapFs();
+        }
+    });
+});
+on('map-fs-close', 'click', closeMapFullscreen);
+on('map-fs-zoom-in', 'click', () => setMapFsZoom(mapFsZoom + 0.25));
+on('map-fs-zoom-out', 'click', () => setMapFsZoom(mapFsZoom - 0.25));
+on('map-fs-reset', 'click', resetMapFs);
+on('map-fs-stage', 'wheel', e => { e.preventDefault(); setMapFsZoom(mapFsZoom + (e.deltaY < 0 ? 0.15 : -0.15)); }, { passive: false });
+on('map-fs-stage', 'mousedown', e => {
+    if (mapFsZoom <= 1) return;
+    mapFsDragging = true;
+    mapFsDragStart = { x: e.clientX - mapFsX, y: e.clientY - mapFsY };
+    $('map-fs-stage').classList.add('dragging');
+});
+document.addEventListener('mousemove', e => {
+    if (!mapFsDragging) return;
+    mapFsX = e.clientX - mapFsDragStart.x;
+    mapFsY = e.clientY - mapFsDragStart.y;
+    applyMapFsTransform();
+});
+document.addEventListener('mouseup', () => {
+    if (!mapFsDragging) return;
+    mapFsDragging = false;
+    $('map-fs-stage')?.classList.remove('dragging');
+});
+on('map-fs-stage', 'mouseleave', () => { mapFsDragging = false; });
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+        const fs = $('mapFullscreen');
+        if (fs && !fs.hidden) closeMapFullscreen();
+    }
+});
+function renderMapAdmin() {
+    const urls = getMapUrls();
+    const t = $('map-title-input'); if (t) t.value = urls.title;
+    const n = $('map-note-input');  if (n) n.value = urls.note;
+    const dv = $('map-default-view'); if (dv) dv.value = urls.defaultView;
+    const det = $('map-detailed-url'); if (det) det.value = (urls.detailed && !urls.detailed.startsWith('data:')) ? urls.detailed : '';
+    const cln = $('map-clean-url');    if (cln) cln.value = (urls.clean    && !urls.clean.startsWith('data:'))    ? urls.clean    : '';
+    const detPrev = $('map-detailed-preview');
+    const detImg  = $('map-detailed-preview-img');
+    if (urls.detailed) { detImg.src = urls.detailed; detPrev.hidden = false; } else detPrev.hidden = true;
+    const clnPrev = $('map-clean-preview');
+    const clnImg  = $('map-clean-preview-img');
+    if (urls.clean) { clnImg.src = urls.clean; clnPrev.hidden = false; } else clnPrev.hidden = true;
+    mapDetailedData = null; mapCleanData = null;
+    const msg = $('map-admin-msg'); if (msg) msg.textContent = '';
+}
+on('map-detailed-pick', 'click', () => { const f = $('map-detailed-file'); if (f) { f.value = ''; f.click(); } });
+on('map-detailed-file', 'change', async e => {
+    const file = e.target.files[0]; if (!file) return;
+    if (file.size > 8 * 1024 * 1024) { alert('Максимум 8 МБ'); return; }
+    try {
+        const dataUrl = await compressImage(file, 3000, 0.9);
+        mapDetailedData = dataUrl;
+        $('map-detailed-preview-img').src = dataUrl;
+        $('map-detailed-preview').hidden = false;
+        $('map-detailed-name').textContent = file.name;
+        $('map-detailed-url').value = '';
+    } catch (err) { alert('Ошибка: ' + err.message); }
+});
+on('map-detailed-clear', 'click', () => {
+    mapDetailedData = null;
+    $('map-detailed-preview').hidden = true;
+    $('map-detailed-name').textContent = '';
+    $('map-detailed-file').value = '';
+    $('map-detailed-url').value = '';
+});
+on('map-clean-pick', 'click', () => { const f = $('map-clean-file'); if (f) { f.value = ''; f.click(); } });
+on('map-clean-file', 'change', async e => {
+    const file = e.target.files[0]; if (!file) return;
+    if (file.size > 8 * 1024 * 1024) { alert('Максимум 8 МБ'); return; }
+    try {
+        const dataUrl = await compressImage(file, 3000, 0.9);
+        mapCleanData = dataUrl;
+        $('map-clean-preview-img').src = dataUrl;
+        $('map-clean-preview').hidden = false;
+        $('map-clean-name').textContent = file.name;
+        $('map-clean-url').value = '';
+    } catch (err) { alert('Ошибка: ' + err.message); }
+});
+on('map-clean-clear', 'click', () => {
+    mapCleanData = null;
+    $('map-clean-preview').hidden = true;
+    $('map-clean-name').textContent = '';
+    $('map-clean-file').value = '';
+    $('map-clean-url').value = '';
+});
+on('map-reset-urls', 'click', () => {
+    $('map-detailed-url').value = MAP_DEFAULT_DETAILED;
+    $('map-clean-url').value    = MAP_DEFAULT_CLEAN;
+    mapDetailedData = null; mapCleanData = null;
+    $('map-detailed-preview').hidden = false;
+    $('map-detailed-preview-img').src = MAP_DEFAULT_DETAILED;
+    $('map-clean-preview').hidden = false;
+    $('map-clean-preview-img').src = MAP_DEFAULT_CLEAN;
+});
+on('map-save', 'click', async () => {
+    const msg = $('map-admin-msg'); msg.textContent = '';
+    const title = val('map-title-input').trim() || 'World of Sea Battle — Карта';
+    const note = val('map-note-input').trim() || null;
+    const defaultView = val('map-default-view') || 'detailed';
+    const detailedUrl = mapDetailedData || val('map-detailed-url').trim() || null;
+    const cleanUrl    = mapCleanData    || val('map-clean-url').trim()    || null;
+    const { error } = await supabase.from('map_settings').upsert({
+        id: 'main', title, note, default_view: defaultView,
+        detailed_url: detailedUrl, clean_url: cleanUrl,
+        updated_at: new Date().toISOString()
+    }, { onConflict: 'id' });
+    if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
+    await logAdminAction('Обновил карту', title);
+    msg.textContent = '✔ Карта сохранена'; msg.style.color = '#6ee7a7';
+    await loadMapSettings();
+});
+
+/* ============ ФРАКЦИИ / ПОРТЫ / РАНГИ ============ */
+async function loadFactions() {
+    const { data, error } = await supabase.from('factions').select('*').order('sort_order');
+    if (error) { factionsCache = []; return; }
+    factionsCache = data || [];
+    renderFactionsAdmin(); fillPortFactionSelect();
+    fillDiscountFactionSelect(); fillScFactionSelect();
+}
+async function loadPorts() {
+    const { data, error } = await supabase.from('ports').select('*').order('sort_order').order('name');
+    if (error) { portsCache = []; return; }
+    portsCache = data || [];
+    renderPortsAdmin(); fillDiscountCitySelect(); fillScCities();
+}
+async function loadRanks() {
+    const { data, error } = await supabase.from('ship_ranks').select('*').order('rank', { ascending: false });
+    if (error) { ranksCache = []; return; }
+    ranksCache = data || [];
+    renderRanksAdmin();
+}
+function renderFactionsAdmin() {
+    const container = $('factions-admin-list'); if (!container) return;
+    container.innerHTML = '';
+    if (!factionsCache.length) { container.innerHTML = '<div class="empty">Нет фракций</div>'; return; }
+    const typeLabels = { military: '⚔️ Военная', trade: '💰 Торговая', pirate: '☠️ Пиратская', neutral: '🕊 Нейтральная' };
+    factionsCache.forEach(f => {
+        const el = document.createElement('div');
+        el.className = 'partners-admin-item';
+        el.innerHTML = `
+            <div class="logo-mini" style="background:${escapeHtml(f.color || '#8a93a3')}22;color:${escapeHtml(f.color || '#8a93a3')};"><span>🏴</span></div>
+            <div class="txt">
+                <b style="color:${escapeHtml(f.color || 'var(--text)')}">${escapeHtml(f.name)}</b>
+                <span style="color:var(--muted);font-size:11px;">${typeLabels[f.type] || f.type}${f.description ? ' · ' + escapeHtml(f.description) : ''}</span>
+            </div>
+            <div class="actions"><button class="edit" title="Редактировать">✏️</button></div>`;
+        el.querySelector('.edit').addEventListener('click', () => openFactionEditModal(f));
+        container.appendChild(el);
+    });
+}
+function renderPortsAdmin() {
+    const container = $('ports-admin-list'); if (!container) return;
+    container.innerHTML = '';
+    if (!portsCache.length) { container.innerHTML = '<div class="empty">Нет портов</div>'; return; }
+    const typeLabels = { city: '🏙 Город', port: '⚓ Порт', neutral_bay: '🕊 Нейтральная', pirate_bay: '☠️ Пиратская' };
+    portsCache.forEach(p => {
+        const faction = factionsCache.find(f => f.id === p.faction_id);
+        const el = document.createElement('div');
+        el.className = 'partners-admin-item';
+        el.innerHTML = `
+            <div class="logo-mini"><span>${p.type === 'pirate_bay' ? '☠️' : p.type === 'neutral_bay' ? '🕊' : p.type === 'city' ? '🏙' : '⚓'}</span></div>
+            <div class="txt">
+                <b>${escapeHtml(p.name)}</b>
+                <span style="color:var(--muted);font-size:11px;">
+                    ${typeLabels[p.type] || p.type}
+                    ${faction ? ' · ' + escapeHtml(faction.name) : ''}
+                    ${p.can_be_captured ? ' · ⚔️ захватываемый' : ' · 🔒 не захватывается'}
+                    ${p.region ? ' · 📍 ' + escapeHtml(p.region) : ''}
+                </span>
+                ${p.note ? `<span style="color:var(--muted);font-size:11px;font-style:italic;">${escapeHtml(p.note)}</span>` : ''}
+            </div>
+            <div class="actions">
+                <button class="edit" title="Редактировать">✏️</button>
+                <button class="delete" title="Удалить">🗑</button>
+            </div>`;
+        el.querySelector('.edit').addEventListener('click', () => openPortEditModal(p));
+        el.querySelector('.txt b').addEventListener('dblclick', () => openPortEditModal(p));
+        el.querySelector('.delete').addEventListener('click', async () => {
+            if (!confirm(`Удалить порт «${p.name}»?`)) return;
+            await supabase.from('ports').delete().eq('id', p.id);
+            await loadPorts();
+        });
+        container.appendChild(el);
+    });
+}
+function renderRanksAdmin() {
+    const container = $('ranks-admin-list'); if (!container) return;
+    container.innerHTML = '';
+    if (!ranksCache.length) { container.innerHTML = '<div class="empty">Нет данных о рангах</div>'; return; }
+    ranksCache.forEach(r => {
+        const el = document.createElement('div');
+        el.className = 'partners-admin-item';
+        el.innerHTML = `
+            <div class="logo-mini"><span>${ROMAN[r.rank] || r.rank}</span></div>
+            <div class="txt">
+                <b>${escapeHtml(r.name)}</b>
+                <span style="color:var(--muted);font-size:11px;">
+                    Мин. уровень: ${r.min_level || '—'}
+                    ${r.requires_blueprint ? ' · 📜 нужен чертёж' : ''}
+                    ${r.note ? ' · ' + escapeHtml(r.note) : ''}
+                </span>
+            </div>`;
+        container.appendChild(el);
+    });
+}
+function fillPortFactionSelect() {
+    const sel = $('port-faction');

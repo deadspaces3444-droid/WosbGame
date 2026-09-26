@@ -284,15 +284,15 @@
                 <div id="section-pvp" class="clan-section">
                     <h2>⚔️ Билды для ПВП</h2>
                     <section class="add-form clan-admin-only" hidden>
-                        <textarea id="pvpShip" placeholder="Название корабля" rows="1" maxlength="60"></textarea>
-                        <textarea id="pvpUpgrades" placeholder="Апгрейды — каждый с новой строки" rows="3"></textarea>
-                        <textarea id="pvpWeapS" placeholder="Малые пушки (до 12 фунтов)" rows="2"></textarea>
-                        <textarea id="pvpWeapM" placeholder="Средние пушки (до 24 фунтов)" rows="2"></textarea>
-                        <textarea id="pvpWeapL" placeholder="Большие пушки (до 48 фунтов)" rows="2"></textarea>
-                        <input type="text" id="pvpCons1" placeholder="Расходник 1" maxlength="40">
-                        <input type="text" id="pvpCons2" placeholder="Расходник 2" maxlength="40">
-                        <input type="text" id="pvpCons3" placeholder="Расходник 3" maxlength="40">
-                        <textarea id="pvpCargo" placeholder="Наполнение трюма" rows="1" maxlength="200"></textarea>
+                        <input type="text" id="pvpShip" list="shipsList" placeholder="Название корабля" maxlength="60">
+                        <textarea id="pvpUpgrades" placeholder="Апгрейды — каждый с новой строки" rows="3" list="upgradesList"></textarea>
+                        <input type="text" id="pvpWeapS" list="weaponsSmallList" placeholder="Малые пушки (до 12ф)" maxlength="60">
+                        <input type="text" id="pvpWeapM" list="weaponsMediumList" placeholder="Средние пушки (до 24ф)" maxlength="60">
+                        <input type="text" id="pvpWeapL" list="weaponsLargeList" placeholder="Большие пушки (до 48ф)" maxlength="60">
+                        <input type="text" id="pvpCons1" list="consumablesList" placeholder="Расходник 1" maxlength="40">
+                        <input type="text" id="pvpCons2" list="consumablesList" placeholder="Расходник 2" maxlength="40">
+                        <input type="text" id="pvpCons3" list="consumablesList" placeholder="Расходник 3" maxlength="40">
+                        <input type="text" id="pvpCargo" list="cargoList" placeholder="Наполнение трюма" maxlength="200">
                         <textarea id="pvpSpecs" placeholder="Специалисты — Имя | Бонус +5 | Бонус -3" rows="3"></textarea>
                         <select id="pvpScope"></select>
                         <button id="pvpAddBtn">➕ Добавить</button>
@@ -305,15 +305,15 @@
                     <h2>🛡 Билды для ПБ</h2>
                     <section class="add-form clan-admin-only" hidden>
                         <textarea id="pbRank" placeholder="Ранг (1-6)" rows="1" maxlength="10"></textarea>
-                        <textarea id="pbShip" placeholder="Название корабля" rows="1" maxlength="60"></textarea>
+                        <input type="text" id="pbShip" list="shipsList" placeholder="Название корабля" maxlength="60">
                         <textarea id="pbUpgrades" placeholder="Апгрейды — каждый с новой строки" rows="3"></textarea>
-                        <textarea id="pbWeapS" placeholder="Малые пушки (до 12 фунтов)" rows="2"></textarea>
-                        <textarea id="pbWeapM" placeholder="Средние пушки (до 24 фунтов)" rows="2"></textarea>
-                        <textarea id="pbWeapL" placeholder="Большие пушки (до 48 фунтов)" rows="2"></textarea>
-                        <input type="text" id="pbCons1" placeholder="Расходник 1" maxlength="40">
-                        <input type="text" id="pbCons2" placeholder="Расходник 2" maxlength="40">
-                        <input type="text" id="pbCons3" placeholder="Расходник 3" maxlength="40">
-                        <textarea id="pbCargo" placeholder="Наполнение трюма" rows="1" maxlength="200"></textarea>
+                        <input type="text" id="pbWeapS" list="weaponsSmallList" placeholder="Малые пушки (до 12ф)" maxlength="60">
+                        <input type="text" id="pbWeapM" list="weaponsMediumList" placeholder="Средние пушки (до 24ф)" maxlength="60">
+                        <input type="text" id="pbWeapL" list="weaponsLargeList" placeholder="Большие пушки (до 48ф)" maxlength="60">
+                        <input type="text" id="pbCons1" list="consumablesList" placeholder="Расходник 1" maxlength="40">
+                        <input type="text" id="pbCons2" list="consumablesList" placeholder="Расходник 2" maxlength="40">
+                        <input type="text" id="pbCons3" list="consumablesList" placeholder="Расходник 3" maxlength="40">
+                        <input type="text" id="pbCargo" list="cargoList" placeholder="Наполнение трюма" maxlength="200">
                         <textarea id="pbSpecs" placeholder="Специалисты — Имя | Бонус +5 | Бонус -3" rows="3"></textarea>
                         <select id="pbScope"></select>
                         <button id="pbAddBtn">➕ Добавить</button>
@@ -368,6 +368,11 @@
                 <button class="admin-nav-item" data-apanel="online"><span class="admin-nav-ico">👥</span><span>Онлайн</span></button>
                 <button class="admin-nav-item" data-apanel="admins"><span class="admin-nav-ico">👑</span><span>Админы сайта</span></button>
                 <button class="admin-nav-item owner-only" data-apanel="clanRequests" hidden><span class="admin-nav-ico">📨</span><span>Заявки гильдий</span></button>
+                <!-- НОВОЕ -->
+                <button class="admin-nav-item" data-apanel="ships"><span class="admin-nav-ico">⛵</span><span>Корабли</span></button>
+                <button class="admin-nav-item" data-apanel="resources"><span class="admin-nav-ico">🪵</span><span>Ресурсы</span></button>
+                <button class="admin-nav-item" data-apanel="buildItems"><span class="admin-nav-ico">⚙️</span><span>Каталог билдов</span></button>
+                <!-- /НОВОЕ -->
                 <button class="admin-nav-item" data-apanel="settings"><span class="admin-nav-ico">⚙️</span><span>Настройки</span></button>
             </nav>
             <div class="admin-sidebar-footer"><button id="adminBackHome" class="admin-back-btn">← На главную</button></div>
@@ -568,6 +573,62 @@
                 <p class="hint">Видно только владельцу.</p>
                 <div id="clanRequestsList" class="applications-list"></div>
             </section>
+
+            <!-- НОВОЕ: КОРАБЛИ -->
+            <section class="admin-section" data-apanel="ships">
+                <h2 class="admin-section-title">⛵ Корабли</h2>
+                <div class="admin-card">
+                    <div class="admin-field"><label>Ключ (латиница)</label><input id="shipNewKey" maxlength="40" placeholder="frigate_mk1"></div>
+                    <div class="admin-field"><label>Название *</label><input id="shipNewName" maxlength="80"></div>
+                    <div class="admin-field"><label>Тип</label><input id="shipNewType" maxlength="40" placeholder="frigate"></div>
+                    <div class="admin-field"><label>Уровень</label><input type="number" id="shipNewLevel" min="1"></div>
+                    <p id="shipNewMsg" class="error"></p>
+                    <div class="modal-actions"><button id="shipNewBtn">➕ Добавить корабль</button></div>
+                </div>
+                <div id="shipsAdminList" class="admin-accordion"></div>
+            </section>
+
+            <!-- НОВОЕ: РЕСУРСЫ -->
+            <section class="admin-section" data-apanel="resources">
+                <h2 class="admin-section-title">🪵 Ресурсы</h2>
+                <div class="admin-card">
+                    <div class="admin-field"><label>ID (латиница) *</label><input id="resNewId" maxlength="40" placeholder="oak_plank"></div>
+                    <div class="admin-field"><label>Название *</label><input id="resNewName" maxlength="80"></div>
+                    <div class="admin-field"><label>Группа</label><input id="resNewGroup" maxlength="40" placeholder="raw / crafted"></div>
+                    <div class="admin-field"><label>Категория</label><input id="resNewCat" maxlength="40" placeholder="wood"></div>
+                    <div class="admin-field"><label>Иконка (эмодзи)</label><input id="resNewIcon" maxlength="4" value="📦"></div>
+                    <div class="admin-field"><label>Цена</label><input type="number" id="resNewPrice" min="0" value="0"></div>
+                    <p id="resNewMsg" class="error"></p>
+                    <div class="modal-actions"><button id="resNewBtn">➕ Добавить ресурс</button></div>
+                </div>
+                <div id="resourcesAdminList" class="admin-accordion"></div>
+            </section>
+
+            <!-- НОВОЕ: КАТАЛОГ БИЛДОВ -->
+            <section class="admin-section" data-apanel="buildItems">
+                <h2 class="admin-section-title">⚙️ Каталог билдов</h2>
+                <p class="hint">Единый справочник орудий, расходников, апгрейдов, специалистов и трюма.</p>
+                <div class="admin-card">
+                    <div class="admin-field"><label>Тип *</label>
+                        <select id="biNewType">
+                            <option value="upgrade">🔧 Апгрейд</option>
+                            <option value="weapon_small">🟢 Малое орудие</option>
+                            <option value="weapon_medium">🟡 Среднее орудие</option>
+                            <option value="weapon_large">🔴 Большое орудие</option>
+                            <option value="consumable">⚗️ Расходник</option>
+                            <option value="cargo">📦 Трюм</option>
+                            <option value="specialist">👤 Специалист</option>
+                        </select>
+                    </div>
+                    <div class="admin-field"><label>Подгруппа</label><input id="biNewSub" maxlength="40" placeholder="для специалистов: gunner / cook / ..."></div>
+                    <div class="admin-field"><label>Название *</label><input id="biNewName" maxlength="120"></div>
+                    <div class="admin-field"><label>Бонусы (только для не-специалистов)</label><textarea id="biNewBonuses" rows="2" placeholder="Скорость +5&#10;Точность -3"></textarea></div>
+                    <p id="biNewMsg" class="error"></p>
+                    <div class="modal-actions"><button id="biNewBtn">➕ Добавить элемент</button></div>
+                </div>
+                <div id="buildItemsAdminList" class="admin-accordion"></div>
+            </section>
+            <!-- /НОВОЕ -->
 
             <section class="admin-section" data-apanel="settings">
                 <h2 class="admin-section-title">⚙️ Настройки сайта</h2>
@@ -880,6 +941,16 @@
     </div>
 
     <input type="file" id="bgFileInput" accept="image/*" hidden>
+
+    <!-- НОВОЕ: DATALIST-ы для форм билдов -->
+    <datalist id="shipsList"></datalist>
+    <datalist id="weaponsSmallList"></datalist>
+    <datalist id="weaponsMediumList"></datalist>
+    <datalist id="weaponsLargeList"></datalist>
+    <datalist id="consumablesList"></datalist>
+    <datalist id="cargoList"></datalist>
+    <datalist id="upgradesList"></datalist>
+    <datalist id="specialistsList"></datalist>
 
     <footer class="site-footer">
         <span class="footer-left">Mist Time — Сергеев С.В</span>

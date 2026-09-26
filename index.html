@@ -18,6 +18,7 @@
             <button id="themeToggle" class="icon-btn" title="Сменить тему">🌓</button>
             <button id="notifBell" class="icon-btn" title="Уведомления">🔔<span id="notifBadge" class="notif-badge" hidden>0</span></button>
             <button id="leaderPanelBtn" class="icon-btn" hidden title="Панель главы гильдии">🎖</button>
+            <button id="admiralPanelBtn" class="icon-btn" hidden title="Адмиральская панель">⚓</button>
             <span id="adminInfo"></span>
             <button id="adminPanelBtn" hidden title="Админ-панель">⚙️</button>
             <button id="adminLoginBtn">🔐 Админ</button>
@@ -45,8 +46,8 @@
             </div>
             <div id="clanGrid" class="clan-grid"></div>
 
-            <!-- 🗺 КАРТА -->
-            <section id="mapSection" class="home-trade-section">
+            <!-- КАРТА -->
+            <section id="mapSection" class="home-trade-section" data-collapsible="map">
                 <h2 class="section-title">🗺 Карта мира</h2>
                 <div class="map-panel">
                     <header class="map-topbar">
@@ -70,8 +71,8 @@
                 </div>
             </section>
 
-            <!-- 🔨 СТОИМОСТЬ ПОСТРОЙКИ -->
-            <section id="shipCostSection" class="home-trade-section">
+            <!-- СТОИМОСТЬ ПОСТРОЙКИ -->
+            <section id="shipCostSection" class="home-trade-section" data-collapsible="shipcost">
                 <h2 class="section-title">🔨 Стоимость постройки корабля</h2>
                 <div class="sc-panel">
                     <header class="sc-topbar">
@@ -108,8 +109,8 @@
                 </div>
             </section>
 
-            <!-- 🪙 РЫНОК -->
-            <section id="homeTradeSection" class="home-trade-section">
+            <!-- РЫНОК -->
+            <section id="homeTradeSection" class="home-trade-section" data-collapsible="trade">
                 <h2 class="section-title">🪙 Гильдейский рынок</h2>
                 <div class="trade-market">
                     <header class="tm-topbar">
@@ -198,8 +199,8 @@
                 </div>
             </section>
 
-            <!-- 📦 РЕСУРСЫ -->
-            <section id="resourcesSection" class="home-trade-section">
+            <!-- РЕСУРСЫ -->
+            <section id="resourcesSection" class="home-trade-section" data-collapsible="resources">
                 <h2 class="section-title">📦 Ресурсы — справочник цен</h2>
                 <div class="res-panel">
                     <header class="res-topbar">
@@ -229,8 +230,8 @@
                 </div>
             </section>
 
-            <!-- 🔧 СБОРКА -->
-            <section id="shipBuilderSection" class="home-trade-section">
+            <!-- СБОРКА -->
+            <section id="shipBuilderSection" class="home-trade-section" data-collapsible="builder">
                 <h2 class="section-title">🔧 Калькулятор сборки корабля</h2>
                 <div class="builder-panel">
                     <header class="builder-topbar">
@@ -250,6 +251,7 @@
                             <tbody id="builderRows"></tbody>
                         </table>
                     </div>
+                    <div id="builderBonusesPanel" class="builder-bonuses" hidden></div>
                     <footer class="builder-footer">
                         <div class="builder-summary">
                             <div class="builder-stat"><span class="builder-stat-label">Позиций</span><span class="builder-stat-value" id="builderCountPositions">0</span></div>
@@ -308,6 +310,7 @@
         <div class="top-right">
             <button id="themeToggle2" class="icon-btn" title="Сменить тему">🌓</button>
             <button id="leaderPanelBtn2" class="icon-btn" hidden title="Панель главы гильдии">🎖</button>
+            <button id="admiralPanelBtn2" class="icon-btn" hidden title="Адмиральская панель">⚓</button>
             <span id="adminInfo2"></span>
             <button id="adminPanelBtn2" hidden>⚙️</button>
             <button id="adminLogoutBtn2" hidden>🚪 Выйти</button>
@@ -350,6 +353,7 @@
                 <button id="themeToggle3" class="icon-btn" title="Сменить тему">🌓</button>
                 <button id="notifBell2" class="icon-btn" title="Уведомления">🔔<span id="notifBadge2" class="notif-badge" hidden>0</span></button>
                 <button id="leaderPanelBtn3" class="icon-btn" hidden title="Панель главы гильдии">🎖</button>
+                <button id="admiralPanelBtn3" class="icon-btn" hidden title="Адмиральская панель">⚓</button>
                 <button id="adminPanelBtn3" hidden>⚙️</button>
                 <a id="downloadBtn" class="icon-btn" href="https://github.com/Flowseal/zapret-discord-youtube/releases/download/1.10.3/zapret-discord-youtube-1.10.3.rar" target="_blank" rel="noopener" title="Скачать zapret">⬇️</a>
                 <button id="bgChangeBtn" class="icon-btn admin-only" hidden title="Сменить фон">🎨</button>
@@ -424,9 +428,15 @@
                             <div class="ev-map-preview" id="evMapPreview" hidden>
                                 <div class="ev-map-stage" id="evMapStage">
                                     <img id="evMapImg" src="" alt="" draggable="false">
-                                    <div class="ev-map-marker" id="evMapMarker" hidden>📍</div>
                                 </div>
-                                <p class="hint" style="margin:6px 0 0;">💡 Кликни по карте, чтобы поставить метку</p>
+                                <p class="hint" style="margin:6px 0 10px;">💡 Кликни по карте — добавится метка. Кликов можно делать сколько угодно.</p>
+                                <div class="ev-map-markers-list-wrap">
+                                    <div class="ev-map-markers-list-head">
+                                        <b>📍 Метки на карте</b>
+                                        <span class="ev-map-markers-hint">Название и описание — на каждую метку</span>
+                                    </div>
+                                    <div id="evMapMarkersList" class="ev-map-markers-list"></div>
+                                </div>
                             </div>
                         </div>
                     </section>
@@ -460,6 +470,8 @@
                         <input type="text" id="pvpWeapS" list="weaponsSmallList" placeholder="Малые пушки (до 12ф)" maxlength="60">
                         <input type="text" id="pvpWeapM" list="weaponsMediumList" placeholder="Средние пушки (до 24ф)" maxlength="60">
                         <input type="text" id="pvpWeapL" list="weaponsLargeList" placeholder="Большие пушки (до 48ф)" maxlength="60">
+                        <input type="text" id="pvpWeapMortar" list="weaponsMortarList" placeholder="Мортиры" maxlength="60">
+                        <input type="text" id="pvpShells" list="shellsList" placeholder="Снаряды" maxlength="200">
                         <input type="text" id="pvpCons1" list="consumablesList" placeholder="Расходник 1" maxlength="40">
                         <input type="text" id="pvpCons2" list="consumablesList" placeholder="Расходник 2" maxlength="40">
                         <input type="text" id="pvpCons3" list="consumablesList" placeholder="Расходник 3" maxlength="40">
@@ -482,6 +494,8 @@
                         <input type="text" id="pbWeapS" list="weaponsSmallList" placeholder="Малые пушки (до 12ф)" maxlength="60">
                         <input type="text" id="pbWeapM" list="weaponsMediumList" placeholder="Средние пушки (до 24ф)" maxlength="60">
                         <input type="text" id="pbWeapL" list="weaponsLargeList" placeholder="Большие пушки (до 48ф)" maxlength="60">
+                        <input type="text" id="pbWeapMortar" list="weaponsMortarList" placeholder="Мортиры" maxlength="60">
+                        <input type="text" id="pbShells" list="shellsList" placeholder="Снаряды" maxlength="200">
                         <input type="text" id="pbCons1" list="consumablesList" placeholder="Расходник 1" maxlength="40">
                         <input type="text" id="pbCons2" list="consumablesList" placeholder="Расходник 2" maxlength="40">
                         <input type="text" id="pbCons3" list="consumablesList" placeholder="Расходник 3" maxlength="40">
@@ -556,6 +570,7 @@
                                 <tbody id="builderRows2"></tbody>
                             </table>
                         </div>
+                        <div id="builderBonusesPanel2" class="builder-bonuses" hidden></div>
                         <footer class="builder-footer">
                             <div class="builder-summary">
                                 <div class="builder-stat"><span class="builder-stat-label">Позиций</span><span class="builder-stat-value" id="builderCountPositions2">0</span></div>
@@ -624,12 +639,53 @@
         <div class="home-wrap" style="padding-top:120px;">
             <h1 class="section-title">🎖 Панель главы гильдии</h1>
             <p class="hint" style="text-align:center;font-size:14px;">Гильдия: <b id="leaderClanName">—</b></p>
-            <section class="apply-section">
+
+            <section class="apply-section leader-section">
+                <h2 class="section-title">🔑 Пароли гильдии</h2>
+                <div class="leader-pass-grid">
+                    <div class="admin-field">
+                        <label>Текущий пароль гильдии</label>
+                        <div class="password-field">
+                            <input type="password" id="leaderCurrentClanPass" readonly>
+                            <button type="button" class="pwd-toggle" data-target="leaderCurrentClanPass">👁</button>
+                        </div>
+                    </div>
+                    <div class="admin-field">
+                        <label>Текущий админ-пароль</label>
+                        <div class="password-field">
+                            <input type="password" id="leaderCurrentAdminPass" readonly>
+                            <button type="button" class="pwd-toggle" data-target="leaderCurrentAdminPass">👁</button>
+                        </div>
+                    </div>
+                    <div class="admin-field">
+                        <label>Новый пароль гильдии</label>
+                        <input type="text" id="leaderNewClanPass" placeholder="Оставь пустым, чтобы не менять">
+                    </div>
+                    <div class="admin-field">
+                        <label>Новый админ-пароль</label>
+                        <input type="text" id="leaderNewAdminPass" placeholder="Оставь пустым, чтобы не менять">
+                    </div>
+                </div>
+                <p id="leaderPassStatus" class="error"></p>
+                <div class="modal-actions" style="justify-content:center;">
+                    <button id="leaderChangePassBtn" class="big-btn primary">💾 Сменить пароли</button>
+                </div>
+            </section>
+
+            <section class="apply-section leader-section">
+                <h2 class="section-title">🟢 Кто сейчас на сайте</h2>
+                <div class="modal-actions" style="justify-content:center;margin-bottom:12px;">
+                    <button id="leaderOnlineRefresh" class="secondary">🔄 Обновить</button>
+                </div>
+                <div id="leaderOnlineList" class="online-list" style="width:100%;max-width:900px;"><div class="empty">Нажмите «Обновить»</div></div>
+            </section>
+
+            <section class="apply-section leader-section">
                 <h2 class="section-title">📅 Общие события владельца</h2>
                 <p class="hint" style="text-align:center;">Нажми «Принять участие», чтобы присоединить событие к своей гильдии.</p>
                 <div id="leaderEventsList" class="events-list" style="width:100%;max-width:900px;"></div>
             </section>
-            <section class="apply-section">
+            <section class="apply-section leader-section">
                 <h2 class="section-title">🤝 Союзы</h2>
                 <div class="modal-actions" style="justify-content:center;margin-bottom:16px;">
                     <button id="leaderOfferAllianceBtn" class="big-btn primary">➕ Предложить союз другой гильдии</button>
@@ -639,12 +695,71 @@
                 <h3 style="color:var(--blue);margin:20px 0 8px;">📤 Исходящие заявки</h3>
                 <div id="leaderAllianceOutgoing" class="applications-list" style="width:100%;max-width:900px;"></div>
             </section>
-            <section class="apply-section" style="margin-bottom:60px;">
+            <section class="apply-section leader-section" style="margin-bottom:60px;">
                 <h2 class="section-title">💬 Связь глав</h2>
                 <div class="modal-actions" style="justify-content:center;">
                     <button id="leaderOpenChatBtn" class="big-btn primary">💬 Чат глав</button>
                     <button id="leaderOpenVoiceBtn" class="big-btn primary">🎙 Голосовой чат глав</button>
                 </div>
+            </section>
+        </div>
+    </div>
+
+    <!-- АДМИРАЛЬСКАЯ ПАНЕЛЬ -->
+    <div id="screen-admiral" class="screen" hidden>
+        <div class="top-right">
+            <button id="themeToggle5" class="icon-btn" title="Сменить тему">🌓</button>
+            <button id="admiralWriteAdmiralsBtn" class="icon-btn" title="Чат адмиралов">⚓</button>
+            <button id="admiralWriteLeadersBtn" class="icon-btn" title="Чат глав">🎖</button>
+            <button id="admiralVoiceBtn" class="icon-btn" title="Голосовая комната адмиралов">🎙</button>
+        </div>
+        <button id="admiralBackBtn" class="back-btn">← На главную</button>
+        <div class="home-wrap" style="padding-top:120px;">
+            <h1 class="section-title">⚓ Адмиральская панель</h1>
+            <p class="hint" style="text-align:center;font-size:14px;">
+                Гильдия: <b id="admiralClanName">—</b> · Вы вошли как <b id="admiralMeName">—</b>
+            </p>
+
+            <section class="apply-section admiral-section">
+                <h2 class="section-title">🟢 Кто сейчас на сайте</h2>
+                <div class="modal-actions" style="justify-content:center;margin-bottom:12px;">
+                    <button id="admiralOnlineRefresh" class="secondary">🔄 Обновить</button>
+                </div>
+                <div id="admiralOnlineList" class="online-list" style="width:100%;max-width:900px;">
+                    <div class="empty">Нажмите «Обновить»</div>
+                </div>
+            </section>
+
+            <section class="apply-section admiral-section">
+                <h2 class="section-title">⚡ Быстрые действия</h2>
+                <div class="admiral-actions-grid">
+                    <button id="admiralWriteAdmiralsBtn2" class="big-btn primary" onclick="document.getElementById('admiralWriteAdmiralsBtn').click()">⚓ Чат адмиралов</button>
+                    <button id="admiralWriteLeadersBtn2" class="big-btn primary" onclick="document.getElementById('admiralWriteLeadersBtn').click()">🎖 Чат глав</button>
+                    <button id="admiralVoiceBtn2" class="big-btn primary" onclick="document.getElementById('admiralVoiceBtn').click()">🎙 Голос адмиралов</button>
+                </div>
+            </section>
+
+            <section class="apply-section admiral-section">
+                <h2 class="section-title">👥 Участники гильдии</h2>
+                <div id="admiralMembersList" class="members-list" style="width:100%;max-width:900px;"></div>
+            </section>
+
+            <section class="apply-section admiral-section">
+                <h2 class="section-title">📝 Заявки в гильдию <span style="font-size:12px;color:var(--muted);font-weight:400;">(просмотр)</span></h2>
+                <div id="admiralApplicationsList" class="applications-list" style="width:100%;max-width:900px;"></div>
+            </section>
+
+            <section class="apply-section admiral-section">
+                <h2 class="section-title">🤝 Заявки на союз <span style="font-size:12px;color:var(--muted);font-weight:400;">(просмотр)</span></h2>
+                <div id="admiralAllianceList" class="applications-list" style="width:100%;max-width:900px;"></div>
+            </section>
+
+            <section class="apply-section admiral-section" style="margin-bottom:60px;">
+                <h2 class="section-title">📜 Журнал адмиральской панели</h2>
+                <div class="modal-actions" style="justify-content:center;margin-bottom:12px;">
+                    <button id="admiralLogRefresh" class="secondary">🔄 Обновить</button>
+                </div>
+                <div id="admiralLogList" class="admiral-log-list" style="width:100%;max-width:900px;"></div>
             </section>
         </div>
     </div>
@@ -852,10 +967,9 @@
                 <div id="discounts-list" class="partners-admin-list"></div>
             </section>
 
-            <!-- ⚙️ КАТАЛОГ БИЛДОВ -->
             <section class="admin-section" data-apanel="catalog">
                 <h2 class="admin-section-title">⚙️ Каталог билдов</h2>
-                <p class="hint">Оружие, модули, расходники, апгрейды, паруса, специалисты. Используется в формах билдов и калькуляторе сборки.</p>
+                <p class="hint">Оружие, модули, снаряды, расходники, апгрейды, паруса, специалисты. Используется в формах билдов и калькуляторе.</p>
                 <div class="admin-card">
                     <h3 style="font-size:15px;color:#ffd479;">➕ Новый элемент</h3>
                     <div class="admin-field"><label>Тип</label>
@@ -863,8 +977,10 @@
                             <option value="weapon_small">🟢 Малое орудие</option>
                             <option value="weapon_medium">🟡 Среднее орудие</option>
                             <option value="weapon_large">🔴 Большое орудие</option>
+                            <option value="weapon_mortar">💣 Мортира</option>
                             <option value="module">⚙️ Модуль</option>
-                            <option value="ammo">💣 Боеприпас</option>
+                            <option value="ammo">🎯 Боеприпас</option>
+                            <option value="shell">💥 Снаряд</option>
                             <option value="blueprint">📜 Чертёж</option>
                             <option value="consumable">🧪 Расходник</option>
                             <option value="cargo">📦 Трюм</option>
@@ -872,13 +988,53 @@
                             <option value="specialist">👤 Специалист</option>
                         </select>
                     </div>
-                    <div class="admin-field"><label>Подгруппа</label><input id="biSub" placeholder="sails / hull / gunner / cook…" maxlength="40"></div>
+                    <div class="admin-field"><label>Подгруппа</label><input id="biSub" placeholder="sails / mortar / pirates / iron…" maxlength="40"></div>
                     <div class="admin-field"><label>Название *</label><input id="biName" maxlength="120"></div>
                     <div class="admin-field"><label>Цена (🪙)</label><input type="number" id="biPrice" min="0" step="1" value="0"></div>
                     <div class="admin-field"><label>Бонусы (для не-специалистов)</label><textarea id="biBonuses" rows="2"></textarea></div>
                     <p id="biMsg" class="error"></p>
                     <div class="modal-actions"><button id="biAddBtn">➕ Добавить в каталог</button></div>
                 </div>
+
+                <div class="admin-card">
+                    <h3 style="font-size:15px;color:#ffd479;">📥 Импорт справочников из файла</h3>
+                    <p class="hint">Файл в кодировке UTF-8. Одна строка = одна запись.</p>
+                    <div class="import-grid">
+                        <div class="import-block">
+                            <b>👤 Специалисты</b>
+                            <code>Группа - Название - Бонус, Бонус</code>
+                            <span class="import-hint">Группы: Пираты, Моряки, Военные, Авантюристы</span>
+                            <input type="file" id="biImportSpecsFile" accept=".txt,.csv,text/plain" hidden>
+                            <button type="button" id="biImportSpecsBtn" class="logo-pick-btn">📂 Загрузить специалистов</button>
+                            <span id="biImportSpecsStatus" class="import-status"></span>
+                        </div>
+                        <div class="import-block">
+                            <b>⚔️ Пушки</b>
+                            <code>Размер - Название</code>
+                            <span class="import-hint">Размеры: Лёгкие, Средние, Большие, Мортиры</span>
+                            <input type="file" id="biImportWeaponsFile" accept=".txt,.csv,text/plain" hidden>
+                            <button type="button" id="biImportWeaponsBtn" class="logo-pick-btn">📂 Загрузить пушки</button>
+                            <span id="biImportWeaponsStatus" class="import-status"></span>
+                        </div>
+                        <div class="import-block">
+                            <b>🔧 Апгрейды</b>
+                            <code>Название - Раздел - Бонус, Бонус</code>
+                            <span class="import-hint">Разделы: Мортирные, Быстроходность, Экспедиционные, Защита, Наступление, Необычные</span>
+                            <input type="file" id="biImportUpgradesFile" accept=".txt,.csv,text/plain" hidden>
+                            <button type="button" id="biImportUpgradesBtn" class="logo-pick-btn">📂 Загрузить апгрейды</button>
+                            <span id="biImportUpgradesStatus" class="import-status"></span>
+                        </div>
+                        <div class="import-block">
+                            <b>💥 Снаряды</b>
+                            <code>Тип - Название</code>
+                            <span class="import-hint">Типы: Чугунные, Зажигающие, Цепи, Картечь, Саксонские, Тяжёлые</span>
+                            <input type="file" id="biImportShellsFile" accept=".txt,.csv,text/plain" hidden>
+                            <button type="button" id="biImportShellsBtn" class="logo-pick-btn">📂 Загрузить снаряды</button>
+                            <span id="biImportShellsStatus" class="import-status"></span>
+                        </div>
+                    </div>
+                </div>
+
                 <div id="catalogTree" class="catalog-tree"></div>
             </section>
 
@@ -1167,7 +1323,6 @@
         </div>
         <div class="ev-map-fs-stage">
             <img id="eventMapFsImg" src="" alt="" draggable="false">
-            <div class="ev-map-fs-marker" id="eventMapFsMarker" hidden>📍</div>
         </div>
     </div>
 
@@ -1321,6 +1476,8 @@
             <div class="admin-field"><label>Малые пушки</label><textarea id="buildEditWeapS" rows="2"></textarea></div>
             <div class="admin-field"><label>Средние пушки</label><textarea id="buildEditWeapM" rows="2"></textarea></div>
             <div class="admin-field"><label>Большие пушки</label><textarea id="buildEditWeapL" rows="2"></textarea></div>
+            <div class="admin-field"><label>Мортиры</label><textarea id="buildEditWeapMortar" rows="2"></textarea></div>
+            <div class="admin-field"><label>Снаряды</label><textarea id="buildEditShells" rows="2"></textarea></div>
             <div class="admin-field"><label>Расходник 1</label><input type="text" id="buildEditCons1" maxlength="40"></div>
             <div class="admin-field"><label>Расходник 2</label><input type="text" id="buildEditCons2" maxlength="40"></div>
             <div class="admin-field"><label>Расходник 3</label><input type="text" id="buildEditCons3" maxlength="40"></div>
@@ -1467,6 +1624,7 @@
                 <button class="chat-tab active" data-mode="guild">🏰 Гильдия</button>
                 <button class="chat-tab" data-mode="general">🌍 Общий</button>
                 <button class="chat-tab" data-mode="leaders" id="chatLeadersTab" hidden>🎖 Главы</button>
+                <button class="chat-tab" data-mode="admirals" id="chatAdmiralsTab" hidden>⚓ Адмиралы</button>
                 <button class="chat-tab" data-mode="private" id="chatPrivateTab" hidden>✉️ Личный</button>
                 <button class="chat-tab" data-mode="voice" id="chatVoiceTab">🎙 Голос</button>
             </div>
@@ -1499,12 +1657,14 @@
 
     <input type="file" id="bgFileInput" accept="image/*" hidden>
 
-    <!-- DATALIST-Ы для форм билдов -->
+    <!-- DATALIST-Ы -->
     <datalist id="weaponsSmallList"></datalist>
     <datalist id="weaponsMediumList"></datalist>
     <datalist id="weaponsLargeList"></datalist>
+    <datalist id="weaponsMortarList"></datalist>
     <datalist id="modulesList"></datalist>
     <datalist id="ammoList"></datalist>
+    <datalist id="shellsList"></datalist>
     <datalist id="blueprintsList"></datalist>
     <datalist id="consumablesList"></datalist>
     <datalist id="cargoList"></datalist>
@@ -1514,7 +1674,7 @@
 
     <footer class="site-footer">
         <span class="footer-left">Mist Time — Сергеев С.В</span>
-        <span class="footer-right">v2.2.0</span>
+        <span class="footer-right">v2.3.3</span>
     </footer>
 
     <script type="module" src="app.js"></script>

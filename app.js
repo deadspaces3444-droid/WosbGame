@@ -5,10 +5,10 @@
    ╚══════════════════════════════════════════════════════════════════════╝ */
 import { supabase } from './supabase.js';
 
-console.log('🚀 app.js v2.5.3');
+console.log('🚀 app.js v2.5.1');
 
 const ADMIN_EMAILS_FALLBACK = ['dead_antihrist@mail.ru'];
-const APP_VERSION = '2.5.3';
+const APP_VERSION = '2.5.1';
 const BINDING_OWNERS = ['kolibri@wosb.ru', 'dead_antihrist@mail.ru'];
 
 const CLAN_FLAGS = {
@@ -155,10 +155,6 @@ let factionsCache = [], portsCache = [], ranksCache = [];
 let evMapMarkers = [];
 let evMapCurrentType = 'target';
 
-/* v2.5.2: таймеры производительности */
-let _tradeSearchTimer = null;
-window.__onlineCountTimer = null;
-
 /* ╔══════════════════════════════════════════════════════════════════════╗
    ║                                                                      ║
    ║   3.  🧰  DOM И УТИЛИТЫ                                              ║
@@ -230,7 +226,7 @@ function renderClanLogoHtml(clan, size = 'card') {
 function parseLines(text) { if (!text) return []; return String(text).split('\n').map(s => s.trim()).filter(Boolean); }
 function parseBonus(text) {
     const m = String(text).match(/^(.+?)\s*([+-]\s*\d+)\s*$/);
-    if (!m) return { stat: String(text).trim(), value: null };
+    if (!m) return { stat: text.trim(), value: null };
     return { stat: m[1].trim(), value: parseInt(m[2].replace(/\s/g, ''), 10) };
 }
 function parseSpecialists(text) {
@@ -345,11 +341,7 @@ function canEditClan(clanId) {
     if (isOwner) return true;
     if (isAdmin) {
         if (myAdminClanId) return clanId === myAdminClanId;
-        if (isMod) {
-            const clan = clansCache[clanId];
-            const myNick = getViewerNick().toLowerCase();
-            return clan?.leader_nick?.trim().toLowerCase() === myNick;
-        }
+        if (isMod) return false;
         return true;
     }
     if (clanId === currentClan && currentClanIsAdmin) return true;
@@ -370,11 +362,7 @@ function canAccessClan(clanId) {
         return target.alliance_id === my.alliance_id;
     }
     if (isAdmin && !myAdminClanId && !isMod) return true;
-    if (isMod && !myAdminClanId) {
-            const clan = clansCache[clanId];
-            const myNick = getViewerNick().toLowerCase();
-            return clan?.leader_nick?.trim().toLowerCase() === myNick;
-        }
+    if (isMod && !myAdminClanId) return false;
     const myClan = getMyClanId();
     if (!myClan) return false;
     if (clanId === myClan) return true;
@@ -461,6 +449,7 @@ async function sendDiscordWebhook(payload) {
         if (!res.ok) console.warn('Discord webhook error:', res.status);
     } catch (e) { console.warn('Discord webhook failed:', e.message); }
 }
+
 /* ╔══════════════════════════════════════════════════════════════════════╗
    ║                                                                      ║
    ║   7.  👑  АДМИНЫ САЙТА                                              ║
@@ -687,18 +676,13 @@ async function sendHeartbeat() {
     const nowIso = new Date().toISOString();
     const clanId = currentClan || null;
     try {
-        /* v2.5.2: один upsert вместо update+insert+count */
-        const { error } = await supabase.from('online_users').upsert(
-            { nickname, clan_id: clanId, last_seen: nowIso },
-            { onConflict: 'nickname' }
-        );
-        if (error) {
-            await supabase.from('online_users')
-                .update({ last_seen: nowIso, clan_id: clanId })
-                .eq('nickname', nickname);
+        const { data: updated } = await supabase.from('online_users')
+            .update({ last_seen: nowIso, clan_id: clanId }).eq('nickname', nickname).select('nickname');
+        if (!updated || !updated.length) {
+            await supabase.from('online_users').insert({ nickname, clan_id: clanId, last_seen: nowIso });
         }
     } catch (e) { }
-    /* updateOnlineCount отсюда убран — идёт отдельным таймером */
+    updateOnlineCount();
 }
 async function updateOnlineCount() {
     const threshold = new Date(Date.now() - ONLINE_WINDOW_MS).toISOString();
@@ -710,8 +694,7 @@ function startHeartbeat() {
     sendHeartbeat();
     clearInterval(heartbeatTimer);
     heartbeatTimer = setInterval(sendHeartbeat, HEARTBEAT_MS);
-    if (window.__onlineCountTimer) clearInterval(window.__onlineCountTimer);
-    window.__onlineCountTimer = setInterval(updateOnlineCount, 60000);
+    setInterval(updateOnlineCount, 20000);
 }
 function initRealtime() {
     closeRealtime();
@@ -1171,6 +1154,7 @@ document.querySelectorAll('.admin-nav-item').forEach(btn => {
     });
 });
 on('adminBackHome', 'click', () => { currentClan = null; showScreen('home'); });
+
 /* ╔══════════════════════════════════════════════════════════════════════╗
    ║                                                                      ║
    ║   15.  🚢  КОРАБЛИ                                                   ║
@@ -1334,6 +1318,7 @@ function renderBuildPickers() {
         buildItemsCache.filter(b => b.type === type && b.is_active !== false).forEach(b => {
             const o = document.createElement('option');
             o.value = b.name;
+            /* v2.5.1: сохраняем всю строку "Имя [| Группа] | Бонусы" */
             const group = (type === 'specialist' && b.subgroup) ? b.subgroup : null;
             const parts = [b.name];
             if (group) parts.push(group);
@@ -1694,7 +1679,6 @@ on('openTacticsBtn', 'click', openTacticsModal);
 on('closeTactics', 'click', closeTacticsModal);
 on('tacticsModal', 'click', e => { if (e.target.id === 'tacticsModal') closeTacticsModal(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { const m = $('tacticsModal'); if (m && !m.hidden) closeTacticsModal(); } });
-
 /* ╔══════════════════════════════════════════════════════════════════════╗
    ║                                                                      ║
    ║   19.  🔐  АДМИН: ВХОД И ПАНЕЛЬ                                       ║
@@ -1769,8 +1753,8 @@ function applyAdminUI() {
         el.style.display = canEditClan(currentClan) ? 'flex' : 'none';
     });
     document.querySelectorAll('.owner-only').forEach(el => { el.hidden = !isOwner; });
-    const clearBtn = $('chatClear'); if (clearBtn) clearBtn.hidden = !isAdmin && !canEditClan(currentClan);
-    /* v2.5.2: убран renderAll() отсюда — вызывается явно в openClan */
+    const clearBtn = $('chatClear'); if (clearBtn) clearBtn.hidden = !isAdmin;
+    renderAll();
     updateLeaderButtonsVisibility();
 }
 function openAdminPage() {
@@ -1789,6 +1773,7 @@ function openAdminPage() {
 on('adminPanelBtn', 'click', openAdminPage);
 on('adminPanelBtn2', 'click', openAdminPage);
 on('adminPanelBtn3', 'click', openAdminPage);
+
 /* ╔══════════════════════════════════════════════════════════════════════╗
    ║                                                                      ║
    ║   20.  🏰  ГИЛЬДИИ                                                    ║
@@ -1821,11 +1806,7 @@ function renderHomeCards() {
         let accessible = true;
         if (isOwner) accessible = true;
         else if (isAdmin && myAdminClanId) accessible = canAccessClan(clan.id);
-        else if (isMod && !myAdminClanId) {
-            const clan = clansCache[clan.id];
-            const myNick = getViewerNick().toLowerCase();
-            accessible = clan?.leader_nick?.trim().toLowerCase() === myNick;
-        }
+        else if (isMod && !myAdminClanId) accessible = false;
         else if (isAdmin) accessible = true;
         else accessible = !myClan || canAccessClan(clan.id);
         if (!accessible) btn.classList.add('locked');
@@ -2105,6 +2086,7 @@ async function loadList(tab) {
     });
     applySearchFilter();
 }
+
 /* ╔══════════════════════════════════════════════════════════════════════╗
    ║                                                                      ║
    ║   24.  ⚔️  БИЛДЫ (с парусами, мортирами и группами специалистов)      ║
@@ -2147,6 +2129,7 @@ function createBuildCard(item) {
     const card = document.createElement('div');
     card.className = 'build-card';
 
+    /* v2.5.1: используем парсер с бонусами и группами */
     const upgrades = parseItemWithBonuses(item.upgrades);
     const sails    = parseItemWithBonuses(item.sails);
     const weapS    = parseItemWithBonuses(item.weapons_small);
@@ -2172,6 +2155,7 @@ function createBuildCard(item) {
         <button class="delete" title="Удалить">🗑</button>` : ''}
     </div>`;
 
+    /* Чип с бонусами (тултип) и счётчиком бонусов */
     const chipWith = (it, cls) => {
         const tip = it.bonuses.map(b =>
             `${b.stat}${b.value !== null ? ' ' + (b.value > 0 ? '+' : '') + b.value : ''}`
@@ -2181,6 +2165,7 @@ function createBuildCard(item) {
         return `<span class="chip ${cls}"${tip ? ` title="${escapeHtml(tip)}"` : ''}>${escapeHtml(it.name)}${badge}</span>`;
     };
 
+    /* Сворачиваемая секция (details) для пушек/мортир */
     const detailsSection = (label, items, cls) => {
         if (!items.length) return '';
         return `<details class="build-details" open>
@@ -2189,11 +2174,13 @@ function createBuildCard(item) {
         </details>`;
     };
 
+    /* Плоская секция для апгрейдов/парусов */
     const flatSection = (label, items, cls) => {
         if (!items.length) return '';
         return `<div class="build-section"><div class="build-section-label">${label}</div><div class="build-chips">${items.map(it => chipWith(it, cls)).join('')}</div></div>`;
     };
 
+    /* Специалисты, сгруппированные по группам */
     let specHtml = '';
     if (specs.length) {
         const grouped = {};
@@ -2422,6 +2409,23 @@ async function deleteBuild(id, type) {
     await logAdminAction(`Удалил билд ${type.toUpperCase()}`, null, `id: ${id}`);
     renderBuilds(type);
 }
+async function handleBuildHash() {
+    const m = location.hash.match(/^#build=([a-f0-9-]+)$/i); if (!m) return;
+    const { data, error } = await supabase.from('builds').select('*').eq('id', m[1]).single();
+    if (error || !data) return;
+    const section = data.type === 'pvp' ? 'pvp' : 'pb';
+    document.querySelector(`.side-item[data-section="${section}"]`)?.click();
+    setTimeout(() => {
+        document.querySelectorAll('.build-card').forEach(c => {
+            if (c.querySelector('.build-ship')?.textContent === data.ship_name) {
+                c.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                c.style.boxShadow = '0 0 0 3px #b48aff';
+                setTimeout(() => c.style.boxShadow = '', 2500);
+            }
+        });
+    }, 600);
+}
+window.addEventListener('hashchange', () => { if (location.hash.startsWith('#build=')) handleBuildHash(); });
 
 /* ╔══════════════════════════════════════════════════════════════════════╗
    ║                                                                      ║
@@ -2495,6 +2499,7 @@ on('evAddBtn', 'click', async () => {
     if (!dateStr) { flashStatusEl(statusEl, 'Укажите дату', '#ff7a7a'); return; }
     if (isShared && !isOwner) { flashStatusEl(statusEl, 'Общие события создаёт только владелец', '#ff7a7a'); return; }
 
+    /* v2.5.0: забираем метки из формы */
     let markers = [];
     try { markers = JSON.parse(val('evMapData') || '[]'); } catch (e) { markers = []; }
 
@@ -2528,7 +2533,13 @@ on('evAddBtn', 'click', async () => {
 
 /* ─── v2.5.0: карта события (редактор меток) ─── */
 function getMarkerMeta(type) { return EVENT_MARKER_TYPES[type] || EVENT_MARKER_TYPES.point; }
-
+function getMapUrls() {
+    const s = mapSettings || {};
+    return {
+        detailed: s.detailed_url || MAP_DEFAULT_DETAILED,
+        clean:    s.clean_url    || MAP_DEFAULT_CLEAN
+    };
+}
 function renderEventMapMarkers() {
     const layer = $('eventMapMarkers'); if (!layer) return;
     layer.innerHTML = '';
@@ -2945,7 +2956,7 @@ async function renderTrades() {
     if (error) { container.innerHTML = `<div class="empty">Ошибка: ${error.message}</div>`; return; }
     tradesCache = data || [];
     renderTradeCounters(); renderTradeListings();
-    /* v2.5.2: НЕ дёргаем renderResourcePricesHome — это тяжёлая перерисовка чужих данных */
+    renderResourcePricesHome();
 }
 function renderTradeCounters() {
     let buyGold = 0, sellGold = 0, buyN = 0, sellN = 0;
@@ -3008,17 +3019,6 @@ function renderTradeListings() {
     const items = tradeVisibleListings();
     if (!items.length) { container.innerHTML = '<p class="empty">Заявок пока нет.</p>'; return; }
     const myNick = getViewerNick().toLowerCase();
-
-    /* v2.5.2: рейтинг считаем ОДИН раз, не O(n²) внутри forEach */
-    const ratingsMap = {};
-    tradesCache.forEach(x => {
-        if (x.status !== 'done') return;
-        const n1 = (x.nickname || '').toLowerCase();
-        const n2 = (x.accepted_by || '').toLowerCase();
-        if (n1) ratingsMap[n1] = (ratingsMap[n1] || 0) + 1;
-        if (n2) ratingsMap[n2] = (ratingsMap[n2] || 0) + 1;
-    });
-
     container.innerHTML = '';
     items.forEach(t => {
         const cat = tradeCatById(t.category);
@@ -3032,7 +3032,11 @@ function renderTradeListings() {
         const canRepeat = isDone && isMine;
         const typeLabel = t.type === 'buy' ? '🛒 Куплю' : '💰 Продам';
         const clanName = clansCache[t.clan]?.name || t.clan;
-        const authorCompleted = ratingsMap[(t.nickname || '').toLowerCase()] || 0;
+        const authorCompleted = tradesCache.filter(x =>
+            x.status === 'done' &&
+            ((x.nickname || '').toLowerCase() === (t.nickname || '').toLowerCase() ||
+             (x.accepted_by || '').toLowerCase() === (t.nickname || '').toLowerCase())
+        ).length;
         const ratingHtml = authorCompleted > 0
             ? `<span class="author-rating" title="Завершённых сделок">⭐ ${authorCompleted}</span>`
             : `<span class="author-rating new" title="Новый игрок">🆕</span>`;
@@ -3125,11 +3129,7 @@ on('tmToggle', 'click', () => {
 });
 on('tm-price', 'input', updateTradeFormTotal);
 on('tm-qty', 'input', updateTradeFormTotal);
-/* v2.5.2: дебаунс поиска, чтобы не перерисовывать на каждый ввод */
-on('tm-search', 'input', () => {
-    clearTimeout(_tradeSearchTimer);
-    _tradeSearchTimer = setTimeout(renderTradeListings, 200);
-});
+on('tm-search', 'input', renderTradeListings);
 on('tm-only-mine', 'change', renderTradeListings);
 on('tm-only-ships', 'change', e => { tradeOnlyShips = e.target.checked; renderTradeListings(); });
 on('tm-category', 'change', updateShipPickerVisibility);
@@ -3427,9 +3427,10 @@ on('applyBtn', 'click', async () => {
     ['applyNick','applyAge','applyExp','applyContact','applyWhy'].forEach(id => { const el = $(id); if (el) el.value = ''; });
     $('applyClan').value = '';
 });
+
 /* ╔══════════════════════════════════════════════════════════════════════╗
    ║                                                                      ║
-   ║   32.  ❓  FAQ                                                        ║
+   ║   32.  ❓  FAQ + ПАРТНЁРЫ + ТАКТИКА (админ-часть)                     ║
    ║                                                                      ║
    ╚══════════════════════════════════════════════════════════════════════╝ */
 async function loadFaq() {
@@ -3473,12 +3474,6 @@ on('faqAddBtn', 'click', async () => {
     $('faqQ').value = ''; $('faqA').value = '';
     loadFaq();
 });
-
-/* ╔══════════════════════════════════════════════════════════════════════╗
-   ║                                                                      ║
-   ║   33.  🤝  ПАРТНЁРЫ                                                  ║
-   ║                                                                      ║
-   ╚══════════════════════════════════════════════════════════════════════╝ */
 async function loadPartners() {
     const { data, error } = await supabase.from('partners').select('*').order('sort_order', { ascending: true }).order('created_at', { ascending: true });
     if (error) return;
@@ -3619,12 +3614,6 @@ on('partnerAddBtn', 'click', async () => {
     flashStatusEl(statusEl, '✔ Добавлено', '#6ee7a7');
     await loadPartners();
 });
-
-/* ╔══════════════════════════════════════════════════════════════════════╗
-   ║                                                                      ║
-   ║   33.1  📖  ТАКТИКА (админ-часть)                                     ║
-   ║                                                                      ║
-   ╚══════════════════════════════════════════════════════════════════════╝ */
 function renderTacticsAdmin() {
     const container = $('tacticsAdminList'); if (!container) return;
     container.innerHTML = '';
@@ -3675,7 +3664,7 @@ on('saveTacEdit', 'click', async () => {
     const { error } = await supabase.from('tactics').update({ title, icon: icon || null, content, sort_order: order, updated_at: new Date().toISOString() }).eq('id', editingTactic.id);
     if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
     $('tacticsEditModal').hidden = true; editingTactic = null; await loadTactics();
-}
+});
 async function deleteTactic(id, title) {
     if (!confirm(`Удалить раздел «${title}»?`)) return;
     await supabase.from('tactics').delete().eq('id', id);
@@ -3696,10 +3685,9 @@ on('tacAddBtn', 'click', async () => {
     flashStatusEl(statusEl, '✔ Добавлено', '#6ee7a7');
     await loadTactics();
 });
-
 /* ╔══════════════════════════════════════════════════════════════════════╗
    ║                                                                      ║
-   ║   34.  📦  РЕСУРСЫ + ЦЕНООБРАЗОВАНИЕ                                  ║
+   ║   33.  📦  РЕСУРСЫ + ЦЕНООБРАЗОВАНИЕ                                  ║
    ║                                                                      ║
    ╚══════════════════════════════════════════════════════════════════════╝ */
 async function loadResourcePrices() {
@@ -3983,7 +3971,7 @@ on('res-refresh', 'click', loadResourcePrices);
 
 /* ╔══════════════════════════════════════════════════════════════════════╗
    ║                                                                      ║
-   ║   34.1  🔨  ПОСТРОЙКА КОРАБЛЯ + СКИДКИ                                ║
+   ║   34.  🔨  ПОСТРОЙКА КОРАБЛЯ + СКИДКИ                                ║
    ║                                                                      ║
    ╚══════════════════════════════════════════════════════════════════════╝ */
 async function loadRecipes() {
@@ -5486,7 +5474,6 @@ on('openVkNewsBtn', 'click', openVkNewsModal);
 on('closeVkNews', 'click', closeVkNewsModal);
 on('vkNewsModal', 'click', e => { if (e.target.id === 'vkNewsModal') closeVkNewsModal(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { const m = $('vkNewsModal'); if (m && !m.hidden) closeVkNewsModal(); } });
-
 /* ╔══════════════════════════════════════════════════════════════════════╗
    ║                                                                      ║
    ║   45.  🎖️  ПАНЕЛЬ ГЛАВЫ ГИЛЬДИИ                                       ║
@@ -5738,7 +5725,7 @@ on('leaderOpenVoiceTop', 'click', () => openChat('voice', { room: 'wosb_leaders_
         if (clanOnlineSection && clanOnlineSection.classList.contains('active') && canEditClan(currentClan)) {
             renderClanOnlineList();
         }
-    }, 60000);
+    }, 15000);
 })();
 
-/* ── Конец app.js v2.5.2 ── */
+/* ── Конец app.js v2.5.1 ── */

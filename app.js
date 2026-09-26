@@ -5,10 +5,10 @@
    ╚══════════════════════════════════════════════════════════════════════╝ */
 import { supabase } from './supabase.js';
 
-console.log('🚀 app.js v2.5.2');
+console.log('🚀 app.js v2.4.11');
 
 const ADMIN_EMAILS_FALLBACK = ['dead_antihrist@mail.ru'];
-const APP_VERSION = '2.5.2';
+const APP_VERSION = '2.4.11';
 const BINDING_OWNERS = ['kolibri@wosb.ru', 'dead_antihrist@mail.ru'];
 
 const CLAN_FLAGS = {
@@ -87,31 +87,6 @@ const RESOURCE_PRESET = [
     ['copper_ingot','Медный слиток','CU INGOT','🟧','images/resources/copper_ingot.png',0,220,'processed']
 ];
 
-/* v2.5.0: типы меток на карте событий */
-const EVENT_MARKER_TYPES = {
-    target:  { label: 'Цель',      icon: '🎯', color: '#ff7a7a' },
-    regroup: { label: 'Регруп',    icon: '🤝', color: '#6ee7a7' },
-    battle:  { label: 'Бой',       icon: '⚔️', color: '#fbbf24' },
-    point:   { label: 'Точка',     icon: '📍', color: '#7db9ff' },
-    danger:  { label: 'Опасность', icon: '☠️', color: '#dc2626' },
-    loot:    { label: 'Добыча',    icon: '🏆', color: '#ffd479' }
-};
-
-/* v2.5.1: типы элементов в справочнике билдов */
-const BI_TYPE_LABELS = {
-    upgrade:       '🔧 Апгрейд',
-    sail:          '⛵ Парус',
-    weapon_small:  '🟢 Малая пушка',
-    weapon_medium: '🟡 Средняя пушка',
-    weapon_large:  '🔴 Большая пушка',
-    mortar_light:  '💣 Лёгкая мортира',
-    mortar_medium: '💣 Средняя мортира',
-    mortar_heavy:  '💣 Тяжёлая мортира',
-    specialist:    '👤 Специалист',
-    consum:        '⚗️ Расходник',
-    cargo:         '📦 Трюм'
-};
-
 /* ╔══════════════════════════════════════════════════════════════════════╗
    ║                                                                      ║
    ║   2.  🗂️  ГЛОБАЛЬНОЕ СОСТОЯНИЕ                                       ║
@@ -150,14 +125,6 @@ let mapFsZoom = 1, mapFsX = 0, mapFsY = 0, mapFsDragging = false;
 let mapFsDragStart = null;
 let mapDetailedData = null, mapCleanData = null;
 let factionsCache = [], portsCache = [], ranksCache = [];
-
-/* v2.5.0: состояние редактора меток */
-let evMapMarkers = [];
-let evMapCurrentType = 'target';
-
-/* v2.5.2: таймеры производительности */
-let _tradeSearchTimer = null;
-window.__onlineCountTimer = null;
 
 /* ╔══════════════════════════════════════════════════════════════════════╗
    ║                                                                      ║
@@ -230,7 +197,7 @@ function renderClanLogoHtml(clan, size = 'card') {
 function parseLines(text) { if (!text) return []; return String(text).split('\n').map(s => s.trim()).filter(Boolean); }
 function parseBonus(text) {
     const m = String(text).match(/^(.+?)\s*([+-]\s*\d+)\s*$/);
-    if (!m) return { stat: String(text).trim(), value: null };
+    if (!m) return { stat: text.trim(), value: null };
     return { stat: m[1].trim(), value: parseInt(m[2].replace(/\s/g, ''), 10) };
 }
 function parseSpecialists(text) {
@@ -238,28 +205,6 @@ function parseSpecialists(text) {
         const parts = line.split('|').map(p => p.trim()).filter(Boolean);
         if (!parts.length) return null;
         return { name: parts[0], bonuses: parts.slice(1).map(parseBonus) };
-    }).filter(Boolean);
-}
-/* v2.5.1: парсер с бонусами для апгрейдов/парусов/пушек/мортир */
-function parseItemWithBonuses(text) {
-    return parseLines(text).map(line => {
-        const parts = line.split('|').map(p => p.trim()).filter(Boolean);
-        if (!parts.length) return null;
-        return { name: parts[0], bonuses: parts.slice(1).map(parseBonus) };
-    }).filter(Boolean);
-}
-/* v2.5.1: парсер специалистов с группой (Имя | Группа | Бонус +5 | HP -2) */
-function parseSpecialistsWithGroup(text) {
-    return parseLines(text).map(line => {
-        const parts = line.split('|').map(p => p.trim()).filter(Boolean);
-        if (!parts.length) return null;
-        const name = parts[0];
-        let group = null, start = 1;
-        if (parts.length > 1 && !/[+-]\s*\d+\s*$/.test(parts[1])) {
-            group = parts[1];
-            start = 2;
-        }
-        return { name, group, bonuses: parts.slice(start).map(parseBonus) };
     }).filter(Boolean);
 }
 function parseMembersList(text) {
@@ -681,18 +626,13 @@ async function sendHeartbeat() {
     const nowIso = new Date().toISOString();
     const clanId = currentClan || null;
     try {
-        /* v2.5.2: один upsert вместо update+insert+count */
-        const { error } = await supabase.from('online_users').upsert(
-            { nickname, clan_id: clanId, last_seen: nowIso },
-            { onConflict: 'nickname' }
-        );
-        if (error) {
-            await supabase.from('online_users')
-                .update({ last_seen: nowIso, clan_id: clanId })
-                .eq('nickname', nickname);
+        const { data: updated } = await supabase.from('online_users')
+            .update({ last_seen: nowIso, clan_id: clanId }).eq('nickname', nickname).select('nickname');
+        if (!updated || !updated.length) {
+            await supabase.from('online_users').insert({ nickname, clan_id: clanId, last_seen: nowIso });
         }
     } catch (e) { }
-    /* updateOnlineCount отсюда убран — идёт отдельным таймером */
+    updateOnlineCount();
 }
 async function updateOnlineCount() {
     const threshold = new Date(Date.now() - ONLINE_WINDOW_MS).toISOString();
@@ -704,8 +644,7 @@ function startHeartbeat() {
     sendHeartbeat();
     clearInterval(heartbeatTimer);
     heartbeatTimer = setInterval(sendHeartbeat, HEARTBEAT_MS);
-    if (window.__onlineCountTimer) clearInterval(window.__onlineCountTimer);
-    window.__onlineCountTimer = setInterval(updateOnlineCount, 60000);
+    setInterval(updateOnlineCount, 20000);
 }
 function initRealtime() {
     closeRealtime();
@@ -1083,7 +1022,6 @@ function updateFlagPreview(selectId, previewId) {
 }
 on('newClanFlag', 'change', () => updateFlagPreview('newClanFlag', 'newClanFlagPreview'));
 on('adminClanFlag', 'change', () => updateFlagPreview('adminClanFlag', 'adminClanFlagPreview'));
-
 /* ╔══════════════════════════════════════════════════════════════════════╗
    ║                                                                      ║
    ║   13.  📚  САЙДБАР ГИЛЬДИИ (аккордеон)                               ║
@@ -1166,6 +1104,7 @@ document.querySelectorAll('.admin-nav-item').forEach(btn => {
     });
 });
 on('adminBackHome', 'click', () => { currentClan = null; showScreen('home'); });
+
 /* ╔══════════════════════════════════════════════════════════════════════╗
    ║                                                                      ║
    ║   15.  🚢  КОРАБЛИ                                                   ║
@@ -1318,7 +1257,6 @@ async function loadBuildItems() {
     renderBuildPickers();
     renderBuildItemsAdmin();
 }
-
 function renderBuildPickers() {
     document.querySelectorAll('.build-catalog-select').forEach(sel => {
         const type = sel.dataset.type;
@@ -1329,20 +1267,15 @@ function renderBuildPickers() {
         buildItemsCache.filter(b => b.type === type && b.is_active !== false).forEach(b => {
             const o = document.createElement('option');
             o.value = b.name;
-            const group = (type === 'specialist' && b.subgroup) ? b.subgroup : null;
-            const parts = [b.name];
-            if (group) parts.push(group);
-            if (b.bonuses && b.bonuses.trim()) {
-                b.bonuses.trim().split('|').map(s => s.trim()).filter(Boolean).forEach(x => parts.push(x));
-            }
-            o.dataset.value = parts.join(' | ');
-            o.textContent = b.name + (group ? ` (${group})` : '') + (b.bonuses ? ' — ' + b.bonuses : '');
+            o.dataset.value = b.bonuses && b.bonuses.trim()
+                ? `${b.name} | ${b.bonuses.trim().replace(/\s*\|\s*/g, ' | ')}`
+                : b.name;
+            o.textContent = b.name;
             sel.appendChild(o);
         });
         if (cur) sel.value = cur;
     });
 }
-
 document.addEventListener('click', e => {
     const btn = e.target.closest('.build-catalog-add');
     if (!btn) return;
@@ -1355,7 +1288,6 @@ document.addEventListener('click', e => {
     const opt = sel.selectedOptions[0];
     const value = opt.dataset.value || opt.value;
     const mode = sel.dataset.mode || 'append';
-
     if (mode === 'set' || field.tagName === 'INPUT') {
         field.value = value;
     } else {
@@ -1365,7 +1297,15 @@ document.addEventListener('click', e => {
     }
     sel.value = '';
 });
-
+const BI_TYPE_LABELS = {
+    upgrade: '🔧 Апгрейд',
+    weapon_small: '🟢 Малая пушка',
+    weapon_medium: '🟡 Средняя пушка',
+    weapon_large: '🔴 Большая пушка',
+    specialist: '👤 Специалист',
+    consum: '⚗️ Расходник',
+    cargo: '📦 Трюм'
+};
 function renderBuildItemsAdmin() {
     const container = $('buildItemsAdminList'); if (!container) return;
     container.innerHTML = '';
@@ -1374,16 +1314,8 @@ function renderBuildItemsAdmin() {
         return;
     }
     const groups = {};
-    buildItemsCache.forEach(b => {
-        const t = b.type || 'other';
-        (groups[t] ||= []).push(b);
-    });
-    const typeOrder = [
-        'upgrade','sail',
-        'weapon_small','weapon_medium','weapon_large',
-        'mortar_light','mortar_medium','mortar_heavy',
-        'specialist','consum','cargo'
-    ];
+    buildItemsCache.forEach(b => { const t = b.type || 'other'; (groups[t] ||= []).push(b); });
+    const typeOrder = ['upgrade','weapon_small','weapon_medium','weapon_large','specialist','consum','cargo'];
     typeOrder.forEach(t => {
         const items = groups[t];
         if (!items?.length) return;
@@ -1399,14 +1331,9 @@ function renderBuildItemsAdmin() {
                 <div class="logo-mini"><span>${(BI_TYPE_LABELS[b.type] || '⚙️').split(' ')[0]}</span></div>
                 <div class="txt">
                     <b>${escapeHtml(b.name)}</b>
-                    <span style="color:var(--muted);font-size:11px;">
-                        ${b.subgroup ? '📁 ' + escapeHtml(b.subgroup) + ' · ' : ''}
-                        ${b.bonuses ? escapeHtml(b.bonuses) : ''}
-                    </span>
+                    ${b.bonuses ? `<span style="color:var(--muted);font-size:11px;">${escapeHtml(b.bonuses)}</span>` : ''}
                 </div>
-                <div class="actions">
-                    <button class="delete" title="Удалить">🗑</button>
-                </div>`;
+                <div class="actions"><button class="delete" title="Удалить">🗑</button></div>`;
             el.querySelector('.delete').addEventListener('click', async () => {
                 if (!confirm(`Удалить «${b.name}»?`)) return;
                 const { error } = await supabase.from('build_items').delete().eq('id', b.id);
@@ -1418,40 +1345,31 @@ function renderBuildItemsAdmin() {
         });
     });
 }
-
 function onBuildItemTypeChange() {
     const type = val('bi-type');
-    const bonusesField = $('bi-bonuses-field');
-    const subgroupField = $('bi-subgroup-field');
-    if (bonusesField) bonusesField.hidden = false;
-    if (subgroupField) subgroupField.hidden = type !== 'specialist';
+    const field = $('bi-bonuses-field');
+    if (field) field.hidden = type !== 'specialist';
 }
 on('bi-type', 'change', onBuildItemTypeChange);
-
 on('bi-add', 'click', async () => {
     const type = val('bi-type');
     const name = val('bi-name').trim();
     const bonuses = val('bi-bonuses').trim();
-    const subgroup = type === 'specialist' ? (val('bi-subgroup').trim() || null) : null;
     const order = parseInt(val('bi-order')) || 0;
     const msg = $('bi-msg'); msg.textContent = ''; msg.style.color = '';
     if (!type) { msg.textContent = 'Выбери категорию'; msg.style.color = '#ff7a7a'; return; }
     if (!name) { msg.textContent = 'Укажи название'; msg.style.color = '#ff7a7a'; return; }
-
+    if (type === 'specialist' && !bonuses) { msg.textContent = 'Укажи бонусы специалиста'; msg.style.color = '#ff7a7a'; return; }
     const payload = {
         type, name,
-        bonuses: bonuses || null,
-        subgroup,
-        sort_order: order,
-        is_active: true
+        bonuses: type === 'specialist' ? (bonuses || null) : null,
+        sort_order: order, is_active: true
     };
     const { error } = await supabase.from('build_items').insert(payload);
     if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
     await logAdminAction('Добавил build_item', name, `тип: ${type}`);
     msg.textContent = '✔ Добавлено'; msg.style.color = '#6ee7a7';
-    $('bi-name').value = '';
-    $('bi-bonuses').value = '';
-    const subEl = $('bi-subgroup'); if (subEl) subEl.value = '';
+    $('bi-name').value = ''; $('bi-bonuses').value = '';
     await loadBuildItems();
 });
 
@@ -1474,7 +1392,6 @@ function createShipBuilder(prefix) {
         copy: prefix ? prefix + 'Copy2' : 'builderCopy'
     };
     const state = { rows: [], counter: 0, ctx: prefix ? 'clan' : 'home' };
-
     function fillTargetShip() {
         const sel = $(ids.targetSel); if (!sel) return;
         const cur = sel.value;
@@ -1749,11 +1666,6 @@ function applyAdminUI() {
     setHidden('adminPanelBtn3', !canAccessPanel);
     const label = isAdmin ? (isOwner ? '👑 Владелец' : siteAdminRole === 'mod' ? '🎖 Глава Клана' : '⚙️ Админ') : '';
     ['adminInfo','adminInfo2','adminInfo3'].forEach(id => { const el = $(id); if (el) el.textContent = label; });
-
-    /* v2.5.0: показать/скрыть группу «Управление» в сайдбаре гильдии */
-    const sideGroupAdmin = $('sideGroupAdmin');
-    if (sideGroupAdmin) sideGroupAdmin.hidden = !canEditClan(currentClan);
-
     document.querySelectorAll('.admin-only').forEach(el => { el.hidden = !isAdmin; if (!isAdmin) el.style.display = ''; });
     document.querySelectorAll('.add-form.admin-only').forEach(el => { el.style.display = isAdmin ? 'flex' : 'none'; });
     document.querySelectorAll('.clan-admin-only').forEach(el => {
@@ -1765,7 +1677,7 @@ function applyAdminUI() {
     });
     document.querySelectorAll('.owner-only').forEach(el => { el.hidden = !isOwner; });
     const clearBtn = $('chatClear'); if (clearBtn) clearBtn.hidden = !isAdmin;
-    /* v2.5.2: убран renderAll() отсюда — вызывается явно в openClan */
+    renderAll();
     updateLeaderButtonsVisibility();
 }
 function openAdminPage() {
@@ -1776,9 +1688,7 @@ function openAdminPage() {
     renderFaqAdmin(); renderPartnersAdmin(); renderGamesAdmin();
     renderTacticsAdmin(); renderAlliancesAdmin();
     renderSiteAdminsAdmin(); renderClanRequestsAdmin();
-    renderAdminShips();
-    renderPricingGrid();
-    renderBuildItemsAdmin();
+    renderAdminShips(); renderPricingGrid(); renderBuildItemsAdmin();
     showScreen('admin');
 }
 on('adminPanelBtn', 'click', openAdminPage);
@@ -1940,7 +1850,7 @@ on('doClanLogin', 'click', async () => {
     const { data: ok, error: rpcErr } = await supabase.rpc('verify_clan_password', { clan_id: pendingClanId, entered_password: entered });
     let isClanAdminLogin = false;
     if (rpcErr || !ok) {
-        const { data: okAdmin, error: admErr } = await supabase.rpc('verify_clan_admin_password', { cid: pendingClanId, entered: entered });
+        const { data: okAdmin, error: admErr } = await supabase.rpc('verify_clan_admin_password', { cid: pendingClanId, entered });
         if (admErr || !okAdmin) { $('clanPassError').textContent = 'Неверный пароль'; return; }
         isClanAdminLogin = true;
     }
@@ -2037,7 +1947,6 @@ on('clanLeaveBtn', 'click', () => {
     currentClan = null; currentClanIsAdmin = false; currentClanPass = null;
     closeChat(); closeRealtime(); showScreen('home'); sendHeartbeat(); renderHomeCards();
 });
-
 /* ╔══════════════════════════════════════════════════════════════════════╗
    ║                                                                      ║
    ║   23.  📋  ВКЛАДКИ И СПИСКИ                                           ║
@@ -2100,7 +2009,7 @@ async function loadList(tab) {
 
 /* ╔══════════════════════════════════════════════════════════════════════╗
    ║                                                                      ║
-   ║   24.  ⚔️  БИЛДЫ                                                      ║
+   ║   24.  ⚔️  БИЛДЫ                                                     ║
    ║                                                                      ║
    ╚══════════════════════════════════════════════════════════════════════╝ */
 async function renderBuilds(type) {
@@ -2139,19 +2048,13 @@ async function renderBuilds(type) {
 function createBuildCard(item) {
     const card = document.createElement('div');
     card.className = 'build-card';
-
-    const upgrades = parseItemWithBonuses(item.upgrades);
-    const sails    = parseItemWithBonuses(item.sails);
-    const weapS    = parseItemWithBonuses(item.weapons_small);
-    const weapM    = parseItemWithBonuses(item.weapons_medium);
-    const weapL    = parseItemWithBonuses(item.weapons_large);
-    const mortarL  = parseItemWithBonuses(item.mortars_light);
-    const mortarM  = parseItemWithBonuses(item.mortars_medium);
-    const mortarH  = parseItemWithBonuses(item.mortars_heavy);
-    const cons     = [item.consumable1, item.consumable2, item.consumable3].filter(Boolean);
-    const cargo    = item.cargo ? parseLines(item.cargo) : [];
-    const specs    = parseSpecialistsWithGroup(item.specialists);
-
+    const upgrades = parseLines(item.upgrades);
+    const weapS = parseLines(item.weapons_small);
+    const weapM = parseLines(item.weapons_medium);
+    const weapL = parseLines(item.weapons_large);
+    const cons = [item.consumable1, item.consumable2, item.consumable3].filter(Boolean);
+    const cargo = item.cargo ? parseLines(item.cargo) : [];
+    const specs = parseSpecialists(item.specialists);
     const scopeBadge = item.is_shared
         ? `<span class="build-scope shared">🌐 Общий</span>`
         : `<span class="build-scope clan">🏰 ${escapeHtml(clansCache[item.clan]?.name || item.clan || '?')}</span>`;
@@ -2164,77 +2067,18 @@ function createBuildCard(item) {
         <button class="copy" title="Дублировать">📋</button>
         <button class="delete" title="Удалить">🗑</button>` : ''}
     </div>`;
-
-    const chipWith = (it, cls) => {
-        const tip = it.bonuses.map(b =>
-            `${b.stat}${b.value !== null ? ' ' + (b.value > 0 ? '+' : '') + b.value : ''}`
-        ).join(' · ');
-        const badge = it.bonuses.length
-            ? ` <span class="chip-bonus-count">${it.bonuses.length}</span>` : '';
-        return `<span class="chip ${cls}"${tip ? ` title="${escapeHtml(tip)}"` : ''}>${escapeHtml(it.name)}${badge}</span>`;
-    };
-
-    const detailsSection = (label, items, cls) => {
-        if (!items.length) return '';
-        return `<details class="build-details" open>
-            <summary class="build-details-summary">${label} <span class="build-details-count">${items.length}</span></summary>
-            <div class="build-chips">${items.map(it => chipWith(it, cls)).join('')}</div>
-        </details>`;
-    };
-
-    const flatSection = (label, items, cls) => {
-        if (!items.length) return '';
-        return `<div class="build-section"><div class="build-section-label">${label}</div><div class="build-chips">${items.map(it => chipWith(it, cls)).join('')}</div></div>`;
-    };
-
-    let specHtml = '';
-    if (specs.length) {
-        const grouped = {};
-        specs.forEach(s => {
-            const g = s.group || 'Прочие';
-            (grouped[g] ||= []).push(s);
-        });
-        const groupsSorted = Object.keys(grouped).sort((a, b) => {
-            if (a === 'Прочие') return 1;
-            if (b === 'Прочие') return -1;
-            return a.localeCompare(b);
-        });
-        const groupsHtml = groupsSorted.map(g => `
-            <div class="spec-group">
-                <div class="spec-group-title">📁 ${escapeHtml(g)} <span class="spec-group-count">${grouped[g].length}</span></div>
-                <div class="spec-list">
-                    ${grouped[g].map(s => `
-                        <div class="spec-item">
-                            <div class="spec-name">${escapeHtml(s.name)}</div>
-                            ${s.bonuses.length ? `<div class="spec-bonuses">${s.bonuses.map(b => {
-                                const cls = b.value === null ? 'neutral' : (b.value > 0 ? 'plus' : 'minus');
-                                const v = b.value === null ? '' : ` ${b.value > 0 ? '+' : ''}${b.value}`;
-                                return `<span class="spec-bonus ${cls}">${escapeHtml(b.stat)}${v}</span>`;
-                            }).join('')}</div>` : ''}
-                        </div>`).join('')}
-                </div>
-            </div>`).join('');
-        specHtml = `<div class="build-section"><div class="build-section-label">👤 Специалисты</div>${groupsHtml}</div>`;
-    }
-
     card.innerHTML = `
         <div class="build-header">
             <h3 class="build-ship">${escapeHtml(item.ship_name)}</h3>
             ${rankBadge}${scopeBadge}${actions}
         </div>
-        ${flatSection('🔧 Апгрейды', upgrades, 'chip-upgrade')}
-        ${flatSection('⛵ Паруса', sails, 'chip-sail')}
-        ${detailsSection('🟢 Малые пушки (до 12ф)', weapS, 'chip-weap-small')}
-        ${detailsSection('🟡 Средние пушки (до 24ф)', weapM, 'chip-weap-medium')}
-        ${detailsSection('🔴 Большие пушки (до 48ф)', weapL, 'chip-weap-large')}
-        ${detailsSection('💣 Лёгкие мортиры', mortarL, 'chip-mortar-light')}
-        ${detailsSection('💣 Средние мортиры', mortarM, 'chip-mortar-medium')}
-        ${detailsSection('💣 Тяжёлые мортиры', mortarH, 'chip-mortar-heavy')}
+        ${upgrades.length ? `<div class="build-section"><div class="build-section-label">🔧 Апгрейды</div><div class="build-chips">${upgrades.map(u => `<span class="chip chip-upgrade">${escapeHtml(u)}</span>`).join('')}</div></div>` : ''}
+        ${weapS.length ? `<div class="build-section"><div class="build-section-label">🟢 Малые пушки (до 12ф)</div><div class="build-chips">${weapS.map(w => `<span class="chip chip-weap-small">${escapeHtml(w)}</span>`).join('')}</div></div>` : ''}
+        ${weapM.length ? `<div class="build-section"><div class="build-section-label">🟡 Средние пушки (до 24ф)</div><div class="build-chips">${weapM.map(w => `<span class="chip chip-weap-medium">${escapeHtml(w)}</span>`).join('')}</div></div>` : ''}
+        ${weapL.length ? `<div class="build-section"><div class="build-section-label">🔴 Большие пушки (до 48ф)</div><div class="build-chips">${weapL.map(w => `<span class="chip chip-weap-large">${escapeHtml(w)}</span>`).join('')}</div></div>` : ''}
         ${cons.length ? `<div class="build-section"><div class="build-section-label">⚗️ Расходники</div><div class="build-chips">${cons.map(c => `<span class="chip chip-cons">${escapeHtml(c)}</span>`).join('')}</div></div>` : ''}
         ${cargo.length ? `<div class="build-section"><div class="build-section-label">📦 Трюм</div><div class="build-chips">${cargo.map(c => `<span class="chip chip-cargo">${escapeHtml(c)}</span>`).join('')}</div></div>` : ''}
-        ${specHtml}
-    `;
-
+        ${specs.length ? `<div class="build-section"><div class="build-section-label">👤 Специалисты</div><div class="spec-list">${specs.map(s => `<div class="spec-item"><div class="spec-name">${escapeHtml(s.name)}</div>${s.bonuses.length ? `<div class="spec-bonuses">${s.bonuses.map(b => { const cls = b.value === null ? 'neutral' : (b.value > 0 ? 'plus' : 'minus'); const val = b.value === null ? '' : ` ${b.value > 0 ? '+' : ''}${b.value}`; return `<span class="spec-bonus ${cls}">${escapeHtml(b.stat)}${val}</span>`; }).join('')}</div>` : ''}</div>`).join('')}</div></div>` : ''}`;
     card.querySelector('.share').addEventListener('click', () => {
         const url = `${location.origin}${location.pathname}#build=${item.id}`;
         navigator.clipboard.writeText(url).then(() => alert('🔗 Ссылка на билд скопирована!'), () => prompt('Скопируйте ссылку:', url));
@@ -2260,14 +2104,10 @@ async function addBuild(type) {
     if (!isPvp && !rank) { flashStatusEl(statusEl, 'Укажите ранг', '#ff7a7a'); return; }
     const data = {
         type, rank: rank || null, ship_name: ship,
-        upgrades:       val(`${type}Upgrades`) || null,
-        sails:          val(`${type}Sails`)    || null,
-        weapons_small:  val(`${type}WeapS`)    || null,
-        weapons_medium: val(`${type}WeapM`)    || null,
-        weapons_large:  val(`${type}WeapL`)    || null,
-        mortars_light:  val(`${type}MortarL`)  || null,
-        mortars_medium: val(`${type}MortarM`)  || null,
-        mortars_heavy:  val(`${type}MortarH`)  || null,
+        upgrades: val(`${type}Upgrades`) || null,
+        weapons_small: val(`${type}WeapS`) || null,
+        weapons_medium: val(`${type}WeapM`) || null,
+        weapons_large: val(`${type}WeapL`) || null,
         consumable1: val(`${type}Cons1`).trim() || null,
         consumable2: val(`${type}Cons2`).trim() || null,
         consumable3: val(`${type}Cons3`).trim() || null,
@@ -2285,8 +2125,7 @@ async function addBuild(type) {
         if (error || resp?.error) { flashStatusEl(statusEl, 'Ошибка: ' + (resp?.error || error.message), '#ff7a7a'); return; }
     }
     await logAdminAction(`Добавил билд ${type.toUpperCase()}`, ship);
-    ['Rank','Upgrades','Sails','WeapS','WeapM','WeapL','MortarL','MortarM','MortarH','Cons1','Cons2','Cons3','Cargo','Specs']
-        .forEach(s => { const el = $(`${type}${s}`); if (el) el.value = ''; });
+    ['Rank','Upgrades','WeapS','WeapM','WeapL','Cons1','Cons2','Cons3','Cargo','Specs'].forEach(s => { const el = $(`${type}${s}`); if (el) el.value = ''; });
     const shipSel = $(`${type}Ship`); if (shipSel) shipSel.value = '';
     const preview = $(`${type}ShipPreview`); if (preview) preview.hidden = true;
     flashStatusEl(statusEl, '✔ Добавлено', '#6ee7a7');
@@ -2303,13 +2142,9 @@ function openBuildEdit(item) {
     else { if (rankField) rankField.hidden = true; $('buildEditRank').value = ''; }
     $('buildEditShip').value = item.ship_name || '';
     $('buildEditUpgrades').value = item.upgrades || '';
-    $('buildEditSails').value    = item.sails || '';
     $('buildEditWeapS').value = item.weapons_small || '';
     $('buildEditWeapM').value = item.weapons_medium || '';
     $('buildEditWeapL').value = item.weapons_large || '';
-    $('buildEditMortarL').value  = item.mortars_light || '';
-    $('buildEditMortarM').value  = item.mortars_medium || '';
-    $('buildEditMortarH').value  = item.mortars_heavy || '';
     $('buildEditCons1').value = item.consumable1 || '';
     $('buildEditCons2').value = item.consumable2 || '';
     $('buildEditCons3').value = item.consumable3 || '';
@@ -2333,18 +2168,10 @@ on('saveBuildEdit', 'click', async () => {
     if (editingBuild.type === 'pb' && !rank) { $('buildEditError').textContent = 'Укажите ранг'; return; }
     const data = {
         rank: editingBuild.type === 'pb' ? rank : null, ship_name: ship,
-        upgrades:       val('buildEditUpgrades') || null,
-        sails:          val('buildEditSails')    || null,
-        weapons_small:  val('buildEditWeapS')    || null,
-        weapons_medium: val('buildEditWeapM')    || null,
-        weapons_large:  val('buildEditWeapL')    || null,
-        mortars_light:  val('buildEditMortarL')  || null,
-        mortars_medium: val('buildEditMortarM')  || null,
-        mortars_heavy:  val('buildEditMortarH')  || null,
-        consumable1: val('buildEditCons1').trim() || null,
-        consumable2: val('buildEditCons2').trim() || null,
-        consumable3: val('buildEditCons3').trim() || null,
-        cargo: val('buildEditCargo') || null,
+        upgrades: val('buildEditUpgrades') || null, weapons_small: val('buildEditWeapS') || null,
+        weapons_medium: val('buildEditWeapM') || null, weapons_large: val('buildEditWeapL') || null,
+        consumable1: val('buildEditCons1').trim() || null, consumable2: val('buildEditCons2').trim() || null,
+        consumable3: val('buildEditCons3').trim() || null, cargo: val('buildEditCargo') || null,
         specialists: val('buildEditSpecs') || null
     };
     if (isAdmin) {
@@ -2381,19 +2208,9 @@ on('doBuildDup', 'click', async () => {
     if (!canEditClan(currentClan)) { msg.textContent = 'Нет прав'; msg.style.color = '#ff7a7a'; return; }
     const { error } = await supabase.from('builds').insert({
         clan: clanValue, is_shared: isShared, type: item.type, rank: item.rank || null, ship_name: item.ship_name,
-        upgrades: item.upgrades || null,
-        sails: item.sails || null,
-        weapons_small: item.weapons_small || null,
-        weapons_medium: item.weapons_medium || null,
-        weapons_large: item.weapons_large || null,
-        mortars_light: item.mortars_light || null,
-        mortars_medium: item.mortars_medium || null,
-        mortars_heavy: item.mortars_heavy || null,
-        consumable1: item.consumable1 || null,
-        consumable2: item.consumable2 || null,
-        consumable3: item.consumable3 || null,
-        cargo: item.cargo || null,
-        specialists: item.specialists || null
+        upgrades: item.upgrades || null, weapons_small: item.weapons_small || null, weapons_medium: item.weapons_medium || null,
+        weapons_large: item.weapons_large || null, consumable1: item.consumable1 || null, consumable2: item.consumable2 || null,
+        consumable3: item.consumable3 || null, cargo: item.cargo || null, specialists: item.specialists || null
     });
     if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
     await logAdminAction('Дублировал билд', item.ship_name);
@@ -2435,9 +2252,7 @@ window.addEventListener('hashchange', () => { if (location.hash.startsWith('#bui
 
 /* ╔══════════════════════════════════════════════════════════════════════╗
    ║                                                                      ║
-   ║   25.  📅  СОБЫТИЯ + КАРТА МЕТОК (v2.5.0)                            ║
-   ║                                                                      ║
-   ║   ⚠️ getMapUrls объявлена в секции 36 (карта админа). НЕ дублируем.  ║
+   ║   25.  📅  СОБЫТИЯ                                                   ║
    ║                                                                      ║
    ╚══════════════════════════════════════════════════════════════════════╝ */
 async function renderEvents() {
@@ -2463,9 +2278,7 @@ async function renderEvents() {
             ? `<span class="event-badge shared">🌐 Общий</span>`
             : `<span class="event-badge clan">🏰 ${escapeHtml(clansCache[ev.clan]?.name || ev.clan)}</span>`;
         const canDel = canEditClan(ev.clan);
-        const hasMap = Array.isArray(ev.map_markers) && ev.map_markers.length;
-        const mapBtn = hasMap ? `<button type="button" class="event-map-btn">🗺 Карта</button>` : '';
-        const actions = `<div class="event-actions">${mapBtn}${canDel ? `<button class="delete">🗑</button>` : ''}</div>`;
+        const actions = canDel ? `<div class="event-actions"><button class="delete">🗑</button></div>` : '';
         card.innerHTML = `
             <div class="event-date-block"><div class="event-day">${day}</div><div class="event-month">${month}</div></div>
             <div class="event-info">
@@ -2489,8 +2302,6 @@ async function renderEvents() {
                 renderEvents();
             });
         }
-        const mb = card.querySelector('.event-map-btn');
-        if (mb) mb.addEventListener('click', e => { e.stopPropagation(); openEventMapView(ev.map_markers || [], ev.title || 'Событие'); });
         container.appendChild(card);
     });
 }
@@ -2506,178 +2317,26 @@ on('evAddBtn', 'click', async () => {
     if (!title) { flashStatusEl(statusEl, 'Введите название', '#ff7a7a'); return; }
     if (!dateStr) { flashStatusEl(statusEl, 'Укажите дату', '#ff7a7a'); return; }
     if (isShared && !isOwner) { flashStatusEl(statusEl, 'Общие события создаёт только владелец', '#ff7a7a'); return; }
-
-    let markers = [];
-    try { markers = JSON.parse(val('evMapData') || '[]'); } catch (e) { markers = []; }
-
     if (isAdmin) {
         const { error } = await supabase.from('events').insert({
             clan: clanVal, is_shared: isShared, title,
-            event_date: new Date(dateStr).toISOString(),
-            description: desc || null,
-            map_markers: markers.length ? markers : null
+            event_date: new Date(dateStr).toISOString(), description: desc || null
         });
         if (error) { flashStatusEl(statusEl, 'Ошибка: ' + error.message, '#ff7a7a'); return; }
     } else {
         const { data: resp, error } = await supabase.rpc('clan_admin_action', {
             action: 'insert', target_table: 'events', target_clan: currentClan,
             entered_password: currentClanPass,
-            data: {
-                title, event_date: new Date(dateStr).toISOString(),
-                description: desc || null,
-                map_markers: markers.length ? markers : null
-            }
+            data: { title, event_date: new Date(dateStr).toISOString(), description: desc || null }
         });
         if (error || resp?.error) { flashStatusEl(statusEl, 'Ошибка: ' + (resp?.error || error.message), '#ff7a7a'); return; }
     }
-    await logAdminAction('Добавил событие', title, markers.length ? `меток: ${markers.length}` : null);
+    await logAdminAction('Добавил событие', title);
     ['evTitle','evDate','evDesc'].forEach(id => { const el = $(id); if (el) el.value = ''; });
-    const md = $('evMapData'); if (md) md.value = '';
-    updateEvMapInfo();
     flashStatusEl(statusEl, '✔ Добавлено', '#6ee7a7');
     renderEvents();
 });
 
-/* ─── v2.5.0: карта события (редактор меток) ─── */
-function getMarkerMeta(type) { return EVENT_MARKER_TYPES[type] || EVENT_MARKER_TYPES.point; }
-/* ⚠️ getMapUrls() НЕ объявляем здесь — она уже есть в секции 36 */
-
-function renderEventMapMarkers() {
-    const layer = $('eventMapMarkers'); if (!layer) return;
-    layer.innerHTML = '';
-    evMapMarkers.forEach(m => {
-        const meta = getMarkerMeta(m.type);
-        const el = document.createElement('div');
-        el.className = 'event-map-marker';
-        el.style.left = m.x + '%';
-        el.style.top = m.y + '%';
-        el.style.background = meta.color;
-        el.innerHTML = `${meta.icon}<span class="eml-label">${escapeHtml(meta.label)}</span>`;
-        el.addEventListener('click', e => {
-            e.stopPropagation();
-            if (!confirm(`Удалить метку «${meta.label}»?`)) return;
-            evMapMarkers = evMapMarkers.filter(x => x.id !== m.id);
-            renderEventMapMarkers();
-            renderEventMapMarkerList();
-        });
-        layer.appendChild(el);
-    });
-}
-function renderEventMapMarkerList() {
-    const c = $('eventMapMarkerList'); if (!c) return;
-    c.innerHTML = '';
-    if (!evMapMarkers.length) return;
-    evMapMarkers.forEach(m => {
-        const meta = getMarkerMeta(m.type);
-        const chip = document.createElement('span');
-        chip.className = 'event-map-marker-chip';
-        chip.innerHTML = `<span class="emc-ico">${meta.icon}</span><span>${escapeHtml(meta.label)}</span><button class="emc-del" type="button">✕</button>`;
-        chip.querySelector('.emc-del').addEventListener('click', () => {
-            evMapMarkers = evMapMarkers.filter(x => x.id !== m.id);
-            renderEventMapMarkers();
-            renderEventMapMarkerList();
-        });
-        c.appendChild(chip);
-    });
-}
-function openEventMapEditor(existing) {
-    evMapMarkers = Array.isArray(existing) ? JSON.parse(JSON.stringify(existing)) : [];
-    evMapCurrentType = 'target';
-    document.querySelectorAll('#eventMapMarkerTypes .marker-type-chip').forEach(ch => {
-        ch.classList.toggle('active', ch.dataset.mtype === 'target');
-    });
-    const urls = getMapUrls();
-    const img = $('eventMapImg');
-    const view = val('evMapType') || 'detailed';
-    if (img) img.src = view === 'clean' ? urls.clean : urls.detailed;
-    const msg = $('eventMapMsg'); if (msg) msg.textContent = '';
-    $('eventMapEditorModal').hidden = false;
-    renderEventMapMarkers();
-    renderEventMapMarkerList();
-}
-function closeEventMapEditor() { const m = $('eventMapEditorModal'); if (m) m.hidden = true; }
-on('eventMapInner', 'click', e => {
-    if (e.target.closest('.event-map-marker')) return;
-    const inner = $('eventMapInner'); if (!inner) return;
-    const rect = inner.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 100;
-    const y = ((e.clientY - rect.top) / rect.height) * 100;
-    if (x < 0 || x > 100 || y < 0 || y > 100) return;
-    const meta = getMarkerMeta(evMapCurrentType);
-    evMapMarkers.push({
-        id: 'm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-        x: +x.toFixed(2), y: +y.toFixed(2),
-        type: evMapCurrentType, label: meta.label
-    });
-    renderEventMapMarkers();
-    renderEventMapMarkerList();
-});
-document.querySelectorAll('#eventMapMarkerTypes .marker-type-chip').forEach(chip => {
-    chip.addEventListener('click', () => {
-        document.querySelectorAll('#eventMapMarkerTypes .marker-type-chip').forEach(c => c.classList.remove('active'));
-        chip.classList.add('active');
-        evMapCurrentType = chip.dataset.mtype;
-    });
-});
-on('evMapType', 'change', e => {
-    const urls = getMapUrls();
-    const img = $('eventMapImg');
-    if (img) img.src = e.target.value === 'clean' ? urls.clean : urls.detailed;
-});
-on('eventMapSave', 'click', () => {
-    const payload = evMapMarkers.length ? JSON.stringify(evMapMarkers) : '';
-    const hidden = $('evMapData'); if (hidden) hidden.value = payload;
-    updateEvMapInfo();
-    closeEventMapEditor();
-});
-on('eventMapClear', 'click', () => {
-    if (!evMapMarkers.length) return;
-    if (!confirm('Удалить все метки?')) return;
-    evMapMarkers = [];
-    renderEventMapMarkers();
-    renderEventMapMarkerList();
-});
-on('eventMapCancel', 'click', closeEventMapEditor);
-on('eventMapEditorModal', 'click', e => { if (e.target.id === 'eventMapEditorModal') closeEventMapEditor(); });
-on('evMapBtn', 'click', () => {
-    let existing = [];
-    try { existing = JSON.parse(val('evMapData') || '[]'); } catch (e) { existing = []; }
-    openEventMapEditor(existing);
-});
-function updateEvMapInfo() {
-    const info = $('evMapInfo'); if (!info) return;
-    let n = 0;
-    try { n = (JSON.parse(val('evMapData') || '[]') || []).length; } catch (e) { n = 0; }
-    info.textContent = n ? `🗺 ${n} метк${n === 1 ? 'а' : 'и'}` : '';
-}
-function openEventMapView(markers, title) {
-    const modal = $('eventMapViewModal'); if (!modal) return;
-    $('eventMapViewTitle').textContent = `🗺 ${title || 'Карта события'}`;
-    const urls = getMapUrls();
-    const img = $('eventMapViewImg'); if (img) img.src = urls.detailed;
-    const layer = $('eventMapViewMarkers'); if (layer) layer.innerHTML = '';
-    const listEl = $('eventMapViewList'); if (listEl) listEl.innerHTML = '';
-    (markers || []).forEach(m => {
-        const meta = getMarkerMeta(m.type);
-        if (layer) {
-            const el = document.createElement('div');
-            el.className = 'event-map-marker';
-            el.style.left = m.x + '%'; el.style.top = m.y + '%';
-            el.style.background = meta.color;
-            el.innerHTML = `${meta.icon}<span class="eml-label">${escapeHtml(meta.label)}</span>`;
-            layer.appendChild(el);
-        }
-        if (listEl) {
-            const chip = document.createElement('span');
-            chip.className = 'event-map-marker-chip';
-            chip.innerHTML = `<span class="emc-ico">${meta.icon}</span><span>${escapeHtml(meta.label)}</span>`;
-            listEl.appendChild(chip);
-        }
-    });
-    modal.hidden = false;
-}
-on('eventMapViewClose', 'click', () => { const m = $('eventMapViewModal'); if (m) m.hidden = true; });
-on('eventMapViewModal', 'click', e => { if (e.target.id === 'eventMapViewModal') $('eventMapViewModal').hidden = true; });
 /* ╔══════════════════════════════════════════════════════════════════════╗
    ║                                                                      ║
    ║   26.  💰  КАЗНА                                                     ║
@@ -2958,7 +2617,7 @@ async function renderTrades() {
     if (error) { container.innerHTML = `<div class="empty">Ошибка: ${error.message}</div>`; return; }
     tradesCache = data || [];
     renderTradeCounters(); renderTradeListings();
-    /* v2.5.2: НЕ дёргаем renderResourcePricesHome */
+    renderResourcePricesHome();
 }
 function renderTradeCounters() {
     let buyGold = 0, sellGold = 0, buyN = 0, sellN = 0;
@@ -3021,17 +2680,6 @@ function renderTradeListings() {
     const items = tradeVisibleListings();
     if (!items.length) { container.innerHTML = '<p class="empty">Заявок пока нет.</p>'; return; }
     const myNick = getViewerNick().toLowerCase();
-
-    /* v2.5.2: рейтинг считаем ОДИН раз, не O(n²) внутри forEach */
-    const ratingsMap = {};
-    tradesCache.forEach(x => {
-        if (x.status !== 'done') return;
-        const n1 = (x.nickname || '').toLowerCase();
-        const n2 = (x.accepted_by || '').toLowerCase();
-        if (n1) ratingsMap[n1] = (ratingsMap[n1] || 0) + 1;
-        if (n2) ratingsMap[n2] = (ratingsMap[n2] || 0) + 1;
-    });
-
     container.innerHTML = '';
     items.forEach(t => {
         const cat = tradeCatById(t.category);
@@ -3045,7 +2693,11 @@ function renderTradeListings() {
         const canRepeat = isDone && isMine;
         const typeLabel = t.type === 'buy' ? '🛒 Куплю' : '💰 Продам';
         const clanName = clansCache[t.clan]?.name || t.clan;
-        const authorCompleted = ratingsMap[(t.nickname || '').toLowerCase()] || 0;
+        const authorCompleted = tradesCache.filter(x =>
+            x.status === 'done' &&
+            ((x.nickname || '').toLowerCase() === (t.nickname || '').toLowerCase() ||
+             (x.accepted_by || '').toLowerCase() === (t.nickname || '').toLowerCase())
+        ).length;
         const ratingHtml = authorCompleted > 0
             ? `<span class="author-rating" title="Завершённых сделок">⭐ ${authorCompleted}</span>`
             : `<span class="author-rating new" title="Новый игрок">🆕</span>`;
@@ -3138,11 +2790,7 @@ on('tmToggle', 'click', () => {
 });
 on('tm-price', 'input', updateTradeFormTotal);
 on('tm-qty', 'input', updateTradeFormTotal);
-/* v2.5.2: дебаунс поиска */
-on('tm-search', 'input', () => {
-    clearTimeout(_tradeSearchTimer);
-    _tradeSearchTimer = setTimeout(renderTradeListings, 200);
-});
+on('tm-search', 'input', renderTradeListings);
 on('tm-only-mine', 'change', renderTradeListings);
 on('tm-only-ships', 'change', e => { tradeOnlyShips = e.target.checked; renderTradeListings(); });
 on('tm-category', 'change', updateShipPickerVisibility);
@@ -3191,10 +2839,7 @@ on('tm-listings', 'click', async e => {
         const id = delBtn.dataset.id;
         const t = tradesCache.find(x => String(x.id) === String(id));
         if (!t) return;
-        const canDel = isOwner || isAdmin || (
-            t.status !== 'done' && !t.accepted_by &&
-            (t.nickname || '').toLowerCase() === getViewerNick().toLowerCase()
-        );
+        const canDel = isOwner || isAdmin || (t.status !== 'done' && !t.accepted_by && (t.nickname || '').toLowerCase() === getViewerNick().toLowerCase());
         if (!canDel) { alert('Нет прав на удаление этой заявки'); return; }
         if (!confirm(`Удалить заявку «${t.name}» автора ${t.nickname}?`)) return;
         const { error } = await supabase.from('trades').delete().eq('id', id);
@@ -3710,7 +3355,6 @@ on('tacAddBtn', 'click', async () => {
     flashStatusEl(statusEl, '✔ Добавлено', '#6ee7a7');
     await loadTactics();
 });
-
 /* ╔══════════════════════════════════════════════════════════════════════╗
    ║                                                                      ║
    ║   34.  📦  РЕСУРСЫ + ЦЕНООБРАЗОВАНИЕ                                  ║
@@ -3997,7 +3641,7 @@ on('res-refresh', 'click', loadResourcePrices);
 
 /* ╔══════════════════════════════════════════════════════════════════════╗
    ║                                                                      ║
-   ║   34.1  🔨  ПОСТРОЙКА КОРАБЛЯ + СКИДКИ                                ║
+   ║   35.  🔨  ПОСТРОЙКА КОРАБЛЯ + СКИДКИ                                ║
    ║                                                                      ║
    ╚══════════════════════════════════════════════════════════════════════╝ */
 async function loadRecipes() {
@@ -4304,7 +3948,7 @@ on('disc-add', 'click', async () => {
 
 /* ╔══════════════════════════════════════════════════════════════════════╗
    ║                                                                      ║
-   ║   35.  ⚓  ФРАКЦИИ / ПОРТЫ / РАНГИ                                    ║
+   ║   36.  ⚓  ФРАКЦИИ / ПОРТЫ / РАНГИ                                    ║
    ║                                                                      ║
    ╚══════════════════════════════════════════════════════════════════════╝ */
 async function loadFactions() {
@@ -4495,12 +4139,10 @@ on('port-add', 'click', async () => {
     await loadPorts();
 });
 on('ranks-reload', 'click', loadRanks);
+
 /* ╔══════════════════════════════════════════════════════════════════════╗
    ║                                                                      ║
-   ║   36.  🗺️  КАРТА (админ + фуллскрин)                                 ║
-   ║                                                                      ║
-   ║   ⚠️ getMapUrls() объявлена ТОЛЬКО ЗДЕСЬ.                            ║
-   ║      Секция 25 (карта событий) использует эту же функцию.            ║
+   ║   37.  🗺️  КАРТА (админ + фуллскрин)                                 ║
    ║                                                                      ║
    ╚══════════════════════════════════════════════════════════════════════╝ */
 async function loadMapSettings() {
@@ -4692,7 +4334,7 @@ on('map-save', 'click', async () => {
 
 /* ╔══════════════════════════════════════════════════════════════════════╗
    ║                                                                      ║
-   ║   37.  ⚙️  НАСТРОЙКИ САЙТА + СТАТИСТИКА                               ║
+   ║   38.  ⚙️  НАСТРОЙКИ САЙТА + СТАТИСТИКА                               ║
    ║                                                                      ║
    ╚══════════════════════════════════════════════════════════════════════╝ */
 async function loadSettings() {
@@ -4735,7 +4377,7 @@ async function loadStats() {
 
 /* ╔══════════════════════════════════════════════════════════════════════╗
    ║                                                                      ║
-   ║   38.  💬  КОНТАКТЫ                                                  ║
+   ║   39.  💬  КОНТАКТЫ                                                  ║
    ║                                                                      ║
    ╚══════════════════════════════════════════════════════════════════════╝ */
 function renderContacts() {
@@ -4778,7 +4420,7 @@ function renderContacts() {
 
 /* ╔══════════════════════════════════════════════════════════════════════╗
    ║                                                                      ║
-   ║   39.  ➕  ДОБАВЛЕНИЕ / РЕДАКТИРОВАНИЕ ЗАПИСЕЙ                        ║
+   ║   40.  ➕  ДОБАВЛЕНИЕ / РЕДАКТИРОВАНИЕ ЗАПИСЕЙ                        ║
    ║                                                                      ║
    ╚══════════════════════════════════════════════════════════════════════╝ */
 on('openAddClan', 'click', () => {
@@ -4931,7 +4573,7 @@ document.querySelectorAll('#moveModal [data-target]').forEach(btn => {
 
 /* ╔══════════════════════════════════════════════════════════════════════╗
    ║                                                                      ║
-   ║   40.  🏰  АДМИН: ВЫБОР ГИЛЬДИИ + ПОЛЯ                               ║
+   ║   41.  🏰  АДМИН: ВЫБОР ГИЛЬДИИ + ПОЛЯ                               ║
    ║                                                                      ║
    ╚══════════════════════════════════════════════════════════════════════╝ */
 function renderAdminClanSelect() {
@@ -5059,7 +4701,7 @@ on('saveSiteSettings', 'click', async () => {
 
 /* ╔══════════════════════════════════════════════════════════════════════╗
    ║                                                                      ║
-   ║   41.  🔗  #build / ПРОФИЛЬ                                          ║
+   ║   42.  🔗  #build / ПРОФИЛЬ                                          ║
    ║                                                                      ║
    ╚══════════════════════════════════════════════════════════════════════╝ */
 async function handleBuildHash() {
@@ -5119,7 +4761,7 @@ on('profileModal', 'click', e => { if (e.target.id === 'profileModal') $('profil
 
 /* ╔══════════════════════════════════════════════════════════════════════╗
    ║                                                                      ║
-   ║   42.  🔔  УВЕДОМЛЕНИЯ                                                ║
+   ║   43.  🔔  УВЕДОМЛЕНИЯ                                                ║
    ║                                                                      ║
    ╚══════════════════════════════════════════════════════════════════════╝ */
 async function loadNotifications() {
@@ -5188,7 +4830,7 @@ on('notifMarkAllRead', 'click', async () => {
 
 /* ╔══════════════════════════════════════════════════════════════════════╗
    ║                                                                      ║
-   ║   43.  💭  ЧАТ + ГОЛОСОВОЙ                                            ║
+   ║   44.  💭  ЧАТ + ГОЛОСОВОЙ                                            ║
    ║                                                                      ║
    ╚══════════════════════════════════════════════════════════════════════╝ */
 function setChatMode(mode) {
@@ -5406,7 +5048,7 @@ function initChatRealtime() {
 
 /* ╔══════════════════════════════════════════════════════════════════════╗
    ║                                                                      ║
-   ║   44.  📰  НОВОСТИ VK                                                 ║
+   ║   45.  📰  НОВОСТИ VK                                                 ║
    ║                                                                      ║
    ╚══════════════════════════════════════════════════════════════════════╝ */
 function openVkNewsModal() {
@@ -5506,7 +5148,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') { const m = 
 
 /* ╔══════════════════════════════════════════════════════════════════════╗
    ║                                                                      ║
-   ║   45.  🎖️  ПАНЕЛЬ ГЛАВЫ ГИЛЬДИИ                                       ║
+   ║   46.  🎖️  ПАНЕЛЬ ГЛАВЫ ГИЛЬДИИ                                       ║
    ║                                                                      ║
    ╚══════════════════════════════════════════════════════════════════════╝ */
 function updateLeaderButtonsVisibility() {
@@ -5529,7 +5171,6 @@ function openLeaderPanel() {
 function closeLeaderPanel() { showScreen('home'); }
 on('leaderBackBtn', 'click', closeLeaderPanel);
 ['leaderPanelBtn', 'leaderPanelBtn2', 'leaderPanelBtn3'].forEach(id => on(id, 'click', openLeaderPanel));
-
 async function renderLeaderEvents(clanId) {
     const container = $('leaderEventsList'); if (!container) return;
     container.innerHTML = '<div class="empty">Загрузка…</div>';
@@ -5695,23 +5336,29 @@ on('leaderOpenVoiceTop', 'click', () => openChat('voice', { room: 'wosb_leaders_
 
 /* ╔══════════════════════════════════════════════════════════════════════╗
    ║                                                                      ║
-   ║   46.  🚀  СТАРТ                                                      ║
+   ║   47.  🚀  СТАРТ (безопасный, с диагностикой)                         ║
    ║                                                                      ║
    ╚══════════════════════════════════════════════════════════════════════╝ */
 (async () => {
     const verEl = document.querySelector('.footer-right');
     if (verEl) verEl.textContent = 'v' + APP_VERSION;
 
-    /* v2.5.2 fix: если supabase не пришёл — стоп с понятной ошибкой */
+    /* v2.4.11: если supabase не пришёл — стоп с понятной ошибкой */
     if (!supabase || typeof supabase.from !== 'function') {
         console.error('❌ supabase не загружен. Проверь supabase.js и import.');
         alert('Не удалось загрузить supabase.js. Проверь консоль (F12).');
         return;
     }
 
-    /* Обёртка: каждая загрузка сама логирует свою ошибку, но не роняет остальные */
+    /* safe: каждая загрузка логирует свою ошибку, но не роняет остальные */
     const safe = async (name, fn) => {
+        if (typeof fn !== 'function') return;
         try { await fn(); }
+        catch (e) { console.error(`❌ ${name} failed:`, e?.message || e); }
+    };
+    const safeSync = (name, fn) => {
+        if (typeof fn !== 'function') return;
+        try { fn(); }
         catch (e) { console.error(`❌ ${name} failed:`, e?.message || e); }
     };
 
@@ -5723,6 +5370,7 @@ on('leaderOpenVoiceTop', 'click', () => openChat('voice', { room: 'wosb_leaders_
         console.log('👤 session:', currentSession?.user?.email || 'аноним');
     });
 
+    /* Базовые данные */
     await safe('loadSiteAdmins', loadSiteAdmins);
     await safe('loadGames', loadGames);
     await safe('loadAlliances', loadAlliances);
@@ -5731,6 +5379,9 @@ on('leaderOpenVoiceTop', 'click', () => openChat('voice', { room: 'wosb_leaders_
     await safe('loadPartners', loadPartners);
     await safe('loadFaq', loadFaq);
     await safe('loadTactics', loadTactics);
+    await safe('loadStats', loadStats);
+
+    /* Опциональные (если функции есть — вызовутся; если нет — пропустятся) */
     await safe('loadShips', loadShips);
     await safe('loadBuildItems', loadBuildItems);
     await safe('loadResourcePrices', loadResourcePrices);
@@ -5740,26 +5391,23 @@ on('leaderOpenVoiceTop', 'click', () => openChat('voice', { room: 'wosb_leaders_
     await safe('loadRecipes', loadRecipes);
     await safe('loadDiscounts', loadDiscounts);
     await safe('loadMapSettings', loadMapSettings);
-    await safe('loadStats', loadStats);
 
-    try {
-        renderApplyClanSelect();
-        fillScShipSelect();
-        fillScFactionSelect();
-        fillScCities();
-        currentMapView = (mapSettings?.default_view) || 'detailed';
-        initTradeCategorySelect();
-        initTradeCategoryFilters();
-        updateTradeFormTotal();
-        renderTradeClanSelect();
-        renderTradeClanFilters();
-        initShipBuilders();
-        onBuildItemTypeChange();
-        applyAdminUI();
-        updateFlagPreview('newClanFlag', 'newClanFlagPreview');
-        updateFlagPreview('adminClanFlag', 'adminClanFlagPreview');
-        onDiscountTypeChange();
-    } catch (e) { console.error('❌ init UI failed:', e); }
+    /* UI-инициализация */
+    safeSync('renderApplyClanSelect', renderApplyClanSelect);
+    safeSync('fillScShipSelect', fillScShipSelect);
+    safeSync('fillScFactionSelect', fillScFactionSelect);
+    safeSync('fillScCities', fillScCities);
+    safeSync('initTradeCategorySelect', initTradeCategorySelect);
+    safeSync('initTradeCategoryFilters', initTradeCategoryFilters);
+    safeSync('updateTradeFormTotal', updateTradeFormTotal);
+    safeSync('renderTradeClanSelect', renderTradeClanSelect);
+    safeSync('renderTradeClanFilters', renderTradeClanFilters);
+    safeSync('initShipBuilders', initShipBuilders);
+    safeSync('onBuildItemTypeChange', onBuildItemTypeChange);
+    safeSync('applyAdminUI', applyAdminUI);
+    safeSync('updateFlagPreview(new)', () => updateFlagPreview('newClanFlag', 'newClanFlagPreview'));
+    safeSync('updateFlagPreview(admin)', () => updateFlagPreview('adminClanFlag', 'adminClanFlagPreview'));
+    safeSync('onDiscountTypeChange', onDiscountTypeChange);
 
     await safe('renderTrades', renderTrades);
     await safe('loadNotifications', loadNotifications);
@@ -5785,16 +5433,16 @@ on('leaderOpenVoiceTop', 'click', () => openChat('voice', { room: 'wosb_leaders_
         showScreen('home');
     }
 
-    startHeartbeat();
-    setTimeout(handleBuildHash, 800);
+    safeSync('startHeartbeat', startHeartbeat);
+    setTimeout(() => safeSync('handleBuildHash', handleBuildHash), 800);
     setInterval(() => {
         const onlineSection = document.querySelector('.admin-section[data-apanel="online"]');
-        if (onlineSection && onlineSection.classList.contains('active') && isAdmin) renderAdminOnlineList();
-        const clanOnlineSection = $('section-online');
-        if (clanOnlineSection && clanOnlineSection.classList.contains('active') && canEditClan(currentClan)) {
-            renderClanOnlineList();
+        if (onlineSection && onlineSection.classList.contains('active') && isAdmin) safeSync('renderAdminOnlineList', renderAdminOnlineList);
+        const clanOnlineSection = document.getElementById('section-online');
+        if (clanOnlineSection && clanOnlineSection.classList.contains('active') && typeof canEditClan === 'function' && canEditClan(currentClan)) {
+            safeSync('renderClanOnlineList', renderClanOnlineList);
         }
-    }, 60000);
+    }, 15000);
 })();
 
-/* ── Конец app.js v2.5.2 ── */
+/* ── Конец app.js v2.4.11 ── */

@@ -406,13 +406,29 @@
 
                 <div id="section-events" class="clan-section">
                     <h2>📅 События гильдии</h2>
-                    <section class="add-form clan-admin-only" hidden>
+                    <section class="add-form clan-admin-only ev-form" hidden>
                         <input type="text" id="evTitle" placeholder="Название события" maxlength="100">
                         <input type="datetime-local" id="evDate">
                         <textarea id="evDesc" placeholder="Описание" rows="2"></textarea>
                         <select id="evScope"></select>
                         <button id="evAddBtn">➕ Добавить</button>
                         <span id="evStatus"></span>
+
+                        <div class="ev-map-block">
+                            <label>🗺 Карта к событию (необязательно)</label>
+                            <div class="ev-map-actions">
+                                <input type="file" id="evMapFile" accept="image/*" hidden>
+                                <button type="button" id="evMapPick" class="builder-btn secondary">📷 Загрузить карту</button>
+                                <button type="button" id="evMapClear" class="builder-btn secondary" hidden>✕ Убрать карту</button>
+                            </div>
+                            <div class="ev-map-preview" id="evMapPreview" hidden>
+                                <div class="ev-map-stage" id="evMapStage">
+                                    <img id="evMapImg" src="" alt="" draggable="false">
+                                    <div class="ev-map-marker" id="evMapMarker" hidden>📍</div>
+                                </div>
+                                <p class="hint" style="margin:6px 0 0;">💡 Кликни по карте, чтобы поставить метку</p>
+                            </div>
+                        </div>
                     </section>
                     <p class="hint clan-admin-only" hidden>💡 Общее событие может создать только владелец сайта.</p>
                     <div id="eventsList" class="events-list"></div>
@@ -727,6 +743,14 @@
                     <div class="admin-field"><label>ID (латиница)</label><input type="text" id="allyId" maxlength="30"></div>
                     <div class="admin-field"><label>Название</label><input type="text" id="allyName" maxlength="80"></div>
                     <div class="admin-field"><label>Описание</label><textarea id="allyDesc" rows="2"></textarea></div>
+                    <div class="admin-field">
+                        <label>Тип союза</label>
+                        <select id="allyType">
+                            <option value="full">🤝 Полный</option>
+                            <option value="trade">💰 Торговый</option>
+                            <option value="battle">⚔️ Боевой</option>
+                        </select>
+                    </div>
                     <p id="allyMsg" class="error"></p>
                     <div class="modal-actions"><button id="allyAddBtn">➕ Создать</button></div>
                 </div>
@@ -1136,6 +1160,17 @@
         </div>
     </div>
 
+    <div id="eventMapFullscreen" class="ev-map-fs" hidden>
+        <div class="ev-map-fs-toolbar">
+            <div class="ev-map-fs-title" id="eventMapFsTitle">Карта события</div>
+            <button id="eventMapFsClose" class="ev-map-fs-close" title="Закрыть">✕</button>
+        </div>
+        <div class="ev-map-fs-stage">
+            <img id="eventMapFsImg" src="" alt="" draggable="false">
+            <div class="ev-map-fs-marker" id="eventMapFsMarker" hidden>📍</div>
+        </div>
+    </div>
+
     <div id="addClanModal" class="modal" hidden>
         <div class="modal-content admin-panel-wide">
             <h2>➕ Новая гильдия</h2>
@@ -1231,6 +1266,14 @@
             <input type="hidden" id="allyEditId">
             <div class="admin-field"><label>Название</label><input type="text" id="allyEditName" maxlength="80"></div>
             <div class="admin-field"><label>Описание</label><textarea id="allyEditDesc" rows="3"></textarea></div>
+            <div class="admin-field">
+                <label>Тип союза</label>
+                <select id="allyEditType">
+                    <option value="full">🤝 Полный</option>
+                    <option value="trade">💰 Торговый</option>
+                    <option value="battle">⚔️ Боевой</option>
+                </select>
+            </div>
             <p id="allyEditMsg" class="error"></p>
             <div class="modal-actions">
                 <button id="saveAllyEdit">💾 Сохранить</button>
@@ -1343,7 +1386,7 @@
                     <option value="other">📦 Прочее</option>
                 </select>
             </div>
-            <div class="admin-field"><label>Цена (G)</label><input type="number" id="re-price" min="0" step="1" placeholder="0"></div>
+            <div class="admin-field"><label>Цена (🪙)</label><input type="number" id="re-price" min="0" step="1" placeholder="0"></div>
             <div class="admin-field"><label>Эмодзи (если нет картинки)</label><input type="text" id="re-icon" maxlength="4" placeholder="📦"></div>
             <div class="admin-field">
                 <label>Картинка ресурса</label>
@@ -1456,7 +1499,7 @@
 
     <input type="file" id="bgFileInput" accept="image/*" hidden>
 
-    <!-- DATALIST-Ы для форм билдов и калькулятора -->
+    <!-- DATALIST-Ы для форм билдов -->
     <datalist id="weaponsSmallList"></datalist>
     <datalist id="weaponsMediumList"></datalist>
     <datalist id="weaponsLargeList"></datalist>
@@ -1471,7 +1514,7 @@
 
     <footer class="site-footer">
         <span class="footer-left">Mist Time — Сергеев С.В</span>
-        <span class="footer-right">v2.1.1</span>
+        <span class="footer-right">v2.2.0</span>
     </footer>
 
     <script type="module" src="app.js"></script>

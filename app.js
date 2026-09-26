@@ -1,4 +1,10 @@
 import { supabase } from './supabase.js';
+// === НОВОЕ ===
+import {
+    loadReference, fillBuildDatalists,
+    renderShipsAdmin, renderResourcesAdmin, renderBuildItemsAdmin,
+    bindReferenceAddButtons
+} from './reference.js';
 
 console.log('🚀 app.js v1.8.8');
 
@@ -106,18 +112,12 @@ function canEditBindings() {
 
 /* ============ ПРАВА ============ */
 function canEditClan(clanId) {
-    // Владелец — везде
     if (isOwner) return true;
-
     if (isAdmin) {
-        // С привязкой (admin/mod) — только своя гильдия
         if (myAdminClanId) return clanId === myAdminClanId;
-        // Модератор без привязки — нигде
         if (isMod) return false;
-        // Админ без привязки — везде
         return true;
     }
-
     if (clanId === currentClan && currentClanIsAdmin) return true;
     return false;
 }
@@ -125,10 +125,7 @@ function canEditClan(clanId) {
 function getMyClanId() { return localStorage.getItem(MY_CLAN_KEY) || null; }
 
 function canAccessClan(clanId) {
-    // Владелец — везде
     if (isOwner) return true;
-
-    // Привязанный админ/модератор — своя + союзные
     if (isAdmin && myAdminClanId) {
         if (clanId === myAdminClanId) return true;
         const my = clansCache[myAdminClanId];
@@ -136,11 +133,7 @@ function canAccessClan(clanId) {
         if (!my || !target || !my.alliance_id) return false;
         return target.alliance_id === my.alliance_id;
     }
-
-    // Админ без привязки — всё
     if (isAdmin) return true;
-
-    // Обычный пользователь — своя + союзные
     const myClan = getMyClanId();
     if (!myClan) return false;
     if (clanId === myClan) return true;
@@ -220,7 +213,6 @@ async function renderSiteAdminsAdmin() {
         return;
     }
 
-    // Подгружаем гильдии, если кэш пуст
     let clansList = Object.values(clansCache);
     if (!clansList.length) {
         try {
@@ -624,6 +616,10 @@ document.querySelectorAll('.admin-nav-item').forEach(btn => {
         if (panel === 'admins') renderSiteAdminsAdmin();
         if (panel === 'clanRequests') renderClanRequestsAdmin();
         if (panel === 'settings') renderSiteFields();
+        // === НОВОЕ ===
+        if (panel === 'ships') renderShipsAdmin();
+        if (panel === 'resources') renderResourcesAdmin();
+        if (panel === 'buildItems') renderBuildItemsAdmin();
     });
 });
 on('adminBackHome', 'click', () => { currentClan = null; showScreen('home'); });
@@ -849,7 +845,6 @@ function renderScopeSelects() {
         const sel = $(id); if (!sel) return;
         const current = sel.value; sel.innerHTML = '';
 
-        // "Общий" вариант: для событий доступен только владельцу
         const hideShared = (id === 'evScope' && !isOwner);
         if (!hideShared) {
             const opt1 = document.createElement('option');
@@ -1415,7 +1410,6 @@ on('evAddBtn', 'click', async () => {
     if (!title) { flashStatusEl(statusEl, 'Введите название', '#ff7a7a'); return; }
     if (!dateStr) { flashStatusEl(statusEl, 'Укажите дату', '#ff7a7a'); return; }
 
-    // Общие события — только владелец
     if (isShared && !isOwner) {
         flashStatusEl(statusEl, 'Общие события создаёт только владелец', '#ff7a7a');
         return;
@@ -3218,6 +3212,11 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') { const m = 
     applyAdminUI();
     updateFlagPreview('newClanFlag', 'newClanFlagPreview');
     updateFlagPreview('adminClanFlag', 'adminClanFlagPreview');
+    // === НОВОЕ: справочники ===
+    await loadReference();
+    fillBuildDatalists();
+    bindReferenceAddButtons();
+    // === /НОВОЕ ===
     const lastClan = localStorage.getItem(LAST_CLAN_KEY);
     if (lastClan && isUnlocked() && clansCache[lastClan]) {
         openClan(lastClan, localStorage.getItem(CLAN_ADMIN_PASS_KEY) === '1');

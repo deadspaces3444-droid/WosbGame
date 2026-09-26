@@ -1,9 +1,9 @@
 import { supabase } from './supabase.js';
 
-console.log('🚀 app.js v2.2.0');
+console.log('🚀 app.js v2.3.3 (part 1)');
 
 const ADMIN_EMAILS_FALLBACK = ['dead_antihrist@mail.ru'];
-const APP_VERSION = '2.2.0';
+const APP_VERSION = '2.3.3';
 const BINDING_OWNERS = ['kolibri@wosb.ru', 'dead_antihrist@mail.ru'];
 
 const CLAN_FLAGS = {
@@ -26,12 +26,14 @@ const CLAN_ADMIN_PASS_KEY = 'clan_admin_pass';
 const THEME_KEY = 'app_theme';
 const SHARED = '__shared__';
 const LEADERS_ROOM = '__leaders__';
+const ADMIRALS_ROOM = '__admirals__';
 const HEARTBEAT_MS = 30000;
 const ONLINE_WINDOW_MS = 90000;
 const VK_DOMAIN = 'worldofseabattle';
 const VK_API_VERSION = '5.131';
 const VK_POSTS_COUNT = 10;
 const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
+const COLLAPSE_KEY = 'app_collapsed_sections';
 
 const MAP_DEFAULT_DETAILED = 'images/map/detailed.jpg';
 const MAP_DEFAULT_CLEAN    = 'images/map/clean.jpg';
@@ -43,9 +45,52 @@ const ALLY_TYPES = {
 };
 
 const CATALOG_ICONS = {
-    weapon_small: '🟢', weapon_medium: '🟡', weapon_large: '🔴',
-    module: '⚙️', ammo: '💣', blueprint: '📜',
-    consumable: '🧪', cargo: '📦', upgrade: '🔧', specialist: '👤'
+    weapon_small:  '🟢',
+    weapon_medium: '🟡',
+    weapon_large:  '🔴',
+    weapon_mortar: '💣',
+    module:        '⚙️',
+    ammo:          '🎯',
+    shell:         '💥',
+    blueprint:     '📜',
+    consumable:    '🧪',
+    cargo:         '📦',
+    upgrade:       '🔧',
+    specialist:    '👤'
+};
+
+const SPECIALIST_GROUPS = {
+    'пираты':      { en: 'pirates',     label: '🏴‍☠️ Пираты' },
+    'моряки':      { en: 'sailors',     label: '⚓ Моряки' },
+    'военные':     { en: 'military',    label: '⚔️ Военные' },
+    'авантюристы': { en: 'adventurers', label: '🗺 Авантюристы' }
+};
+
+const WEAPON_SIZES = {
+    'лёгкие':   { type: 'weapon_small',  label: '🟢 Лёгкие' },
+    'легкие':   { type: 'weapon_small',  label: '🟢 Лёгкие' },
+    'средние':  { type: 'weapon_medium', label: '🟡 Средние' },
+    'большие':  { type: 'weapon_large',  label: '🔴 Большие' },
+    'мортиры':  { type: 'weapon_mortar', label: '💣 Мортиры' }
+};
+
+const UPGRADE_SECTIONS = {
+    'мортирные':      { en: 'mortar',     label: '💣 Мортирные' },
+    'быстроходность': { en: 'speed',      label: '⚡ Быстроходность' },
+    'экспедиционные': { en: 'expedition', label: '🧭 Экспедиционные' },
+    'защита':         { en: 'defense',    label: '🛡 Защита' },
+    'наступление':    { en: 'offense',    label: '⚔️ Наступление' },
+    'необычные':      { en: 'unusual',    label: '✨ Необычные' }
+};
+
+const SHELL_TYPES = {
+    'чугунные':   { en: 'iron',       label: '⚫ Чугунные' },
+    'зажигающие': { en: 'incendiary', label: '🔥 Зажигающие' },
+    'цепи':       { en: 'chain',      label: '⛓ Цепи' },
+    'картечь':    { en: 'grapeshot',  label: '🎯 Картечь' },
+    'саксонские': { en: 'saxon',      label: '🎩 Саксонские' },
+    'тяжёлые':    { en: 'heavy',      label: '🏋 Тяжёлые' },
+    'тяжелые':    { en: 'heavy',      label: '🏋 Тяжёлые' }
 };
 
 let gamesCache = {}, clansCache = {}, alliancesCache = {};
@@ -89,8 +134,8 @@ let buildItemsCache = [];
 let specialistSkillsCache = {};
 
 let evMapData = null;
-let evMapMarkerX = null;
-let evMapMarkerY = null;
+let evMapMarkers = [];
+let evMapNextId = 1;
 
 const $ = id => document.getElementById(id);
 function on(id, event, handler, opts) {
@@ -178,6 +223,18 @@ function isClanLeader() {
     if ((isAdmin || isMod) && myAdminClanId) return true;
     return !!(currentClanIsAdmin && getMyClanId());
 }
+function isClanAdmiral() {
+    if (!currentClan && !myAdminClanId) return false;
+    if (isOwner) return true;
+    if (isAdmin && myAdminClanId && myAdminClanId === (currentClan || myAdminClanId)) return true;
+    if (isAdmin && !myAdminClanId && !isMod) return true;
+    const clanId = currentClan || myAdminClanId;
+    if (!clanId) return false;
+    const myNick = getViewerNick().toLowerCase();
+    if (!myNick) return false;
+    const admins = normalizeNickList(clansCache[clanId]?.admin_nicks || '');
+    return admins.includes(myNick);
+}
 function canAccessClan(clanId) {
     if (isOwner) return true;
     if (isAdmin && myAdminClanId) {
@@ -219,8 +276,7 @@ function toggleTheme() {
     applyTheme(cur === 'dark' ? 'light' : 'dark');
 }
 function initTheme() { applyTheme(localStorage.getItem(THEME_KEY) || 'dark'); }
-['themeToggle','themeToggle2','themeToggle3'].forEach(id => on(id, 'click', toggleTheme));
-on('themeToggle4', 'click', toggleTheme);
+['themeToggle','themeToggle2','themeToggle3','themeToggle4','themeToggle5'].forEach(id => on(id, 'click', toggleTheme));
 
 /* ============ ЛОГИ ============ */
 async function logAdminAction(action, target = null, details = null) {
@@ -234,6 +290,17 @@ async function logAdminAction(action, target = null, details = null) {
 async function logView(nickname, clanId, page) {
     if (!nickname) return;
     try { await supabase.from('view_history').insert({ nickname, clan_id: clanId, page }); } catch (e) { }
+}
+async function logAdmiralAction(action, target = null, details = null) {
+    const clanId = currentClan || myAdminClanId;
+    if (!clanId) return;
+    try {
+        await supabase.from('admiral_log').insert({
+            clan_id: clanId,
+            admiral_nick: getViewerNick() || '—',
+            action, target, details
+        });
+    } catch (e) {}
 }
 
 /* ============ DISCORD WEBHOOK ============ */
@@ -570,6 +637,8 @@ function showScreen(name) {
     if (screenAdmin) screenAdmin.hidden = name !== 'admin';
     const leader = $('screen-leader');
     if (leader) leader.hidden = name !== 'leader';
+    const admiral = $('screen-admiral');
+    if (admiral) admiral.hidden = name !== 'admiral';
     window.scrollTo(0, 0); applyBg();
 }
 
@@ -901,9 +970,7 @@ function renderAdminShips() {
 }
 on('reloadShipsBtn', 'click', loadShips);
 
-/* ============================================================
-   КАЛЬКУЛЯТОР СБОРКИ КОРАБЛЯ
-   ============================================================ */
+/* ============ КАЛЬКУЛЯТОР СБОРКИ ============ */
 const BUILDER_CATEGORIES = [
     { id: 'resource', name: 'Ресурс', icon: '🪵' },
     { id: 'module', name: 'Модуль', icon: '⚙️' },
@@ -925,7 +992,8 @@ function createShipBuilder(prefix) {
         cntPrices: prefix ? prefix + 'CountPrices2' : 'builderCountPrices',
         total: prefix ? prefix + 'Total2' : 'builderTotal',
         recalc: prefix ? prefix + 'Recalc2' : 'builderRecalc',
-        copy: prefix ? prefix + 'Copy2' : 'builderCopy'
+        copy: prefix ? prefix + 'Copy2' : 'builderCopy',
+        bonusesPanel: prefix ? 'builderBonusesPanel2' : 'builderBonusesPanel'
     };
     const state = { rows: [], counter: 0, ctx: prefix ? 'clan' : 'home' };
 
@@ -1088,6 +1156,78 @@ function createShipBuilder(prefix) {
         if (elPos) elPos.textContent = totalRows;
         if (elPr) elPr.textContent = `${found} / ${totalRows}`;
         if (elTt) elTt.textContent = Math.round(grand).toLocaleString('ru-RU') + ' 🪙';
+        updateBonusesPanel();
+    }
+    function updateBonusesPanel() {
+        const panel = $(ids.bonusesPanel);
+        if (!panel) return;
+        const target = $(ids.targetSel)?.value;
+        if (!target) { panel.hidden = true; return; }
+        const ship = shipsCache.find(s => s.name === target);
+        if (!ship) { panel.hidden = true; return; }
+        const acc = {};
+        state.rows.forEach(row => {
+            const name = (row.name || '').trim();
+            if (!name) return;
+            const item = buildItemsCache.find(x => (x.name || '').trim().toLowerCase() === name.toLowerCase());
+            if (!item || !item.bonuses) return;
+            parseBonuses(item.bonuses).forEach(b => {
+                if (b.value === null) return;
+                const k = b.stat.toLowerCase();
+                acc[k] = (acc[k] || 0) + b.value;
+            });
+        });
+        if (!Object.keys(acc).length) { panel.hidden = true; return; }
+        panel.hidden = false;
+        const statMap = [
+            { keys: ['прочность','хп','hp','durability'], shipKey: 'durability', label: '💪 Прочность' },
+            { keys: ['скорость','speed'], shipKey: 'speed', label: '⚡ Скорость' },
+            { keys: ['манёвренность','маневренность','maneuverability'], shipKey: 'maneuverability', label: '🔄 Манёвренность' },
+            { keys: ['броня','armor'], shipKey: 'armor', label: '🛡 Броня' },
+            { keys: ['трюм','cargo','cargo_hold'], shipKey: 'cargo_hold', label: '📦 Трюм' },
+            { keys: ['экипаж','crew'], shipKey: 'crew', label: '👥 Экипаж' },
+            { keys: ['орудия','guns'], shipKey: 'guns', label: '🔫 Орудия' }
+        ];
+        const rows = [];
+        const usedKeys = new Set();
+        statMap.forEach(sm => {
+            let bonusSum = 0, found = false;
+            sm.keys.forEach(k => {
+                if (acc[k] !== undefined) { bonusSum += acc[k]; usedKeys.add(k); found = true; }
+            });
+            if (!found) return;
+            const base = Number(ship[sm.shipKey]) || 0;
+            rows.push({ label: sm.label, base: base || '—', bonus: bonusSum, final: base ? base + bonusSum : '—' });
+        });
+        const other = [];
+        Object.keys(acc).forEach(k => {
+            if (usedKeys.has(k)) return;
+            other.push({ stat: k, value: acc[k] });
+        });
+        let html = '<div class="bonuses-title">📊 Характеристики с бонусами</div>';
+        if (rows.length) {
+            html += '<div class="bonuses-table">';
+            html += '<div class="bonuses-header"><span>Стат</span><span>База</span><span>Бонус</span><span>Итог</span></div>';
+            rows.forEach(r => {
+                const cls = r.bonus > 0 ? 'plus' : r.bonus < 0 ? 'minus' : '';
+                html += `<div class="bonuses-row">
+                    <span>${r.label}</span>
+                    <span class="b-base">${r.base}</span>
+                    <span class="b-bonus ${cls}">${r.bonus > 0 ? '+' : ''}${r.bonus}</span>
+                    <span class="b-final">${r.final}</span>
+                </div>`;
+            });
+            html += '</div>';
+        }
+        if (other.length) {
+            html += '<div class="bonuses-other-title">Прочие бонусы</div><div class="bonuses-other">';
+            other.forEach(o => {
+                const cls = o.value > 0 ? 'plus' : o.value < 0 ? 'minus' : '';
+                html += `<span class="bonuses-other-chip ${cls}">${escapeHtml(o.stat)} ${o.value > 0 ? '+' : ''}${o.value}</span>`;
+            });
+            html += '</div>';
+        }
+        panel.innerHTML = html;
     }
     function updateSummary() { recalc(); }
     function copyResult() {
@@ -1101,7 +1241,7 @@ function createShipBuilder(prefix) {
             const avg = computeAvg(name);
             const sum = (avg || 0) * qty;
             grand += sum;
-            lines.push(`• ${name} × ${qty} = ${Math.round(sum).toLocaleString('ru-RU')} 🪙 (${(avg || 0).toFixed(1)} 🪙/шт)`);
+            lines.push(`• ${name} × ${qty} = ${Math.round(sum).toLocaleString('ru-RU')} 🪙`);
         });
         lines.push(''); lines.push(`💰 Итого: ${Math.round(grand).toLocaleString('ru-RU')} 🪙`);
         const text = lines.join('\n');
@@ -1130,6 +1270,7 @@ function createShipBuilder(prefix) {
                 else img.hidden = true;
             }
             applyRecipe(e.target.value);
+            recalc();
         });
     }
     function init() {
@@ -1138,10 +1279,7 @@ function createShipBuilder(prefix) {
         fillTargetShip();
         renderRows();
     }
-    function refresh() {
-        fillTargetShip();
-        renderRows();
-    }
+    function refresh() { fillTargetShip(); renderRows(); }
     return { init, refresh, recalc, fillTargetShip, state, applyRecipe };
 }
 let builderHomeCtrl = null, builderClanCtrl = null;
@@ -1150,6 +1288,53 @@ function initShipBuilders() {
     builderHomeCtrl.init();
     builderClanCtrl = createShipBuilder('builder');
     builderClanCtrl.init();
+}
+
+/* ============ СВОРАЧИВАНИЕ СЕКЦИЙ ============ */
+function getCollapsedState() {
+    try { return JSON.parse(localStorage.getItem(COLLAPSE_KEY) || '{}'); }
+    catch { return {}; }
+}
+function setCollapsedState(id, collapsed) {
+    const all = getCollapsedState();
+    if (collapsed) all[id] = 1; else delete all[id];
+    try { localStorage.setItem(COLLAPSE_KEY, JSON.stringify(all)); } catch {}
+}
+function initCollapsibleSections() {
+    const sections = document.querySelectorAll('[data-collapsible]');
+    const state = getCollapsedState();
+    sections.forEach(sec => {
+        const id = sec.dataset.collapsible;
+        if (!id) return;
+        const titleEl = sec.querySelector('.section-title');
+        if (!titleEl || titleEl.dataset.collapseReady) return;
+        titleEl.dataset.collapseReady = '1';
+        titleEl.classList.add('collapsible-title');
+        titleEl.setAttribute('role', 'button');
+        titleEl.setAttribute('tabindex', '0');
+        const chevron = document.createElement('span');
+        chevron.className = 'collapse-chevron';
+        chevron.textContent = '▾';
+        titleEl.appendChild(chevron);
+        const body = document.createElement('div');
+        body.className = 'collapsible-body';
+        Array.from(sec.children).forEach(k => { if (k !== titleEl) body.appendChild(k); });
+        sec.appendChild(body);
+        const isCollapsed = !!state[id];
+        sec.classList.toggle('collapsed', isCollapsed);
+        chevron.textContent = isCollapsed ? '▸' : '▾';
+        const toggle = (e) => {
+            if (e && e.target.closest('button, a, input, select, textarea, label')) return;
+            const nowCollapsed = !sec.classList.contains('collapsed');
+            sec.classList.toggle('collapsed', nowCollapsed);
+            chevron.textContent = nowCollapsed ? '▸' : '▾';
+            setCollapsedState(id, nowCollapsed);
+        };
+        titleEl.addEventListener('click', toggle);
+        titleEl.addEventListener('keydown', e => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(e); }
+        });
+    });
 }
 
 /* ============ ТАКТИКА ============ */
@@ -1650,9 +1835,12 @@ async function loadList(tab) {
 /* ============ БИЛДЫ ============ */
 function parseLines(text) { if (!text) return []; return String(text).split('\n').map(s => s.trim()).filter(Boolean); }
 function parseBonus(text) {
-    const m = String(text).match(/^(.+?)\s*([+-]\s*\d+)\s*$/);
-    if (!m) return { stat: text.trim(), value: null };
-    return { stat: m[1].trim(), value: parseInt(m[2].replace(/\s/g, ''), 10) };
+    const m = String(text).match(/^(.+?)\s*([+-]\s*\d+(?:[.,]\d+)?)\s*$/);
+    if (!m) return { stat: String(text).trim(), value: null };
+    return { stat: m[1].trim(), value: parseFloat(m[2].replace(/\s/g, '').replace(',', '.')) };
+}
+function parseBonuses(str) {
+    return String(str || '').split(',').map(s => s.trim()).filter(Boolean).map(parseBonus);
 }
 function parseSpecialists(text) {
     return parseLines(text).map(line => {
@@ -1701,6 +1889,8 @@ function createBuildCard(item) {
     const weapS = parseLines(item.weapons_small);
     const weapM = parseLines(item.weapons_medium);
     const weapL = parseLines(item.weapons_large);
+    const weapMortar = parseLines(item.weapons_mortar);
+    const shells = item.shells ? parseLines(item.shells) : [];
     const cons = [item.consumable1, item.consumable2, item.consumable3].filter(Boolean);
     const cargo = item.cargo ? parseLines(item.cargo) : [];
     const specs = parseSpecialists(item.specialists);
@@ -1724,6 +1914,8 @@ function createBuildCard(item) {
         ${weapS.length ? `<div class="build-section"><div class="build-section-label">🟢 Малые пушки (до 12ф)</div><div class="build-chips">${weapS.map(w => `<span class="chip chip-weap-small">${escapeHtml(w)}</span>`).join('')}</div></div>` : ''}
         ${weapM.length ? `<div class="build-section"><div class="build-section-label">🟡 Средние пушки (до 24ф)</div><div class="build-chips">${weapM.map(w => `<span class="chip chip-weap-medium">${escapeHtml(w)}</span>`).join('')}</div></div>` : ''}
         ${weapL.length ? `<div class="build-section"><div class="build-section-label">🔴 Большие пушки (до 48ф)</div><div class="build-chips">${weapL.map(w => `<span class="chip chip-weap-large">${escapeHtml(w)}</span>`).join('')}</div></div>` : ''}
+        ${weapMortar.length ? `<div class="build-section"><div class="build-section-label">💣 Мортиры</div><div class="build-chips">${weapMortar.map(w => `<span class="chip chip-weap-large">${escapeHtml(w)}</span>`).join('')}</div></div>` : ''}
+        ${shells.length ? `<div class="build-section"><div class="build-section-label">💥 Снаряды</div><div class="build-chips">${shells.map(s => `<span class="chip chip-cons">${escapeHtml(s)}</span>`).join('')}</div></div>` : ''}
         ${cons.length ? `<div class="build-section"><div class="build-section-label">⚗️ Расходники</div><div class="build-chips">${cons.map(c => `<span class="chip chip-cons">${escapeHtml(c)}</span>`).join('')}</div></div>` : ''}
         ${cargo.length ? `<div class="build-section"><div class="build-section-label">📦 Трюм</div><div class="build-chips">${cargo.map(c => `<span class="chip chip-cargo">${escapeHtml(c)}</span>`).join('')}</div></div>` : ''}
         ${specs.length ? `<div class="build-section"><div class="build-section-label">👤 Специалисты</div><div class="spec-list">${specs.map(s => `<div class="spec-item"><div class="spec-name">${escapeHtml(s.name)}</div>${s.bonuses.length ? `<div class="spec-bonuses">${s.bonuses.map(b => { const cls = b.value === null ? 'neutral' : (b.value > 0 ? 'plus' : 'minus'); const val = b.value === null ? '' : ` ${b.value > 0 ? '+' : ''}${b.value}`; return `<span class="spec-bonus ${cls}">${escapeHtml(b.stat)}${val}</span>`; }).join('')}</div>` : ''}</div>`).join('')}</div></div>` : ''}`;
@@ -1756,6 +1948,8 @@ async function addBuild(type) {
         weapons_small: val(`${type}WeapS`) || null,
         weapons_medium: val(`${type}WeapM`) || null,
         weapons_large: val(`${type}WeapL`) || null,
+        weapons_mortar: val(`${type}WeapMortar`) || null,
+        shells: val(`${type}Shells`) || null,
         consumable1: val(`${type}Cons1`).trim() || null,
         consumable2: val(`${type}Cons2`).trim() || null,
         consumable3: val(`${type}Cons3`).trim() || null,
@@ -1773,7 +1967,7 @@ async function addBuild(type) {
         if (error || resp?.error) { flashStatusEl(statusEl, 'Ошибка: ' + (resp?.error || error.message), '#ff7a7a'); return; }
     }
     await logAdminAction(`Добавил билд ${type.toUpperCase()}`, ship);
-    ['Rank','Upgrades','WeapS','WeapM','WeapL','Cons1','Cons2','Cons3','Cargo','Specs'].forEach(s => { const el = $(`${type}${s}`); if (el) el.value = ''; });
+    ['Rank','Upgrades','WeapS','WeapM','WeapL','WeapMortar','Shells','Cons1','Cons2','Cons3','Cargo','Specs'].forEach(s => { const el = $(`${type}${s}`); if (el) el.value = ''; });
     const shipSel = $(`${type}Ship`); if (shipSel) shipSel.value = '';
     const preview = $(`${type}ShipPreview`); if (preview) preview.hidden = true;
     flashStatusEl(statusEl, '✔ Добавлено', '#6ee7a7');
@@ -1793,6 +1987,8 @@ function openBuildEdit(item) {
     $('buildEditWeapS').value = item.weapons_small || '';
     $('buildEditWeapM').value = item.weapons_medium || '';
     $('buildEditWeapL').value = item.weapons_large || '';
+    $('buildEditWeapMortar').value = item.weapons_mortar || '';
+    $('buildEditShells').value = item.shells || '';
     $('buildEditCons1').value = item.consumable1 || '';
     $('buildEditCons2').value = item.consumable2 || '';
     $('buildEditCons3').value = item.consumable3 || '';
@@ -1818,6 +2014,7 @@ on('saveBuildEdit', 'click', async () => {
         rank: editingBuild.type === 'pb' ? rank : null, ship_name: ship,
         upgrades: val('buildEditUpgrades') || null, weapons_small: val('buildEditWeapS') || null,
         weapons_medium: val('buildEditWeapM') || null, weapons_large: val('buildEditWeapL') || null,
+        weapons_mortar: val('buildEditWeapMortar') || null, shells: val('buildEditShells') || null,
         consumable1: val('buildEditCons1').trim() || null, consumable2: val('buildEditCons2').trim() || null,
         consumable3: val('buildEditCons3').trim() || null, cargo: val('buildEditCargo') || null,
         specialists: val('buildEditSpecs') || null
@@ -1857,7 +2054,8 @@ on('doBuildDup', 'click', async () => {
     const { error } = await supabase.from('builds').insert({
         clan: clanValue, is_shared: isShared, type: item.type, rank: item.rank || null, ship_name: item.ship_name,
         upgrades: item.upgrades || null, weapons_small: item.weapons_small || null, weapons_medium: item.weapons_medium || null,
-        weapons_large: item.weapons_large || null, consumable1: item.consumable1 || null, consumable2: item.consumable2 || null,
+        weapons_large: item.weapons_large || null, weapons_mortar: item.weapons_mortar || null, shells: item.shells || null,
+        consumable1: item.consumable1 || null, consumable2: item.consumable2 || null,
         consumable3: item.consumable3 || null, cargo: item.cargo || null, specialists: item.specialists || null
     });
     if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
@@ -1880,7 +2078,6 @@ async function deleteBuild(id, type) {
     await logAdminAction(`Удалил билд ${type.toUpperCase()}`, null, `id: ${id}`);
     renderBuilds(type);
 }
-
 /* ============ СОБЫТИЯ ============ */
 async function renderEvents() {
     if (!currentClan) return;
@@ -1890,6 +2087,17 @@ async function renderEvents() {
         .or(`is_shared.eq.true,clan.eq.${currentClan}`).order('event_date', { ascending: true });
     if (error) { container.innerHTML = `<div class="empty">Ошибка: ${error.message}</div>`; return; }
     if (!data?.length) { container.innerHTML = '<div class="empty">Событий пока нет</div>'; return; }
+
+    const eventIds = data.map(e => e.id);
+    let allMarkers = [];
+    if (eventIds.length) {
+        const { data: mk } = await supabase.from('event_markers')
+            .select('*').in('event_id', eventIds).order('sort_order');
+        allMarkers = mk || [];
+    }
+    const markersByEvent = {};
+    allMarkers.forEach(m => { (markersByEvent[m.event_id] ||= []).push(m); });
+
     container.innerHTML = '';
     const now = Date.now();
     const monthNames = ['ЯНВ','ФЕВ','МАР','АПР','МАЯ','ИЮН','ИЮЛ','АВГ','СЕН','ОКТ','НОЯ','ДЕК'];
@@ -1901,6 +2109,7 @@ async function renderEvents() {
         const time = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
         const card = document.createElement('div');
         const hasMap = !!ev.map_image;
+        const markers = markersByEvent[ev.id] || [];
         card.className = 'event-card' + (isPast ? ' past' : '') + (hasMap ? ' has-map' : '');
         const scopeBadge = ev.is_shared
             ? `<span class="event-badge shared">🌐 Общий</span>`
@@ -1911,9 +2120,10 @@ async function renderEvents() {
         const mapHtml = hasMap ? `
             <div class="event-map">
                 <img src="${escapeHtml(ev.map_image)}" alt="">
-                ${ev.marker_x != null && ev.marker_y != null
-                    ? `<div class="event-map-marker" style="left:${ev.marker_x}%;top:${ev.marker_y}%;">📍</div>`
-                    : ''}
+                ${markers.map(m => `
+                    <div class="event-map-marker" style="left:${m.x}%;top:${m.y}%;" title="${escapeHtml(m.title || '')}">
+                        📍${m.title ? `<span class="event-map-marker-label">${escapeHtml(m.title)}</span>` : ''}
+                    </div>`).join('')}
                 <div class="event-map-hint">🔍 Открыть карту</div>
             </div>` : '';
 
@@ -1931,7 +2141,7 @@ async function renderEvents() {
 
         if (hasMap) {
             card.querySelector('.event-map').addEventListener('click', () => {
-                openEventMapFullscreen(ev.map_image, ev.marker_x, ev.marker_y, ev.title);
+                openEventMapFullscreen(ev.map_image, markers, ev.title);
             });
         }
         if (canDel) {
@@ -1954,7 +2164,46 @@ async function renderEvents() {
     });
 }
 
-/* ============ СОБЫТИЕ: КАРТА В ФОРМЕ ============ */
+/* ============ СОБЫТИЕ: КАРТА В ФОРМЕ (мультиметки) ============ */
+function renderEvMapMarkers() {
+    const stage = $('evMapStage'); if (!stage) return;
+    stage.querySelectorAll('.ev-map-marker').forEach(m => m.remove());
+    evMapMarkers.forEach(m => {
+        const el = document.createElement('div');
+        el.className = 'ev-map-marker';
+        el.style.left = m.x + '%';
+        el.style.top  = m.y + '%';
+        el.title = m.title || '';
+        el.textContent = m.title ? `📍 ${m.title}` : '📍';
+        el.dataset.markerId = m._id;
+        stage.appendChild(el);
+    });
+    renderEvMapMarkersList();
+}
+function renderEvMapMarkersList() {
+    const list = $('evMapMarkersList'); if (!list) return;
+    list.innerHTML = '';
+    if (!evMapMarkers.length) {
+        list.innerHTML = '<div class="empty" style="padding:8px;font-size:12px;">Меток пока нет. Кликни по карте, чтобы добавить.</div>';
+        return;
+    }
+    evMapMarkers.forEach((m, i) => {
+        const row = document.createElement('div');
+        row.className = 'ev-marker-row';
+        row.innerHTML = `
+            <span class="ev-marker-num">${i + 1}</span>
+            <input type="text" class="ev-marker-title" placeholder="Название метки" value="${escapeHtml(m.title || '')}">
+            <input type="text" class="ev-marker-desc" placeholder="Описание" value="${escapeHtml(m.description || '')}">
+            <button class="ev-marker-del" title="Удалить">✕</button>`;
+        row.querySelector('.ev-marker-title').addEventListener('input', e => { m.title = e.target.value; renderEvMapMarkers(); });
+        row.querySelector('.ev-marker-desc').addEventListener('input', e => { m.description = e.target.value; });
+        row.querySelector('.ev-marker-del').addEventListener('click', () => {
+            evMapMarkers = evMapMarkers.filter(x => x._id !== m._id);
+            renderEvMapMarkers();
+        });
+        list.appendChild(row);
+    });
+}
 on('evMapPick', 'click', () => { const f = $('evMapFile'); if (f) { f.value = ''; f.click(); } });
 on('evMapFile', 'change', async e => {
     const file = e.target.files[0]; if (!file) return;
@@ -1964,32 +2213,43 @@ on('evMapFile', 'change', async e => {
         evMapData = dataUrl;
         const img = $('evMapImg'); if (img) img.src = dataUrl;
         $('evMapPreview').hidden = false;
-        $('evMapMarker').hidden = true;
         $('evMapClear').hidden = false;
-        evMapMarkerX = null; evMapMarkerY = null;
+        evMapMarkers = [];
+        renderEvMapMarkers();
     } catch (err) { alert('Ошибка: ' + err.message); }
 });
 on('evMapClear', 'click', () => {
+    if (!confirm('Убрать карту вместе со всеми метками?')) return;
     evMapData = null;
-    evMapMarkerX = null; evMapMarkerY = null;
+    evMapMarkers = [];
     const f = $('evMapFile'); if (f) f.value = '';
     const prev = $('evMapPreview'); if (prev) prev.hidden = true;
-    const m = $('evMapMarker'); if (m) m.hidden = true;
     $('evMapClear').hidden = true;
+    renderEvMapMarkersList();
 });
 on('evMapStage', 'click', e => {
     if (!evMapData) return;
+    if (e.target.closest('.ev-map-marker')) return;
     const stage = $('evMapStage');
     const rect = stage.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
     if (x < 0 || x > 100 || y < 0 || y > 100) return;
-    evMapMarkerX = Math.round(x * 10) / 10;
-    evMapMarkerY = Math.round(y * 10) / 10;
-    const m = $('evMapMarker');
-    m.style.left = evMapMarkerX + '%';
-    m.style.top  = evMapMarkerY + '%';
-    m.hidden = false;
+    const m = {
+        _id: evMapNextId++,
+        x: Math.round(x * 10) / 10,
+        y: Math.round(y * 10) / 10,
+        title: '',
+        description: ''
+    };
+    evMapMarkers.push(m);
+    renderEvMapMarkers();
+    setTimeout(() => {
+        const list = $('evMapMarkersList');
+        const rows = list?.querySelectorAll('.ev-marker-row');
+        const last = rows?.[rows.length - 1];
+        last?.querySelector('.ev-marker-title')?.focus();
+    }, 50);
 });
 
 on('evAddBtn', 'click', async () => {
@@ -2009,45 +2269,73 @@ on('evAddBtn', 'click', async () => {
         title,
         event_date: new Date(dateStr).toISOString(),
         description: desc || null,
-        map_image: evMapData || null,
-        marker_x: evMapMarkerX,
-        marker_y: evMapMarkerY
+        map_image: evMapData || null
     };
 
+    let insertedEventId = null;
     if (isAdmin) {
-        const { error } = await supabase.from('events').insert({ clan: clanVal, is_shared: isShared, ...payload });
+        const { data, error } = await supabase.from('events').insert({ clan: clanVal, is_shared: isShared, ...payload }).select('id').single();
         if (error) { flashStatusEl(statusEl, 'Ошибка: ' + error.message, '#ff7a7a'); return; }
+        insertedEventId = data?.id;
     } else {
         const { data: resp, error } = await supabase.rpc('clan_admin_action', {
             action: 'insert', target_table: 'events', target_clan: currentClan, entered_password: currentClanPass,
             data: payload
         });
         if (error || resp?.error) { flashStatusEl(statusEl, 'Ошибка: ' + (resp?.error || error.message), '#ff7a7a'); return; }
+        const { data: lastEv } = await supabase.from('events').select('id')
+            .eq('clan', currentClan).eq('is_shared', false)
+            .order('created_at', { ascending: false }).limit(1).maybeSingle();
+        insertedEventId = lastEv?.id;
     }
+
+    if (insertedEventId && evMapMarkers.length) {
+        const markersPayload = evMapMarkers.map((m, i) => ({
+            event_id: insertedEventId,
+            x: m.x, y: m.y,
+            title: m.title || null,
+            description: m.description || null,
+            sort_order: i * 10
+        }));
+        await supabase.from('event_markers').insert(markersPayload);
+    }
+
     await logAdminAction('Добавил событие', title);
     ['evTitle','evDate','evDesc'].forEach(id => { const el = $(id); if (el) el.value = ''; });
-    evMapData = null; evMapMarkerX = null; evMapMarkerY = null;
+    evMapData = null; evMapMarkers = [];
     const prev = $('evMapPreview'); if (prev) prev.hidden = true;
-    const m = $('evMapMarker'); if (m) m.hidden = true;
     const clr = $('evMapClear'); if (clr) clr.hidden = true;
+    renderEvMapMarkersList();
     flashStatusEl(statusEl, '✔ Добавлено', '#6ee7a7');
     renderEvents();
 });
 
 /* ============ СОБЫТИЕ: ФУЛЛСКРИН КАРТЫ ============ */
-function openEventMapFullscreen(src, mx, my, title) {
+function openEventMapFullscreen(src, markers, title) {
     const fs = $('eventMapFullscreen'); if (!fs) return;
     const img = $('eventMapFsImg');
-    const marker = $('eventMapFsMarker');
     const titleEl = $('eventMapFsTitle');
+    const stage = fs.querySelector('.ev-map-fs-stage');
     if (img) img.src = src;
     if (titleEl) titleEl.textContent = '🗺 ' + (title || 'Карта события');
-    if (marker) {
-        if (mx != null && my != null) {
-            marker.style.left = mx + '%';
-            marker.style.top = my + '%';
-            marker.hidden = false;
-        } else marker.hidden = true;
+
+    stage.querySelectorAll('.ev-map-fs-marker').forEach(m => m.remove());
+
+    if (Array.isArray(markers)) {
+        markers.forEach(m => {
+            const el = document.createElement('div');
+            el.className = 'ev-map-fs-marker';
+            el.style.left = m.x + '%';
+            el.style.top  = m.y + '%';
+            el.textContent = '📍';
+            if (m.title || m.description) {
+                const pop = document.createElement('div');
+                pop.className = 'ev-map-fs-popup';
+                pop.innerHTML = `${m.title ? `<b>${escapeHtml(m.title)}</b>` : ''}${m.description ? `<div>${escapeHtml(m.description)}</div>` : ''}`;
+                el.appendChild(pop);
+            }
+            stage.appendChild(el);
+        });
     }
     fs.hidden = false;
     document.body.style.overflow = 'hidden';
@@ -3074,8 +3362,144 @@ on('tacAddBtn', 'click', async () => {
 });
 
 /* ============================================================
-   КАТАЛОГ БИЛДОВ
+   КАТАЛОГ БИЛДОВ + ИМПОРТ
    ============================================================ */
+function parseBonusLine(line) {
+    const m = String(line).trim().match(/^(.+?)\s*([+-]\s*\d+(?:[.,]\d+)?)\s*$/);
+    if (!m) return { stat: String(line).trim(), value: null };
+    return { stat: m[1].trim(), value: parseFloat(m[2].replace(/\s/g, '').replace(',', '.')) };
+}
+function normalizeGroupName(raw, map) {
+    const key = String(raw || '').trim().toLowerCase();
+    return map[key] || null;
+}
+function parseSpecialistsFile(text) {
+    const items = [], errors = [];
+    text.split(/\r?\n/).forEach((raw, idx) => {
+        const line = raw.trim();
+        if (!line || line.startsWith('#')) return;
+        const parts = line.split(/\s*[-–—]\s*/);
+        if (parts.length < 2) { errors.push(`Строка ${idx + 1}: пропущено « - »`); return; }
+        const grpRaw = parts[0].trim();
+        const name = (parts[1] || '').trim();
+        const bonusStr = parts.slice(2).join(' - ').trim();
+        const grp = normalizeGroupName(grpRaw, SPECIALIST_GROUPS);
+        if (!grp) { errors.push(`Строка ${idx + 1}: неизвестная группа «${grpRaw}»`); return; }
+        if (!name) { errors.push(`Строка ${idx + 1}: пустое имя`); return; }
+        items.push({ group: grp.en, name, bonuses: parseBonuses(bonusStr) });
+    });
+    return { items, errors };
+}
+function parseWeaponsFile(text) {
+    const items = [], errors = [];
+    text.split(/\r?\n/).forEach((raw, idx) => {
+        const line = raw.trim();
+        if (!line || line.startsWith('#')) return;
+        const parts = line.split(/\s*[-–—]\s*/);
+        if (parts.length < 2) { errors.push(`Строка ${idx + 1}: пропущено « - »`); return; }
+        const sizeRaw = parts[0].trim();
+        const name = parts.slice(1).join(' - ').trim();
+        const sz = normalizeGroupName(sizeRaw, WEAPON_SIZES);
+        if (!sz) { errors.push(`Строка ${idx + 1}: неизвестный размер «${sizeRaw}»`); return; }
+        if (!name) { errors.push(`Строка ${idx + 1}: пустое название`); return; }
+        items.push({ type: sz.type, name });
+    });
+    return { items, errors };
+}
+function parseUpgradesFile(text) {
+    const items = [], errors = [];
+    text.split(/\r?\n/).forEach((raw, idx) => {
+        const line = raw.trim();
+        if (!line || line.startsWith('#')) return;
+        const parts = line.split(/\s*[-–—]\s*/);
+        if (parts.length < 3) { errors.push(`Строка ${idx + 1}: нужно «Название - Раздел - Бонусы»`); return; }
+        const name = parts[0].trim();
+        const secRaw = parts[1].trim();
+        const bonusStr = parts.slice(2).join(' - ').trim();
+        const sec = normalizeGroupName(secRaw, UPGRADE_SECTIONS);
+        if (!sec) { errors.push(`Строка ${idx + 1}: неизвестный раздел «${secRaw}»`); return; }
+        if (!name) { errors.push(`Строка ${idx + 1}: пустое название`); return; }
+        items.push({ section: sec.en, name, bonuses: parseBonuses(bonusStr) });
+    });
+    return { items, errors };
+}
+function parseShellsFile(text) {
+    const items = [], errors = [];
+    text.split(/\r?\n/).forEach((raw, idx) => {
+        const line = raw.trim();
+        if (!line || line.startsWith('#')) return;
+        const parts = line.split(/\s*[-–—]\s*/);
+        if (parts.length < 2) { errors.push(`Строка ${idx + 1}: пропущено « - »`); return; }
+        const tRaw = parts[0].trim();
+        const name = parts.slice(1).join(' - ').trim();
+        const t = normalizeGroupName(tRaw, SHELL_TYPES);
+        if (!t) { errors.push(`Строка ${idx + 1}: неизвестный тип «${tRaw}»`); return; }
+        if (!name) { errors.push(`Строка ${idx + 1}: пустое название`); return; }
+        items.push({ type: t.en, name });
+    });
+    return { items, errors };
+}
+function bonusesToText(bonuses) {
+    return (bonuses || []).map(b => b.value === null ? b.stat : `${b.stat} ${b.value > 0 ? '+' : ''}${b.value}`).join(', ');
+}
+
+async function importSpecialists(items) {
+    let ok = 0, fail = 0;
+    for (const it of items) {
+        const { data: inserted, error } = await supabase.from('build_items').insert({
+            type: 'specialist',
+            subgroup: it.group,
+            name: it.name,
+            bonuses: bonusesToText(it.bonuses) || null,
+            is_active: true,
+            sort_order: 0
+        }).select('id').single();
+        if (error) { fail++; continue; }
+        if (it.bonuses.length && inserted?.id) {
+            const skills = it.bonuses.filter(b => b.value !== null).map((b, i) => ({
+                specialist_id: inserted.id,
+                stat_name: b.stat,
+                value: b.value,
+                sort_order: i * 10
+            }));
+            if (skills.length) await supabase.from('specialist_skills').insert(skills);
+        }
+        ok++;
+    }
+    return { ok, fail };
+}
+async function importWeapons(items) {
+    let ok = 0, fail = 0;
+    for (const it of items) {
+        const { error } = await supabase.from('build_items').insert({
+            type: it.type, subgroup: null, name: it.name, is_active: true, sort_order: 0
+        });
+        if (error) fail++; else ok++;
+    }
+    return { ok, fail };
+}
+async function importUpgrades(items) {
+    let ok = 0, fail = 0;
+    for (const it of items) {
+        const { error } = await supabase.from('build_items').insert({
+            type: 'upgrade', subgroup: it.section, name: it.name,
+            bonuses: bonusesToText(it.bonuses) || null, is_active: true, sort_order: 0
+        });
+        if (error) fail++; else ok++;
+    }
+    return { ok, fail };
+}
+async function importShells(items) {
+    let ok = 0, fail = 0;
+    for (const it of items) {
+        const { error } = await supabase.from('build_items').insert({
+            type: 'shell', subgroup: it.type, name: it.name, is_active: true, sort_order: 0
+        });
+        if (error) fail++; else ok++;
+    }
+    return { ok, fail };
+}
+
 async function loadBuildItems() {
     const [items, skills] = await Promise.all([
         supabase.from('build_items').select('*')
@@ -3084,7 +3508,6 @@ async function loadBuildItems() {
     ]);
     if (items.error) { console.warn('build_items:', items.error.message); buildItemsCache = []; }
     else buildItemsCache = items.data || [];
-
     specialistSkillsCache = {};
     if (!skills.error) {
         (skills.data || []).forEach(s => {
@@ -3093,18 +3516,36 @@ async function loadBuildItems() {
     }
     fillBuildDatalists();
 }
-
+function subgroupLabel(type, sg) {
+    if (type === 'specialist') {
+        const found = Object.values(SPECIALIST_GROUPS).find(g => g.en === sg);
+        return found ? found.label : sg;
+    }
+    if (type === 'upgrade') {
+        const found = Object.values(UPGRADE_SECTIONS).find(s => s.en === sg);
+        return found ? found.label : sg;
+    }
+    if (type === 'shell') {
+        const found = Object.values(SHELL_TYPES).find(s => s.en === sg);
+        return found ? found.label : sg;
+    }
+    if (sg === 'sails') return '⛵ Паруса';
+    if (sg === '—') return '—';
+    return sg;
+}
 function fillBuildDatalists() {
     const map = {
-        weapon_small: 'weaponsSmallList',
+        weapon_small:  'weaponsSmallList',
         weapon_medium: 'weaponsMediumList',
-        weapon_large: 'weaponsLargeList',
-        module: 'modulesList',
-        ammo: 'ammoList',
-        blueprint: 'blueprintsList',
-        consumable: 'consumablesList',
-        cargo: 'cargoList',
-        specialist: 'specialistsList'
+        weapon_large:  'weaponsLargeList',
+        weapon_mortar: 'weaponsMortarList',
+        module:        'modulesList',
+        ammo:          'ammoList',
+        shell:         'shellsList',
+        blueprint:     'blueprintsList',
+        consumable:    'consumablesList',
+        cargo:         'cargoList',
+        specialist:    'specialistsList'
     };
     Object.entries(map).forEach(([type, dlId]) => {
         const dl = document.getElementById(dlId);
@@ -3112,20 +3553,16 @@ function fillBuildDatalists() {
         const items = buildItemsCache.filter(x => x.type === type && x.is_active !== false);
         dl.innerHTML = items.map(x => `<option value="${escapeHtml(x.name)}">`).join('');
     });
-
     const upgrades = buildItemsCache.filter(x => x.type === 'upgrade' && x.is_active !== false);
     const sails = upgrades.filter(x => (x.subgroup || '').toLowerCase() === 'sails');
     const others = upgrades.filter(x => (x.subgroup || '').toLowerCase() !== 'sails');
-
     const uL = document.getElementById('upgradesList');
     if (uL) uL.innerHTML = others.map(x => `<option value="${escapeHtml(x.name)}">`).join('');
     const sL = document.getElementById('sailsList');
     if (sL) sL.innerHTML = sails.map(x => `<option value="${escapeHtml(x.name)}">`).join('');
 }
-
 function renderCatalogAdmin() {
-    const container = $('catalogTree');
-    if (!container) return;
+    const container = $('catalogTree'); if (!container) return;
     container.innerHTML = '';
     if (!buildItemsCache.length) {
         container.innerHTML = '<div class="empty">Каталог пуст. Добавь первый элемент сверху.</div>';
@@ -3154,7 +3591,7 @@ function renderCatalogAdmin() {
             const sgDet = document.createElement('details');
             sgDet.className = 'catalog-node sub';
             sgDet.innerHTML = `<summary class="catalog-summary">
-                📁 ${sg}
+                📁 ${subgroupLabel(type, sg)}
                 <span class="catalog-count">${bySub[sg].length}</span>
             </summary>`;
             const sgBody = document.createElement('div');
@@ -3168,12 +3605,10 @@ function renderCatalogAdmin() {
         container.appendChild(typeDet);
     });
 }
-
 function buildCatalogItem(item) {
     const isSpec = item.type === 'specialist';
     const skills = specialistSkillsCache[item.id] || [];
     const skillsHtml = skills.map(sk => skillRowHtml(sk)).join('');
-
     const d = document.createElement('details');
     d.className = 'catalog-node item';
     d.innerHTML = `
@@ -3211,7 +3646,6 @@ function buildCatalogItem(item) {
                 <button data-act="del" class="danger">🗑 Удалить</button>
             </div>
         </div>`;
-
     d.querySelector('[data-act="save"]').onclick = async (e) => {
         e.preventDefault();
         const body = d.querySelector('.catalog-body');
@@ -3225,7 +3659,6 @@ function buildCatalogItem(item) {
         });
         const { error } = await supabase.from('build_items').update(payload).eq('id', item.id);
         if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
-
         if (isSpec) {
             for (const row of body.querySelectorAll('[data-skill-id]')) {
                 const id = Number(row.dataset.skillId);
@@ -3240,7 +3673,6 @@ function buildCatalogItem(item) {
         setTimeout(() => { msg.textContent = ''; }, 1500);
         fillBuildDatalists();
     };
-
     d.querySelector('[data-act="del"]').onclick = async (e) => {
         e.preventDefault();
         if (!confirm(`Удалить «${item.name}»?`)) return;
@@ -3252,7 +3684,6 @@ function buildCatalogItem(item) {
         d.remove();
         fillBuildDatalists();
     };
-
     if (isSpec) {
         const addBtn = d.querySelector('[data-act="add-skill"]');
         if (addBtn) addBtn.onclick = async (e) => {
@@ -3275,7 +3706,6 @@ function buildCatalogItem(item) {
     }
     return d;
 }
-
 function skillRowHtml(sk) {
     return `
         <div class="skill-row" data-skill-id="${sk.id}">
@@ -3284,7 +3714,6 @@ function skillRowHtml(sk) {
             <button type="button" data-skill-act="del" title="Удалить">✕</button>
         </div>`;
 }
-
 function bindCatalogSkillRow(row, specId) {
     const btn = row.querySelector('[data-skill-act="del"]');
     if (!btn) return;
@@ -3298,7 +3727,6 @@ function bindCatalogSkillRow(row, specId) {
         row.remove();
     };
 }
-
 on('biAddBtn', 'click', async () => {
     const msg = $('biMsg');
     const payload = {
@@ -3321,6 +3749,39 @@ on('biAddBtn', 'click', async () => {
     fillBuildDatalists();
 });
 
+/* ============ ИМПОРТ ФАЙЛОВ ============ */
+function setupImportHandler(btnId, fileId, statusId, parserFn, importFn) {
+    on(btnId, 'click', () => { const f = $(fileId); if (f) { f.value = ''; f.click(); } });
+    on(fileId, 'change', async e => {
+        const file = e.target.files[0]; if (!file) return;
+        const statusEl = $(statusId);
+        if (statusEl) { statusEl.textContent = '⏳ Чтение…'; statusEl.style.color = '#7db9ff'; }
+        try {
+            const text = await file.text();
+            const { items, errors } = parserFn(text);
+            if (!items.length) {
+                if (statusEl) { statusEl.textContent = '⚠️ Не найдено ни одной строки'; statusEl.style.color = '#ff7a7a'; }
+                return;
+            }
+            if (errors.length && !confirm(`Найдено ${errors.length} ошибок:\n${errors.slice(0, 5).join('\n')}${errors.length > 5 ? '\n...' : ''}\n\nИмпортировать остальные ${items.length} записей?`)) return;
+            const { ok, fail } = await importFn(items);
+            if (statusEl) {
+                statusEl.textContent = `✔ Загружено ${ok}${fail ? `, ошибок ${fail}` : ''}`;
+                statusEl.style.color = fail ? '#ffd479' : '#6ee7a7';
+            }
+            await loadBuildItems();
+            renderCatalogAdmin();
+            await logAdminAction('Импорт из файла', file.name, `успешно: ${ok}, ошибок: ${fail}`);
+        } catch (err) {
+            if (statusEl) { statusEl.textContent = '❌ Ошибка: ' + err.message; statusEl.style.color = '#ff7a7a'; }
+        }
+    });
+}
+setupImportHandler('biImportSpecsBtn', 'biImportSpecsFile', 'biImportSpecsStatus', parseSpecialistsFile, importSpecialists);
+setupImportHandler('biImportWeaponsBtn', 'biImportWeaponsFile', 'biImportWeaponsStatus', parseWeaponsFile, importWeapons);
+setupImportHandler('biImportUpgradesBtn', 'biImportUpgradesFile', 'biImportUpgradesStatus', parseUpgradesFile, importUpgrades);
+setupImportHandler('biImportShellsBtn', 'biImportShellsFile', 'biImportShellsStatus', parseShellsFile, importShells);
+
 /* ============================================================
    РЕСУРСЫ — ТАБЛИЦА
    ============================================================ */
@@ -3331,7 +3792,6 @@ const PRICING_GROUPS = [
     { id: 'valuable',  name: '💎 Ценности',      cls: 'pricing-group-valuable' },
     { id: 'other',     name: '📦 Прочее',        cls: 'pricing-group-other' }
 ];
-
 async function loadResourcePrices() {
     const { data, error } = await supabase
         .from('resource_prices')
@@ -3375,7 +3835,6 @@ function renderPricingGrid() {
         title.className = 'pricing-group-title';
         title.innerHTML = `${g.name} <span class="count">· ${items.length}</span>`;
         section.appendChild(title);
-
         const wrap = document.createElement('div');
         wrap.className = 'pricing-table-wrap';
         const table = document.createElement('table');
@@ -3423,7 +3882,6 @@ function renderPricingGrid() {
         section.appendChild(wrap);
         container.appendChild(section);
     });
-
     container.querySelectorAll('.pricing-card-input').forEach(inp => {
         inp.addEventListener('input', e => {
             const id = e.target.dataset.id;
@@ -3959,7 +4417,7 @@ on('disc-add', 'click', async () => {
 });
 
 /* ============================================================
-   КАРТА
+   КАРТА МИРА
    ============================================================ */
 async function loadMapSettings() {
     const { data, error } = await supabase.from('map_settings').select('*').eq('id', 'main').maybeSingle();
@@ -4148,9 +4606,7 @@ on('map-save', 'click', async () => {
     await loadMapSettings();
 });
 
-/* ============================================================
-   ФРАКЦИИ / ПОРТЫ / РАНГИ
-   ============================================================ */
+/* ============ ФРАКЦИИ / ПОРТЫ / РАНГИ ============ */
 async function loadFactions() {
     const { data, error } = await supabase.from('factions').select('*').order('sort_order');
     if (error) { factionsCache = []; return; }
@@ -4340,7 +4796,7 @@ on('port-add', 'click', async () => {
 });
 on('ranks-reload', 'click', loadRanks);
 
-/* ============ АДМИН: СОЮЗЫ / НАСТРОЙКИ / СТАТИСТИКА ============ */
+/* ============ СОЮЗЫ АДМИН ============ */
 on('allyAddBtn', 'click', async () => {
     const id = val('allyId').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
     const name = val('allyName').trim();
@@ -4374,9 +4830,7 @@ on('saveAllyEdit', 'click', async () => {
     const type = val('allyEditType') || 'full';
     const msg = $('allyEditMsg');
     if (!name) { msg.textContent = 'Укажи название'; msg.style.color = '#ff7a7a'; return; }
-    const { error } = await supabase.from('alliances')
-        .update({ name, description: desc || null, type })
-        .eq('id', editingAlliance.id);
+    const { error } = await supabase.from('alliances').update({ name, description: desc || null, type }).eq('id', editingAlliance.id);
     if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
     $('allyEditModal').hidden = true; editingAlliance = null;
     await loadAlliances();
@@ -4386,6 +4840,8 @@ async function deleteAlliance(id, name) {
     await supabase.from('alliances').delete().eq('id', id);
     await loadAlliances(); await loadClans();
 }
+
+/* ============ НАСТРОЙКИ / СТАТИСТИКА ============ */
 async function loadSettings() {
     const { data, error } = await supabase.from('site_settings').select('*').eq('id', 'main').single();
     if (error) return;
@@ -4941,6 +5397,8 @@ function setChatMode(mode) {
     if (privTab) { if (chatPrivateWith) { privTab.hidden = false; privTab.textContent = '✉️ ' + chatPrivateWith; } else privTab.hidden = true; }
     const leadersTab = $('chatLeadersTab');
     if (leadersTab) leadersTab.hidden = !isClanLeader();
+    const admiralsTab = $('chatAdmiralsTab');
+    if (admiralsTab) admiralsTab.hidden = !isClanAdmiral() && !isClanLeader();
     const voiceTab = $('chatVoiceTab'); if (voiceTab) voiceTab.hidden = false;
     const clearBtn = $('chatClear'); if (clearBtn) clearBtn.hidden = (!isAdmin && !canEditClan(currentClan)) || mode === 'voice';
     const inputRow = $('chatInputRow'), voiceBox = $('chatVoiceContainer'), msgBox = $('chatMessages');
@@ -4960,6 +5418,7 @@ function setChatMode(mode) {
         if (mode === 'private' && chatPrivateWith) input.placeholder = `Личное для ${chatPrivateWith}...`;
         else if (mode === 'general') input.placeholder = 'Общий чат...';
         else if (mode === 'leaders') input.placeholder = 'Чат глав гильдий...';
+        else if (mode === 'admirals') input.placeholder = 'Чат адмиралов гильдии...';
         else input.placeholder = 'Чат гильдии...';
     }
     loadChatMessages(); initChatRealtime();
@@ -4968,6 +5427,7 @@ let jitsiApi = null, jitsiLoading = false;
 function buildVoiceRoomName() {
     if (voiceRoomOverride) return voiceRoomOverride;
     if (chatMode === 'leaders') return 'wosb_leaders_hall';
+    if (chatMode === 'admirals') return 'wosb_admirals_' + String(currentClan || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
     if (!currentClan) return 'wosb_common_hall';
     return 'wosb_guild_' + String(currentClan).replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
 }
@@ -5009,12 +5469,14 @@ async function loadChatMessages() {
     if (chatMode === 'guild' && !currentClan) { container.innerHTML = '<p class="empty" style="text-align:center;padding:20px;">🏰 Зайдите в гильдию.</p>'; chatMessages = []; return; }
     if (chatMode === 'private' && !chatPrivateWith) { container.innerHTML = '<p class="empty" style="text-align:center;padding:20px;">Выберите получателя.</p>'; chatMessages = []; return; }
     if (chatMode === 'leaders' && !isClanLeader()) { container.innerHTML = '<p class="empty" style="text-align:center;padding:20px;">🎖 Только для глав гильдий.</p>'; chatMessages = []; return; }
+    if (chatMode === 'admirals' && !isClanAdmiral() && !isClanLeader()) { container.innerHTML = '<p class="empty" style="text-align:center;padding:20px;">⚓ Только для адмиралов.</p>'; chatMessages = []; return; }
     container.innerHTML = '<p class="empty" style="text-align:center;">Загрузка…</p>';
     const myNick = getViewerNick();
     let query = supabase.from('chat_messages').select('*');
     if (chatMode === 'guild') query = query.eq('clan_id', currentClan).is('recipient', null);
     else if (chatMode === 'general') query = query.is('clan_id', null).is('recipient', null);
     else if (chatMode === 'leaders') query = query.eq('clan_id', LEADERS_ROOM).is('recipient', null);
+    else if (chatMode === 'admirals') query = query.eq('clan_id', ADMIRALS_ROOM).is('recipient', null);
     else if (chatMode === 'private') {
         const other = chatPrivateWith, me = myNick || '__no_nick__';
         query = query.or(`and(nickname.eq.${me},recipient.eq.${other}),and(nickname.eq.${other},recipient.eq.${me})`);
@@ -5053,6 +5515,7 @@ async function sendChatMessage() {
     if (chatMode === 'guild' && !currentClan) { alert('Зайдите в гильдию.'); return; }
     if (chatMode === 'private' && !chatPrivateWith) { alert('Выберите получателя'); return; }
     if (chatMode === 'leaders' && !isClanLeader()) { alert('Только для глав гильдий'); return; }
+    if (chatMode === 'admirals' && !isClanAdmiral() && !isClanLeader()) { alert('Только для адмиралов'); return; }
     let nick = getViewerNick();
     if (!nick) {
         nick = prompt('Введите ваш ник для чата:');
@@ -5064,6 +5527,7 @@ async function sendChatMessage() {
     if (chatMode === 'guild') payload.clan_id = currentClan;
     else if (chatMode === 'general') { payload.clan_id = null; payload.recipient = null; }
     else if (chatMode === 'leaders') { payload.clan_id = LEADERS_ROOM; payload.recipient = null; }
+    else if (chatMode === 'admirals') { payload.clan_id = ADMIRALS_ROOM; payload.recipient = null; }
     else if (chatMode === 'private') { payload.clan_id = null; payload.recipient = chatPrivateWith; }
     $('chatSend').disabled = true;
     const { error } = await supabase.from('chat_messages').insert(payload);
@@ -5077,6 +5541,7 @@ async function clearChat() {
     if (chatMode === 'general') label = 'ОБЩИЙ чат';
     else if (chatMode === 'private') label = `личные с «${chatPrivateWith}»`;
     else if (chatMode === 'leaders') label = 'чат глав гильдий';
+    else if (chatMode === 'admirals') label = 'чат адмиралов';
     else label = `чат гильдии «${clansCache[currentClan]?.name || currentClan}»`;
     if (!confirm(`Очистить ${label}?`)) return;
     let query = supabase.from('chat_messages').delete();
@@ -5084,6 +5549,7 @@ async function clearChat() {
     if (chatMode === 'guild') query = query.eq('clan_id', currentClan).is('recipient', null);
     else if (chatMode === 'general') query = query.is('clan_id', null).is('recipient', null);
     else if (chatMode === 'leaders') query = query.eq('clan_id', LEADERS_ROOM).is('recipient', null);
+    else if (chatMode === 'admirals') query = query.eq('clan_id', ADMIRALS_ROOM).is('recipient', null);
     else if (chatMode === 'private') {
         const other = chatPrivateWith;
         query = query.or(`and(nickname.eq.${myNick},recipient.eq.${other}),and(nickname.eq.${other},recipient.eq.${myNick})`);
@@ -5099,6 +5565,7 @@ function openChat(mode, opts = {}) {
     else if (mode === 'private' && chatPrivateWith) setChatMode('private');
     else if (mode === 'general') setChatMode('general');
     else if (mode === 'leaders') setChatMode('leaders');
+    else if (mode === 'admirals') setChatMode('admirals');
     else if (mode === 'guild') setChatMode('guild');
     else setChatMode(currentClan ? 'guild' : 'general');
 }
@@ -5107,6 +5574,7 @@ function openPrivateChat(nickname) {
     chatPrivateWith = nickname; openChat('private');
     if (!$('screen-admin').hidden) showScreen('home');
     const lp = $('screen-leader'); if (lp && !lp.hidden) lp.hidden = true;
+    const ap = $('screen-admiral'); if (ap && !ap.hidden) ap.hidden = true;
 }
 function closeChat() {
     $('chatPanel').hidden = true;
@@ -5133,6 +5601,7 @@ function initChatRealtime() {
             if (chatMode === 'guild') { if (m.clan_id !== currentClan || m.recipient) return; }
             else if (chatMode === 'general') { if (m.clan_id !== null || m.recipient) return; }
             else if (chatMode === 'leaders') { if (m.clan_id !== LEADERS_ROOM || m.recipient) return; }
+            else if (chatMode === 'admirals') { if (m.clan_id !== ADMIRALS_ROOM || m.recipient) return; }
             else if (chatMode === 'private') {
                 if (!chatPrivateWith) return;
                 const other = chatPrivateWith;
@@ -5147,7 +5616,7 @@ function initChatRealtime() {
         }).subscribe();
 }
 
-/* ============ REALTIME / НОВОСТИ / ПАНЕЛЬ ГЛАВЫ ============ */
+/* ============ REALTIME ============ */
 function initRealtime() {
     closeRealtime();
     if (!currentClan) return;
@@ -5169,6 +5638,8 @@ function closeRealtime() {
     if (onlineChannel) { supabase.removeChannel(onlineChannel); onlineChannel = null; }
     if (notifChannel) { supabase.removeChannel(notifChannel); notifChannel = null; }
 }
+
+/* ============ НОВОСТИ ============ */
 function openVkNewsModal() {
     const modal = $('vkNewsModal'); if (!modal) return;
     modal.classList.remove('vk-news-fullscreen');
@@ -5264,27 +5735,105 @@ on('closeVkNews', 'click', closeVkNewsModal);
 on('vkNewsModal', 'click', e => { if (e.target.id === 'vkNewsModal') closeVkNewsModal(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { const m = $('vkNewsModal'); if (m && !m.hidden) closeVkNewsModal(); } });
 
-/* ============ ПАНЕЛЬ ГЛАВЫ КЛАНА ============ */
+/* ============ ПАНЕЛЬ ГЛАВЫ ============ */
 function updateLeaderButtonsVisibility() {
-    const show = isClanLeader();
+    const leader = isClanLeader();
+    const admiral = isClanAdmiral();
     ['leaderPanelBtn', 'leaderPanelBtn2', 'leaderPanelBtn3'].forEach(id => {
-        const btn = $(id); if (btn) btn.hidden = !show;
+        const btn = $(id); if (btn) btn.hidden = !leader && !admiral;
+    });
+    ['admiralPanelBtn', 'admiralPanelBtn2', 'admiralPanelBtn3'].forEach(id => {
+        const btn = $(id); if (btn) btn.hidden = !admiral || leader;
     });
     const chatLeadersTab = $('chatLeadersTab');
-    if (chatLeadersTab) chatLeadersTab.hidden = !show;
+    if (chatLeadersTab) chatLeadersTab.hidden = !leader;
+    const chatAdmiralsTab = $('chatAdmiralsTab');
+    if (chatAdmiralsTab) chatAdmiralsTab.hidden = !admiral && !leader;
 }
 function openLeaderPanel() {
     const clanId = getLeaderClanId();
     if (!clanId) { alert('У вас нет привязанной гильдии.'); return; }
     const nameEl = $('leaderClanName');
     if (nameEl) nameEl.textContent = clansCache[clanId]?.name || clanId;
+    const clan = clansCache[clanId] || {};
+    const cp = $('leaderCurrentClanPass'); if (cp) cp.value = clan.password || '—';
+    const cap = $('leaderCurrentAdminPass'); if (cap) cap.value = clan.admin_password || '—';
     showScreen('leader');
     renderLeaderEvents(clanId);
     renderLeaderAlliances(clanId);
+    renderLeaderOnline();
 }
 function closeLeaderPanel() { showScreen('home'); }
 on('leaderBackBtn', 'click', closeLeaderPanel);
 ['leaderPanelBtn', 'leaderPanelBtn2', 'leaderPanelBtn3'].forEach(id => on(id, 'click', openLeaderPanel));
+
+async function renderLeaderOnline() {
+    const container = $('leaderOnlineList'); if (!container) return;
+    container.innerHTML = '<div class="empty">Загрузка…</div>';
+    const threshold = new Date(Date.now() - ONLINE_WINDOW_MS).toISOString();
+    const { data, error } = await supabase.from('online_users').select('*')
+        .gte('last_seen', threshold).order('last_seen', { ascending: false });
+    if (error) { container.innerHTML = `<div class="empty">Ошибка: ${error.message}</div>`; return; }
+    if (!data?.length) { container.innerHTML = '<div class="empty">Сейчас никого нет</div>'; return; }
+    const me = getViewerNick().toLowerCase();
+    container.innerHTML = '';
+    data.forEach(u => {
+        const nick = u.nickname || '—';
+        const isGuest = nick.startsWith('guest_');
+        const isMe = nick.toLowerCase() === me;
+        const el = document.createElement('div');
+        el.className = 'online-item' + (isGuest ? ' guest' : '') + (isMe ? ' me' : '');
+        el.innerHTML = `
+            <div class="online-icon">${isGuest ? '👤' : isMe ? '⭐' : '🟢'}</div>
+            <div class="online-info">
+                <div class="online-nick">${escapeHtml(nick)}${isMe ? ' <span class="online-me">— вы</span>' : ''}</div>
+                <div class="online-meta">был в сети ${new Date(u.last_seen).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</div>
+            </div>
+            <div class="online-actions">
+                ${!isGuest && !isMe ? `<button class="online-msg-btn" data-nick="${escapeHtml(nick)}">✉️ Написать</button>` : ''}
+            </div>`;
+        const btn = el.querySelector('.online-msg-btn');
+        if (btn) btn.addEventListener('click', () => openPrivateChat(btn.dataset.nick));
+        container.appendChild(el);
+    });
+}
+on('leaderOnlineRefresh', 'click', renderLeaderOnline);
+
+on('leaderChangePassBtn', 'click', async () => {
+    const clanId = getLeaderClanId();
+    if (!clanId) { alert('Нет привязки к гильдии'); return; }
+    if (!isClanLeader() && !isClanAdmiral()) { alert('Только для главы или адмирала'); return; }
+    const newPass = val('leaderNewClanPass').trim();
+    const newAdminPass = val('leaderNewAdminPass').trim();
+    const statusEl = $('leaderPassStatus');
+    statusEl.textContent = ''; statusEl.style.color = '';
+    if (!newPass && !newAdminPass) { statusEl.textContent = 'Заполните хотя бы одно поле'; statusEl.style.color = '#ff7a7a'; return; }
+    if (newPass && newPass.length < 2) { statusEl.textContent = 'Пароль минимум 2 символа'; statusEl.style.color = '#ff7a7a'; return; }
+    if (newAdminPass && newAdminPass.length < 2) { statusEl.textContent = 'Админ-пароль минимум 2 символа'; statusEl.style.color = '#ff7a7a'; return; }
+    if (!confirm('Сменить пароли гильдии? Всем потребуется заново ввести пароль.')) return;
+
+    const payload = {};
+    if (newPass) payload.password = newPass;
+    if (newAdminPass) payload.admin_password = newAdminPass;
+
+    if (isAdmin && !isMod) {
+        const { error } = await supabase.from('clans').update(payload).eq('id', clanId);
+        if (error) { statusEl.textContent = 'Ошибка: ' + error.message; statusEl.style.color = '#ff7a7a'; return; }
+    } else {
+        const { data: resp, error } = await supabase.rpc('clan_admin_action', {
+            action: 'update', target_table: 'clans', target_clan: clanId,
+            entered_password: currentClanPass, record_id: clanId, data: payload
+        });
+        if (error || resp?.error) { statusEl.textContent = 'Ошибка: ' + (resp?.error || error.message); statusEl.style.color = '#ff7a7a'; return; }
+    }
+    Object.assign(clansCache[clanId], payload);
+    const cp = $('leaderCurrentClanPass'); if (cp) cp.value = clansCache[clanId].password || '—';
+    const cap = $('leaderCurrentAdminPass'); if (cap) cap.value = clansCache[clanId].admin_password || '—';
+    ['leaderNewClanPass','leaderNewAdminPass'].forEach(id => { const el = $(id); if (el) el.value = ''; });
+    statusEl.textContent = '✔ Пароли обновлены'; statusEl.style.color = '#6ee7a7';
+    await logAdminAction('Сменил пароль гильдии', clansCache[clanId]?.name || clanId);
+});
+
 async function renderLeaderEvents(clanId) {
     const container = $('leaderEventsList'); if (!container) return;
     container.innerHTML = '<div class="empty">Загрузка…</div>';
@@ -5294,6 +5843,13 @@ async function renderLeaderEvents(clanId) {
     if (e2) console.warn('clan_events load error:', e2.message);
     const acceptedIds = new Set((accepted || []).map(x => x.event_id));
     if (!shared?.length) { container.innerHTML = '<div class="empty">Общих событий пока нет</div>'; return; }
+
+    let markersByEvent = {};
+    if (shared.length) {
+        const { data: mk } = await supabase.from('event_markers').select('*').in('event_id', shared.map(e => e.id)).order('sort_order');
+        (mk || []).forEach(m => { (markersByEvent[m.event_id] ||= []).push(m); });
+    }
+
     const mNames = ['ЯНВ','ФЕВ','МАР','АПР','МАЯ','ИЮН','ИЮЛ','АВГ','СЕН','ОКТ','НОЯ','ДЕК'];
     container.innerHTML = '';
     shared.forEach(ev => {
@@ -5305,9 +5861,10 @@ async function renderLeaderEvents(clanId) {
         const mapHtml = ev.map_image ? `
             <div class="event-map">
                 <img src="${escapeHtml(ev.map_image)}" alt="">
-                ${ev.marker_x != null && ev.marker_y != null
-                    ? `<div class="event-map-marker" style="left:${ev.marker_x}%;top:${ev.marker_y}%;">📍</div>`
-                    : ''}
+                ${(markersByEvent[ev.id] || []).map(m => `
+                    <div class="event-map-marker" style="left:${m.x}%;top:${m.y}%;" title="${escapeHtml(m.title || '')}">
+                        📍${m.title ? `<span class="event-map-marker-label">${escapeHtml(m.title)}</span>` : ''}
+                    </div>`).join('')}
                 <div class="event-map-hint">🔍 Открыть карту</div>
             </div>` : '';
         card.innerHTML = `
@@ -5330,7 +5887,7 @@ async function renderLeaderEvents(clanId) {
             </div>`;
         if (ev.map_image) {
             card.querySelector('.event-map').addEventListener('click', () => {
-                openEventMapFullscreen(ev.map_image, ev.marker_x, ev.marker_y, ev.title);
+                openEventMapFullscreen(ev.map_image, markersByEvent[ev.id] || [], ev.title);
             });
         }
         card.querySelector('[data-action]').addEventListener('click', async () => {
@@ -5465,6 +6022,149 @@ on('leaderOpenChatTop', 'click', () => openChat('leaders'));
 on('leaderOpenVoiceBtn', 'click', () => openChat('voice', { room: 'wosb_leaders_hall' }));
 on('leaderOpenVoiceTop', 'click', () => openChat('voice', { room: 'wosb_leaders_hall' }));
 
+/* ============ ПАНЕЛЬ АДМИРАЛА ============ */
+function openAdmiralPanel() {
+    const clanId = getLeaderClanId();
+    if (!clanId) { alert('У вас нет привязанной гильдии.'); return; }
+    if (!isClanAdmiral() && !isClanLeader()) { alert('Только для адмиралов и главы.'); return; }
+    const nameEl = $('admiralClanName');
+    if (nameEl) nameEl.textContent = clansCache[clanId]?.name || clanId;
+    const meEl = $('admiralMeName');
+    if (meEl) meEl.textContent = getViewerNick() || '—';
+    showScreen('admiral');
+    renderAdmiralOnline();
+    renderAdmiralMembers();
+    renderAdmiralApplications();
+    renderAdmiralAllianceRequests();
+    renderAdmiralLog();
+    logAdmiralAction('Открыл адмиральскую панель');
+}
+function closeAdmiralPanel() { showScreen('home'); }
+on('admiralBackBtn', 'click', closeAdmiralPanel);
+['admiralPanelBtn', 'admiralPanelBtn2', 'admiralPanelBtn3'].forEach(id => on(id, 'click', openAdmiralPanel));
+
+async function renderAdmiralOnline() {
+    const container = $('admiralOnlineList'); if (!container) return;
+    container.innerHTML = '<div class="empty">Загрузка…</div>';
+    const threshold = new Date(Date.now() - ONLINE_WINDOW_MS).toISOString();
+    const { data, error } = await supabase.from('online_users').select('*')
+        .gte('last_seen', threshold).order('last_seen', { ascending: false });
+    if (error) { container.innerHTML = `<div class="empty">Ошибка: ${error.message}</div>`; return; }
+    if (!data?.length) { container.innerHTML = '<div class="empty">Сейчас никого нет</div>'; return; }
+    const me = getViewerNick().toLowerCase();
+    container.innerHTML = '';
+    data.forEach(u => {
+        const nick = u.nickname || '—';
+        const isGuest = nick.startsWith('guest_');
+        const isMe = nick.toLowerCase() === me;
+        const el = document.createElement('div');
+        el.className = 'online-item' + (isGuest ? ' guest' : '') + (isMe ? ' me' : '');
+        el.innerHTML = `
+            <div class="online-icon">${isGuest ? '👤' : isMe ? '⭐' : '🟢'}</div>
+            <div class="online-info">
+                <div class="online-nick">${escapeHtml(nick)}${isMe ? ' <span class="online-me">— вы</span>' : ''}</div>
+                <div class="online-meta">был в сети ${new Date(u.last_seen).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</div>
+            </div>
+            <div class="online-actions">
+                ${!isGuest && !isMe ? `<button class="online-msg-btn" data-nick="${escapeHtml(nick)}">✉️ Написать</button>` : ''}
+            </div>`;
+        const btn = el.querySelector('.online-msg-btn');
+        if (btn) btn.addEventListener('click', () => openPrivateChat(btn.dataset.nick));
+        container.appendChild(el);
+    });
+}
+on('admiralOnlineRefresh', 'click', () => { logAdmiralAction('Обновил онлайн'); renderAdmiralOnline(); });
+
+function renderAdmiralMembers() {
+    const container = $('admiralMembersList'); if (!container) return;
+    const parsed = parseMembersList(clansCache[currentClan]?.members_list || '');
+    if (!parsed.length) { container.innerHTML = '<div class="empty">Список участников пуст</div>'; return; }
+    container.innerHTML = parsed.map(m => `
+        <div class="member-row">
+            <span class="member-num">${m.num || '•'}</span>
+            <span class="member-name">${escapeHtml(m.name)}</span>
+        </div>`).join('');
+}
+
+async function renderAdmiralApplications() {
+    const container = $('admiralApplicationsList'); if (!container) return;
+    container.innerHTML = '<div class="empty">Загрузка…</div>';
+    const { data, error } = await supabase.from('applications').select('*')
+        .eq('target_clan', currentClan).order('created_at', { ascending: false }).limit(50);
+    if (error) { container.innerHTML = `<div class="empty">Ошибка: ${error.message}</div>`; return; }
+    if (!data?.length) { container.innerHTML = '<div class="empty">Заявок нет</div>'; return; }
+    container.innerHTML = '';
+    data.forEach(app => {
+        const d = new Date(app.created_at);
+        const dateStr = d.toLocaleDateString('ru-RU') + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+        const card = document.createElement('div');
+        card.className = 'application-card ' + (app.status || 'new');
+        card.innerHTML = `
+            <div class="application-head">
+                <div class="application-nick">👤 ${escapeHtml(app.nickname)}</div>
+                <div class="application-date">${dateStr} · ${escapeHtml(app.status || 'new')}</div>
+            </div>
+            <div class="application-grid">
+                <div><b>Возраст</b>${escapeHtml(app.age || '—')}</div>
+                <div><b>Опыт</b>${escapeHtml(app.experience || '—')}</div>
+                <div><b>Контакт</b>${escapeHtml(app.contact || '—')}</div>
+            </div>
+            ${app.why ? `<div class="application-why">${escapeHtml(app.why)}</div>` : ''}
+            <div class="admiral-note">👁 Просмотр — решение принимает глава гильдии</div>`;
+        container.appendChild(card);
+    });
+}
+async function renderAdmiralAllianceRequests() {
+    const container = $('admiralAllianceList'); if (!container) return;
+    container.innerHTML = '<div class="empty">Загрузка…</div>';
+    const { data, error } = await supabase.from('alliance_requests').select('*')
+        .or(`from_clan.eq.${currentClan},to_clan.eq.${currentClan}`)
+        .order('created_at', { ascending: false }).limit(50);
+    if (error) { container.innerHTML = `<div class="empty">Ошибка: ${error.message}</div>`; return; }
+    if (!data?.length) { container.innerHTML = '<div class="empty">Заявок на союз нет</div>'; return; }
+    container.innerHTML = '';
+    data.forEach(r => {
+        const isIncoming = r.to_clan === currentClan;
+        const otherClan = isIncoming ? r.from_clan : r.to_clan;
+        const otherName = clansCache[otherClan]?.name || otherClan;
+        const card = document.createElement('div');
+        card.className = 'application-card ' + (r.status || 'pending');
+        card.innerHTML = `
+            <div class="application-head">
+                <div class="application-nick">${isIncoming ? '📥' : '📤'} 🏰 ${escapeHtml(otherName)}</div>
+                <div class="application-date">${new Date(r.created_at).toLocaleString('ru-RU')} · ${escapeHtml(r.status || 'pending')}</div>
+            </div>
+            ${r.message ? `<div class="application-why">${escapeHtml(r.message)}</div>` : ''}
+            <div class="admiral-note">👁 ${isIncoming ? 'Входящая' : 'Исходящая'} — управляет глава гильдии</div>`;
+        container.appendChild(card);
+    });
+}
+async function renderAdmiralLog() {
+    const container = $('admiralLogList'); if (!container) return;
+    container.innerHTML = '<div class="empty">Загрузка…</div>';
+    const { data, error } = await supabase.from('admiral_log').select('*')
+        .eq('clan_id', currentClan).order('created_at', { ascending: false }).limit(100);
+    if (error) { container.innerHTML = `<div class="empty">Ошибка: ${error.message}</div>`; return; }
+    if (!data?.length) { container.innerHTML = '<div class="empty">Журнал пуст</div>'; return; }
+    container.innerHTML = '';
+    data.forEach(l => {
+        const el = document.createElement('div');
+        el.className = 'admiral-log-item';
+        el.innerHTML = `
+            <div class="admiral-log-time">${new Date(l.created_at).toLocaleString('ru-RU')}</div>
+            <div class="admiral-log-body">
+                <span class="admiral-log-nick">${escapeHtml(l.admiral_nick)}</span>
+                ${escapeHtml(l.action)}${l.target ? ` → <b>${escapeHtml(l.target)}</b>` : ''}
+                ${l.details ? `<div class="admiral-log-details">${escapeHtml(l.details)}</div>` : ''}
+            </div>`;
+        container.appendChild(el);
+    });
+}
+on('admiralLogRefresh', 'click', () => { logAdmiralAction('Обновил журнал'); renderAdmiralLog(); });
+on('admiralWriteLeadersBtn', 'click', () => openChat('leaders'));
+on('admiralWriteAdmiralsBtn', 'click', () => openChat('admirals'));
+on('admiralVoiceBtn', 'click', () => openChat('voice', { room: 'wosb_admirals_' + String(currentClan || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase() }));
+
 /* ============ СТАРТ ============ */
 (async () => {
     const verEl = document.querySelector('.footer-right');
@@ -5507,6 +6207,7 @@ on('leaderOpenVoiceTop', 'click', () => openChat('voice', { room: 'wosb_leaders_
     updateFlagPreview('newClanFlag', 'newClanFlagPreview');
     updateFlagPreview('adminClanFlag', 'adminClanFlagPreview');
     onDiscountTypeChange();
+    initCollapsibleSections();
     const lastClan = localStorage.getItem(LAST_CLAN_KEY);
     if (lastClan && isUnlocked() && clansCache[lastClan]) {
         openClan(lastClan, localStorage.getItem(CLAN_ADMIN_PASS_KEY) === '1');
@@ -5524,3 +6225,4 @@ on('leaderOpenVoiceTop', 'click', () => openChat('voice', { room: 'wosb_leaders_
         }
     }, 15000);
 })();
+

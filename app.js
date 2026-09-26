@@ -1,9 +1,9 @@
 import { supabase } from './supabase.js';
 
-console.log('🚀 app.js v2.0.0');
+console.log('🚀 app.js v2.1.0');
 
 const ADMIN_EMAILS_FALLBACK = ['dead_antihrist@mail.ru'];
-const APP_VERSION = '2.0.0';
+const APP_VERSION = '2.1.0';
 
 const BINDING_OWNERS = [
     'kolibri@wosb.ru',
@@ -256,8 +256,7 @@ function recalcIsAdmin() {
     myAdminClanId = me?.clan_id || null;
 }
 async function renderSiteAdminsAdmin() {
-    const container = $('siteAdminsList');
-    if (!container) return;
+    const container = $('siteAdminsList'); if (!container) return;
     container.innerHTML = '<div class="empty">Загрузка…</div>';
     const canBind = canEditBindings();
     document.querySelectorAll('.owner-only').forEach(el => { el.hidden = !isOwner; });
@@ -280,7 +279,6 @@ async function renderSiteAdminsAdmin() {
 
     const roleLabels = { owner: '👑 Владелец', admin: '⚙️ Админ', mod: '🎖 Глава Клана' };
     const roleIcons  = { owner: '👑', admin: '⚙️', mod: '🎖' };
-
     const clanOptionsHtml = (selectedId) => {
         if (!clansList.length) return '<option value="">— Нет гильдий —</option>';
         const sorted = clansList.slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
@@ -289,7 +287,6 @@ async function renderSiteAdminsAdmin() {
                 `<option value="${escapeHtml(c.id)}" ${c.id === selectedId ? 'selected' : ''}>🏰 ${escapeHtml(c.name)}</option>`
             )).join('');
     };
-
     const list = siteAdminsCache.slice().sort((a, b) => {
         const order = { owner: 0, admin: 1, mod: 2 };
         return (order[a.role] ?? 9) - (order[b.role] ?? 9);
@@ -341,7 +338,6 @@ async function renderSiteAdminsAdmin() {
                 ${(isOwner && !isMe) ? `<button class="nick-btn" title="Сменить никнейм">✏️</button>` : ''}
                 ${(isOwner && !isMe) ? `<button class="delete" title="Удалить">🗑</button>` : ''}
             </div>`;
-
         const roleSelect = el.querySelector('.role-select');
         if (roleSelect) roleSelect.addEventListener('change', () => setAdminRole(email, roleSelect.value));
         const clanSelect = el.querySelector('.clan-select');
@@ -352,7 +348,6 @@ async function renderSiteAdminsAdmin() {
         if (nickBtn) nickBtn.addEventListener('click', () => changeAdminNickname(email, nick));
         const delBtn = el.querySelector('.delete');
         if (delBtn) delBtn.addEventListener('click', () => deleteSiteAdmin(email));
-
         container.appendChild(el);
     });
 }
@@ -638,8 +633,7 @@ on('adminClanImageFile', 'change', async (e) => {
                 $('adminClanImageName').textContent = file.name + ' (видео)';
                 const inp = $('adminClanImage'); if (inp) inp.value = '';
             };
-            reader.readAsDataURL(file);
-            return;
+            reader.readAsDataURL(file); return;
         }
         if (file.type === 'image/gif' || file.type === 'image/webp') {
             const reader = new FileReader();
@@ -650,8 +644,7 @@ on('adminClanImageFile', 'change', async (e) => {
                 $('adminClanImageName').textContent = file.name;
                 const inp = $('adminClanImage'); if (inp) inp.value = '';
             };
-            reader.readAsDataURL(file);
-            return;
+            reader.readAsDataURL(file); return;
         }
         clanLogoData = await compressLogo(file, 256, 0.9);
         $('adminClanImagePreviewImg').src = clanLogoData;
@@ -675,15 +668,12 @@ on('newClanImageFile', 'change', async (e) => {
             const reader = new FileReader();
             reader.onload = (ev) => {
                 newClanLogoData = ev.target.result;
-                if (!file.type.startsWith('video/')) {
-                    $('newClanImagePreviewImg').src = newClanLogoData;
-                }
+                if (!file.type.startsWith('video/')) $('newClanImagePreviewImg').src = newClanLogoData;
                 $('newClanImagePreview').hidden = false;
                 $('newClanImageName').textContent = file.name + (file.type.startsWith('video/') ? ' (видео)' : '');
                 const inp = $('newClanImage'); if (inp) inp.value = '';
             };
-            reader.readAsDataURL(file);
-            return;
+            reader.readAsDataURL(file); return;
         }
         newClanLogoData = await compressLogo(file, 256, 0.9);
         $('newClanImagePreviewImg').src = newClanLogoData;
@@ -715,6 +705,7 @@ document.querySelectorAll('.side-item').forEach(btn => {
         else if (section === 'pvp') renderBuilds('pvp');
         else if (section === 'pb') renderBuilds('pb');
         else if (section === 'ships') loadShips();
+        else if (section === 'builder') { if (builderClanCtrl) builderClanCtrl.refresh(); }
         else if (section === 'contacts') renderContacts();
         else if (section === 'members') { renderMembers(); renderAdmins(); }
         else if (section === 'applications') renderApplications();
@@ -749,10 +740,8 @@ on('adminBackHome', 'click', () => { currentClan = null; showScreen('home'); });
 
 /* ============ КОРАБЛИ ============ */
 async function loadShips() {
-    const { data, error } = await supabase.from('ships')
-        .select('*')
-        .order('level', { ascending: false })
-        .order('name');
+    const { data, error } = await supabase.from('ships').select('*')
+        .order('level', { ascending: false }).order('name');
     if (error) { console.warn('ships load error:', error.message); shipsCache = []; }
     else shipsCache = data || [];
     renderShipsGrid();
@@ -780,7 +769,6 @@ function renderShipsGrid() {
         case 'guns-desc': list.sort((a, b) => (b.guns || 0) - (a.guns || 0)); break;
         case 'cargo-desc': list.sort((a, b) => (b.cargo_hold || 0) - (a.cargo_hold || 0)); break;
         case 'crew-desc': list.sort((a, b) => (b.crew || 0) - (a.crew || 0)); break;
-        case 'level-desc':
         default: list.sort((a, b) => (b.level - a.level) || a.name.localeCompare(b.name));
     }
     if (!list.length) { grid.innerHTML = '<div class="empty">Корабли не найдены</div>'; return; }
@@ -811,16 +799,12 @@ on('ships-search', 'input', renderShipsGrid);
 on('ships-level-filters', 'click', e => {
     const chip = e.target.closest('.ships-chip'); if (!chip) return;
     document.querySelectorAll('#ships-level-filters .ships-chip').forEach(c => c.classList.remove('active'));
-    chip.classList.add('active');
-    shipsFilterLevel = chip.dataset.level;
-    renderShipsGrid();
+    chip.classList.add('active'); shipsFilterLevel = chip.dataset.level; renderShipsGrid();
 });
 on('ships-type-filters', 'click', e => {
     const chip = e.target.closest('.ships-chip'); if (!chip) return;
     document.querySelectorAll('#ships-type-filters .ships-chip').forEach(c => c.classList.remove('active'));
-    chip.classList.add('active');
-    shipsFilterType = chip.dataset.type;
-    renderShipsGrid();
+    chip.classList.add('active'); shipsFilterType = chip.dataset.type; renderShipsGrid();
 });
 on('ships-sort', 'change', e => { shipsSort = e.target.value; renderShipsGrid(); });
 
@@ -838,6 +822,7 @@ function fillShipSelects() {
         });
         if (cur) sel.value = cur;
     });
+    // Торговый пикер
     const tmSel = $('tm-ship-select');
     if (tmSel) {
         const cur = tmSel.value;
@@ -855,25 +840,22 @@ function fillShipSelects() {
         });
         if (cur) tmSel.value = cur;
     }
+    // Оба калькулятора
+    if (builderHomeCtrl) builderHomeCtrl.fillTargetShip();
+    if (builderClanCtrl) builderClanCtrl.fillTargetShip();
 }
 on('pvpShip', 'change', e => {
-    const opt = e.target.selectedOptions[0];
-    const img = $('pvpShipPreview');
-    if (opt && opt.dataset.image) { img.src = opt.dataset.image; img.hidden = false; }
-    else img.hidden = true;
+    const opt = e.target.selectedOptions[0]; const img = $('pvpShipPreview');
+    if (opt && opt.dataset.image) { img.src = opt.dataset.image; img.hidden = false; } else img.hidden = true;
 });
 on('pbShip', 'change', e => {
-    const opt = e.target.selectedOptions[0];
-    const img = $('pbShipPreview');
-    if (opt && opt.dataset.image) { img.src = opt.dataset.image; img.hidden = false; }
-    else img.hidden = true;
+    const opt = e.target.selectedOptions[0]; const img = $('pbShipPreview');
+    if (opt && opt.dataset.image) { img.src = opt.dataset.image; img.hidden = false; } else img.hidden = true;
 });
-
-/* Админка — список кораблей */
 function renderAdminShips() {
     const container = $('adminShipsList'); if (!container) return;
     container.innerHTML = '';
-    if (!shipsCache.length) { container.innerHTML = '<div class="empty">Корабли не загружены. Запустите parse-ships.js</div>'; return; }
+    if (!shipsCache.length) { container.innerHTML = '<div class="empty">Корабли не загружены. Запустите SQL из README.</div>'; return; }
     shipsCache.forEach(s => {
         const el = document.createElement('div');
         el.className = 'ship-admin-item';
@@ -887,6 +869,244 @@ function renderAdminShips() {
     });
 }
 on('reloadShipsBtn', 'click', loadShips);
+
+/* ============================================================
+   КАЛЬКУЛЯТОР СБОРКИ КОРАБЛЯ (фабрика для 2-х экземпляров)
+   ============================================================ */
+const BUILDER_CATEGORIES = [
+    { id: 'resource', name: 'Ресурс', icon: '🪵' },
+    { id: 'module', name: 'Модуль', icon: '⚙️' },
+    { id: 'weapon', name: 'Оружие', icon: '⚔️' },
+    { id: 'ammo', name: 'Боеприпас', icon: '💣' },
+    { id: 'blueprint', name: 'Чертёж', icon: '📜' },
+    { id: 'consum', name: 'Расходник', icon: '🧪' },
+    { id: 'other', name: 'Прочее', icon: '📦' }
+];
+
+function createShipBuilder(prefix) {
+    const ids = {
+        targetSel: prefix ? prefix + 'TargetShip2' : 'builderTargetShip',
+        targetImg: prefix ? prefix + 'TargetImg2' : 'builderTargetImg',
+        addRow: prefix ? prefix + 'AddRow2' : 'builderAddRow',
+        clear: prefix ? prefix + 'Clear2' : 'builderClear',
+        tbody: prefix ? prefix + 'Rows2' : 'builderRows',
+        cntPos: prefix ? prefix + 'CountPositions2' : 'builderCountPositions',
+        cntPrices: prefix ? prefix + 'CountPrices2' : 'builderCountPrices',
+        total: prefix ? prefix + 'Total2' : 'builderTotal',
+        recalc: prefix ? prefix + 'Recalc2' : 'builderRecalc',
+        copy: prefix ? prefix + 'Copy2' : 'builderCopy'
+    };
+
+    const state = { rows: [], counter: 0, ctx: prefix ? 'clan' : 'home' };
+
+    function fillTargetShip() {
+        const sel = $(ids.targetSel); if (!sel) return;
+        const cur = sel.value;
+        sel.innerHTML = '<option value="">— Не выбран —</option>';
+        shipsCache.slice().sort((a, b) => a.name.localeCompare(b.name)).forEach(s => {
+            const o = document.createElement('option');
+            o.value = s.name;
+            o.textContent = `${ROMAN[s.level] || s.level} · ${s.name}`;
+            o.dataset.image = s.image_url || '';
+            sel.appendChild(o);
+        });
+        if (cur) sel.value = cur;
+    }
+
+    function addRow() {
+        state.counter++;
+        state.rows.push({ id: state.counter, category: 'resource', name: '', qty: 1 });
+    }
+
+    function renderRows() {
+        const tbody = $(ids.tbody); if (!tbody) return;
+        tbody.innerHTML = '';
+        if (!state.rows.length) {
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--muted);font-style:italic;">Нет компонентов. Нажми «➕ Добавить компонент».</td></tr>`;
+            updateSummary(); return;
+        }
+        state.rows.forEach(row => {
+            const tr = document.createElement('tr');
+            const tdName = document.createElement('td');
+            tdName.innerHTML = `
+                <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                    <select class="builder-cat" data-id="${row.id}" style="flex:0 0 110px;padding:8px 8px;background:var(--input-bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;">
+                        ${BUILDER_CATEGORIES.map(c => `<option value="${c.id}" ${c.id === row.category ? 'selected' : ''}>${c.icon} ${c.name}</option>`).join('')}
+                    </select>
+                    <input type="text" class="builder-name" data-id="${row.id}" list="builderSuggestions_${state.ctx}" placeholder="Название компонента" value="${escapeHtml(row.name)}" style="flex:1;min-width:120px;">
+                </div>`;
+            const tdQty = document.createElement('td');
+            tdQty.innerHTML = `<input type="number" class="builder-qty" data-id="${row.id}" min="1" step="1" value="${row.qty}">`;
+            const tdAvg = document.createElement('td');
+            tdAvg.className = 'builder-avg-cell'; tdAvg.dataset.id = row.id;
+            tdAvg.innerHTML = `<span class="builder-avg no-data">— нет данных —</span>`;
+            const tdTotal = document.createElement('td');
+            tdTotal.className = 'builder-total-cell'; tdTotal.dataset.id = row.id;
+            tdTotal.innerHTML = `<span class="builder-row-total no-data">—</span>`;
+            const tdDel = document.createElement('td');
+            tdDel.innerHTML = `<button class="builder-del" data-id="${row.id}" title="Удалить">✕</button>`;
+            tr.appendChild(tdName); tr.appendChild(tdQty); tr.appendChild(tdAvg); tr.appendChild(tdTotal); tr.appendChild(tdDel);
+            tbody.appendChild(tr);
+        });
+
+        // Datalist с уникальными именами из активных продаж
+        let dl = document.getElementById('builderSuggestions_' + state.ctx);
+        if (!dl) {
+            dl = document.createElement('datalist');
+            dl.id = 'builderSuggestions_' + state.ctx;
+            document.body.appendChild(dl);
+        }
+        const unique = [...new Set(
+            tradesCache.filter(t => t.status !== 'done' && t.type === 'sell').map(t => t.name)
+        )].sort();
+        dl.innerHTML = unique.map(n => `<option value="${escapeHtml(n)}">`).join('');
+
+        tbody.querySelectorAll('.builder-cat').forEach(el => {
+            el.addEventListener('change', e => {
+                const r = state.rows.find(x => x.id === parseInt(e.target.dataset.id));
+                if (r) { r.category = e.target.value; recalc(); }
+            });
+        });
+        tbody.querySelectorAll('.builder-name').forEach(el => {
+            el.addEventListener('input', e => {
+                const r = state.rows.find(x => x.id === parseInt(e.target.dataset.id));
+                if (r) { r.name = e.target.value; recalc(); }
+            });
+        });
+        tbody.querySelectorAll('.builder-qty').forEach(el => {
+            el.addEventListener('input', e => {
+                const r = state.rows.find(x => x.id === parseInt(e.target.dataset.id));
+                if (r) { r.qty = Math.max(1, parseInt(e.target.value) || 1); recalc(); }
+            });
+        });
+        tbody.querySelectorAll('.builder-del').forEach(el => {
+            el.addEventListener('click', e => {
+                const id = parseInt(e.target.dataset.id);
+                state.rows = state.rows.filter(r => r.id !== id);
+                renderRows(); recalc();
+            });
+        });
+
+        recalc();
+    }
+
+    function computeAvg(name) {
+        const lower = (name || '').trim().toLowerCase();
+        if (!lower) return null;
+        const matches = tradesCache.filter(t =>
+            t.status !== 'done' &&
+            t.type === 'sell' &&
+            (t.name || '').trim().toLowerCase() === lower
+        );
+        if (!matches.length) return null;
+        let gold = 0, qty = 0;
+        matches.forEach(t => {
+            const p = Number(t.price) || 0;
+            const q = Number(t.qty) || 0;
+            gold += p * q; qty += q;
+        });
+        return qty > 0 ? gold / qty : 0;
+    }
+
+    function recalc() {
+        let found = 0, totalRows = 0, grand = 0;
+        state.rows.forEach(row => {
+            totalRows++;
+            const avgCell = document.querySelector(`#${ids.tbody} .builder-avg-cell[data-id="${row.id}"]`);
+            const totalCell = document.querySelector(`#${ids.tbody} .builder-total-cell[data-id="${row.id}"]`);
+            if (!avgCell || !totalCell) return;
+            const name = (row.name || '').trim();
+            const qty = Math.max(1, Number(row.qty) || 1);
+            if (!name) {
+                avgCell.innerHTML = `<span class="builder-avg no-data">— введите название —</span>`;
+                totalCell.innerHTML = `<span class="builder-row-total no-data">—</span>`;
+                return;
+            }
+            const avg = computeAvg(name);
+            if (avg === null) {
+                avgCell.innerHTML = `<span class="builder-avg no-data">— нет заявок —</span>`;
+                totalCell.innerHTML = `<span class="builder-row-total no-data">—</span>`;
+                return;
+            }
+            const rowTotal = avg * qty;
+            avgCell.innerHTML = `<span class="builder-avg">${avg.toLocaleString('ru-RU', { maximumFractionDigits: 1 })} 🪙</span>`;
+            totalCell.innerHTML = `<span class="builder-row-total">${Math.round(rowTotal).toLocaleString('ru-RU')} 🪙</span>`;
+            found++; grand += rowTotal;
+        });
+        const elPos = $(ids.cntPos);
+        const elPr = $(ids.cntPrices);
+        const elTt = $(ids.total);
+        if (elPos) elPos.textContent = totalRows;
+        if (elPr) elPr.textContent = `${found} / ${totalRows}`;
+        if (elTt) elTt.textContent = Math.round(grand).toLocaleString('ru-RU') + ' 🪙';
+    }
+
+    function updateSummary() { recalc(); }
+
+    function copyResult() {
+        if (!state.rows.length) { alert('Список пуст'); return; }
+        const target = $(ids.targetSel)?.value || '';
+        const lines = [`🔧 Сборка корабля${target ? ' — ' + target : ''}`, ''];
+        let grand = 0;
+        state.rows.forEach(row => {
+            const name = (row.name || '').trim(); if (!name) return;
+            const qty = Number(row.qty) || 1;
+            const avg = computeAvg(name);
+            const sum = (avg || 0) * qty;
+            grand += sum;
+            lines.push(`• ${name} × ${qty} = ${Math.round(sum).toLocaleString('ru-RU')} 🪙 (${(avg || 0).toFixed(1)} 🪙/шт)`);
+        });
+        lines.push(''); lines.push(`💰 Итого: ${Math.round(grand).toLocaleString('ru-RU')} 🪙`);
+        const text = lines.join('\n');
+        navigator.clipboard.writeText(text).then(
+            () => alert('📋 Результат скопирован!'),
+            () => prompt('Скопируйте вручную:', text)
+        );
+    }
+
+    function bind() {
+        on(ids.addRow, 'click', () => { addRow(); renderRows(); });
+        on(ids.clear, 'click', () => {
+            if (!confirm('Очистить калькулятор?')) return;
+            state.rows = []; addRow(); renderRows();
+        });
+        on(ids.recalc, 'click', async () => {
+            await renderTrades();
+            recalc();
+        });
+        on(ids.copy, 'click', copyResult);
+        on(ids.targetSel, 'change', e => {
+            const opt = e.target.selectedOptions[0]; const img = $(ids.targetImg);
+            if (!img) return;
+            if (opt && opt.dataset.image) { img.src = opt.dataset.image; img.hidden = false; }
+            else img.hidden = true;
+        });
+    }
+
+    function init() {
+        bind();
+        if (!state.rows.length) addRow();
+        fillTargetShip();
+        renderRows();
+    }
+
+    function refresh() {
+        fillTargetShip();
+        renderRows();
+    }
+
+    return { init, refresh, recalc, fillTargetShip, state };
+}
+
+let builderHomeCtrl = null;
+let builderClanCtrl = null;
+
+function initShipBuilders() {
+    builderHomeCtrl = createShipBuilder('');
+    builderHomeCtrl.init();
+    builderClanCtrl = createShipBuilder('builder');
+    builderClanCtrl.init();
+}
 
 /* ============ ТАКТИКА ============ */
 async function loadTactics() {
@@ -1041,8 +1261,6 @@ async function renderAdminOnlineList() {
     });
 }
 on('refreshOnlineList', 'click', renderAdminOnlineList);
-
-/* ============ ОНЛАЙН — ДЛЯ ГЛАВЫ КЛАНА ============ */
 async function renderClanOnlineList() {
     const container = $('clanOnlineList'); if (!container) return;
     if (!canEditClan(currentClan)) { container.innerHTML = '<div class="empty">Нет доступа</div>'; return; }
@@ -1133,8 +1351,6 @@ function handleClanClick(id) {
     if (canAccessClan(id)) { openClan(id); return; }
     openClanInfo(id, { locked: true });
 }
-
-/* ============ SCOPE ============ */
 function renderScopeSelects() {
     const clans = Object.values(clansCache);
     ['pvpScope', 'pbScope', 'buildEditScope', 'buildDupScope', 'evScope'].forEach(id => {
@@ -1150,11 +1366,8 @@ function renderScopeSelects() {
             const opt = document.createElement('option');
             opt.value = c.id; opt.textContent = '🏰 ' + c.name; sel.appendChild(opt);
         });
-        if (current && Array.from(sel.options).some(o => o.value === current)) {
-            sel.value = current;
-        } else if (currentClan && (id === 'pvpScope' || id === 'pbScope' || id === 'evScope')) {
-            sel.value = currentClan;
-        }
+        if (current && Array.from(sel.options).some(o => o.value === current)) sel.value = current;
+        else if (currentClan && (id === 'pvpScope' || id === 'pbScope' || id === 'evScope')) sel.value = currentClan;
     });
 }
 
@@ -1170,10 +1383,8 @@ function openClanInfo(id, opts = {}) {
     setText('clanInfoRules', clan.rules || 'Правила не заданы.');
     const leaderEl = $('clanInfoLeader');
     if (leaderEl) {
-        if (clan.leader_nick && clan.leader_nick.trim()) {
-            leaderEl.textContent = '👑 Глава гильдии: ' + clan.leader_nick;
-            leaderEl.hidden = false;
-        } else leaderEl.hidden = true;
+        if (clan.leader_nick && clan.leader_nick.trim()) { leaderEl.textContent = '👑 Глава гильдии: ' + clan.leader_nick; leaderEl.hidden = false; }
+        else leaderEl.hidden = true;
     }
     const logoWrap = $('clanInfoLogoWrap');
     if (logoWrap) logoWrap.innerHTML = renderClanLogoHtml(clan, 'info');
@@ -1245,10 +1456,7 @@ on('doClanLogin', 'click', async () => {
     const memberNicks = normalizeNickList(clan.members_list);
     if (memberNicks.length > 0) {
         const isKnownAdmin = isClanAdminLogin || adminNicks.includes(nick.toLowerCase());
-        if (!isKnownAdmin && !memberNicks.includes(nick.toLowerCase())) {
-            $('clanPassError').textContent = 'Вашего ника нет в списке участников';
-            return;
-        }
+        if (!isKnownAdmin && !memberNicks.includes(nick.toLowerCase())) { $('clanPassError').textContent = 'Вашего ника нет в списке участников'; return; }
     }
     localStorage.setItem(VIEWER_NICK_KEY, nick);
     localStorage.setItem(UNLOCK_KEY, '1');
@@ -1290,9 +1498,8 @@ function updateAllianceBar() {
 function openClan(id, isClanAdminLogin = false) {
     const clan = clansCache[id]; if (!clan) return;
     if (!isOwner) {
-        if (isAdmin && myAdminClanId) {
-            if (!canAccessClan(id)) { openClanInfo(id, { locked: true }); return; }
-        } else if (!isAdmin) {
+        if (isAdmin && myAdminClanId) { if (!canAccessClan(id)) { openClanInfo(id, { locked: true }); return; } }
+        else if (!isAdmin) {
             if (!isUnlocked()) { openClanInfo(id, { locked: false }); return; }
             const myClan = getMyClanId();
             if (!myClan) { openClanInfo(id, { locked: false }); return; }
@@ -1336,7 +1543,7 @@ on('clanLeaveBtn', 'click', () => {
     closeChat(); closeRealtime(); showScreen('home'); sendHeartbeat(); renderHomeCards();
 });
 
-/* ============ ВКЛАДКИ ============ */
+/* ============ ВКЛАДКИ / ПОИСК / СПИСКИ ============ */
 document.querySelectorAll('.tab').forEach(btn => {
     btn.addEventListener('click', () => {
         document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
@@ -1348,8 +1555,6 @@ document.querySelectorAll('.tab').forEach(btn => {
         applySearchFilter();
     });
 });
-
-/* ============ ПОИСК ============ */
 on('searchInput', 'input', applySearchFilter);
 function applySearchFilter() {
     const input = $('searchInput'); if (!input) return;
@@ -1359,8 +1564,6 @@ function applySearchFilter() {
         li.style.display = li.textContent.toLowerCase().includes(q) ? '' : 'none';
     });
 }
-
-/* ============ СПИСКИ ============ */
 function renderAll() { if (currentClan) TABS.forEach(loadList); }
 async function loadList(tab) {
     if (!currentClan) return;
@@ -1456,8 +1659,7 @@ function createBuildCard(item) {
     const scopeBadge = item.is_shared
         ? `<span class="build-scope shared">🌐 Общий</span>`
         : `<span class="build-scope clan">🏰 ${escapeHtml(clansCache[item.clan]?.name || item.clan || '?')}</span>`;
-    const rankBadge = (item.type === 'pb' && item.rank)
-        ? `<span class="build-rank">Ранг ${escapeHtml(item.rank)}</span>` : '';
+    const rankBadge = (item.type === 'pb' && item.rank) ? `<span class="build-rank">Ранг ${escapeHtml(item.rank)}</span>` : '';
     const canEditThis = canEditClan(item.clan) || isAdmin;
     const actions = `<div class="build-actions">
         <button class="share" title="Скопировать ссылку">🔗</button>
@@ -1777,7 +1979,7 @@ on('trAddBtn', 'click', async () => {
     renderTreasury();
 });
 
-/* ============ УЧАСТНИКИ И АДМИНЫ ГИЛЬДИИ ============ */
+/* ============ УЧАСТНИКИ / АДМИНЫ ГИЛЬДИИ ============ */
 function parseMembersList(text) {
     if (!text) return [];
     return String(text).split('\n').map(line => {
@@ -1792,18 +1994,14 @@ function renderMembers() {
     const container = $('membersList'); if (!container) return;
     const parsed = parseMembersList(clansCache[currentClan]?.members_list || '');
     if (!parsed.length) { container.innerHTML = '<div class="empty">Список участников пока пуст</div>'; return; }
-    container.innerHTML = parsed.map(m => `
-        <div class="member-row"><span class="member-num">${m.num || '•'}</span><span class="member-name">${escapeHtml(m.name)}</span></div>
-    `).join('');
+    container.innerHTML = parsed.map(m => `<div class="member-row"><span class="member-num">${m.num || '•'}</span><span class="member-name">${escapeHtml(m.name)}</span></div>`).join('');
 }
 function renderAdmins() {
     if (!currentClan) return;
     const container = $('adminsList'); if (!container) return;
     const parsed = parseMembersList(clansCache[currentClan]?.admin_nicks || '');
     if (!parsed.length) { container.innerHTML = '<div class="empty">Список адмиралов пока пуст</div>'; return; }
-    container.innerHTML = parsed.map(m => `
-        <div class="member-row admin"><span class="member-num">👑</span><span class="member-name">${escapeHtml(m.name)}</span></div>
-    `).join('');
+    container.innerHTML = parsed.map(m => `<div class="member-row admin"><span class="member-num">👑</span><span class="member-name">${escapeHtml(m.name)}</span></div>`).join('');
     const editField = $('clanAdminNicksInput');
     if (editField) editField.value = clansCache[currentClan]?.admin_nicks || '';
 }
@@ -1827,15 +2025,10 @@ async function saveClanAdminNicks() {
         renderAdmins();
         if (statusEl) { statusEl.textContent = '✔ Сохранено'; statusEl.style.color = '#6ee7a7'; }
         await logAdminAction('Обновил список адмиралов', clansCache[currentClan]?.name || currentClan);
-    } catch (err) {
-        if (statusEl) { statusEl.textContent = 'Ошибка: ' + err.message; statusEl.style.color = '#ff7a7a'; }
-    }
+    } catch (err) { if (statusEl) { statusEl.textContent = 'Ошибка: ' + err.message; statusEl.style.color = '#ff7a7a'; } }
 }
 on('clanAdminNicksSave', 'click', saveClanAdminNicks);
-on('membersUploadBtn', 'click', () => {
-    if (!canEditClan(currentClan)) return;
-    const fi = $('membersFileInput'); if (fi) { fi.value = ''; fi.click(); }
-});
+on('membersUploadBtn', 'click', () => { if (!canEditClan(currentClan)) return; const fi = $('membersFileInput'); if (fi) { fi.value = ''; fi.click(); } });
 on('membersFileInput', 'change', async (e) => {
     const file = e.target.files[0]; if (!file) return;
     if (!canEditClan(currentClan)) { alert('Нет прав'); return; }
@@ -1867,10 +2060,7 @@ on('membersFileInput', 'change', async (e) => {
 function renderClanRequestGameSelect() {
     const sel = $('crGameId'); if (!sel) return;
     sel.innerHTML = '';
-    Object.values(gamesCache).forEach(g => {
-        const o = document.createElement('option');
-        o.value = g.id; o.textContent = g.name; sel.appendChild(o);
-    });
+    Object.values(gamesCache).forEach(g => { const o = document.createElement('option'); o.value = g.id; o.textContent = g.name; sel.appendChild(o); });
     if (currentGame && gamesCache[currentGame]) sel.value = currentGame;
 }
 function openClanRequestModal() {
@@ -1895,28 +2085,19 @@ on('clanRequestSubmit', 'click', async () => {
     if (!nick) { msg.textContent = 'Укажи свой игровой ник'; msg.style.color = '#ff7a7a'; return; }
     if (!password || password.length < 2) { msg.textContent = 'Пароль от 2 символов'; msg.style.color = '#ff7a7a'; return; }
     const payload = {
-        nickname: nick,
-        email: val('crEmail').trim() || null,
-        password,
+        nickname: nick, email: val('crEmail').trim() || null, password,
         admin_password: val('crAdminPassword').trim() || null,
-        clan_name: name,
-        description: val('crDesc').trim() || null,
-        rules: val('crRules').trim() || null,
-        discord: val('crDiscord').trim() || null,
-        game_id: val('crGameId') || null,
-        image: val('crImage').trim() || null,
-        flag: val('crFlag') || 'neutral',
-        leader_nick: val('crLeaderNick').trim() || null,
-        requester_nickname: nick,
-        requester_email: val('crEmail').trim() || null,
-        status: 'pending'
+        clan_name: name, description: val('crDesc').trim() || null,
+        rules: val('crRules').trim() || null, discord: val('crDiscord').trim() || null,
+        game_id: val('crGameId') || null, image: val('crImage').trim() || null,
+        flag: val('crFlag') || 'neutral', leader_nick: val('crLeaderNick').trim() || null,
+        requester_nickname: nick, requester_email: val('crEmail').trim() || null, status: 'pending'
     };
     $('clanRequestSubmit').disabled = true;
     const { error } = await supabase.from('clan_requests').insert(payload);
     $('clanRequestSubmit').disabled = false;
     if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
-    msg.textContent = '✔ Заявка отправлена! Владелец рассмотрит её.';
-    msg.style.color = '#6ee7a7';
+    msg.textContent = '✔ Заявка отправлена! Владелец рассмотрит её.'; msg.style.color = '#6ee7a7';
     setTimeout(closeClanRequestModal, 1800);
 });
 async function renderClanRequestsAdmin() {
@@ -1950,32 +2131,25 @@ async function renderClanRequestsAdmin() {
             ${r.description ? `<div class="application-why"><b>Описание:</b>\n${escapeHtml(r.description)}</div>` : ''}
             ${r.rules ? `<div class="application-why"><b>Правила:</b>\n${escapeHtml(r.rules)}</div>` : ''}
             <div class="application-actions">
-                ${r.status === 'pending' ? `
-                    <button class="approve">✅ Создать гильдию</button>
-                    <button class="reject">❌ Отклонить</button>
-                ` : ''}
+                ${r.status === 'pending' ? `<button class="approve">✅ Создать гильдию</button><button class="reject">❌ Отклонить</button>` : ''}
                 <button class="delete">🗑 Удалить заявку</button>
             </div>`;
-        const approveBtn = card.querySelector('.approve');
-        const rejectBtn = card.querySelector('.reject');
-        const deleteBtn = card.querySelector('.delete');
-        if (approveBtn) approveBtn.addEventListener('click', async () => {
+        card.querySelector('.approve')?.addEventListener('click', async () => {
             if (!confirm(`Создать гильдию «${r.clan_name}»?`)) return;
             const { data: resp, error } = await supabase.rpc('approve_clan_request', { request_id: r.id });
             if (error) return alert('Ошибка: ' + error.message);
             if (resp?.error) return alert(resp.error);
             alert('✔ Гильдия создана: ' + resp.clan_id);
-            await loadClans();
-            await renderClanRequestsAdmin();
+            await loadClans(); await renderClanRequestsAdmin();
         });
-        if (rejectBtn) rejectBtn.addEventListener('click', async () => {
+        card.querySelector('.reject')?.addEventListener('click', async () => {
             if (!confirm('Отклонить заявку?')) return;
             const { data: resp, error } = await supabase.rpc('reject_clan_request', { request_id: r.id });
             if (error) return alert('Ошибка: ' + error.message);
             if (resp?.error) return alert(resp.error);
             await renderClanRequestsAdmin();
         });
-        if (deleteBtn) deleteBtn.addEventListener('click', async () => {
+        card.querySelector('.delete')?.addEventListener('click', async () => {
             if (!confirm('Удалить заявку?')) return;
             await supabase.from('clan_requests').delete().eq('id', r.id);
             await renderClanRequestsAdmin();
@@ -2056,13 +2230,10 @@ function renderTradeCounters() {
     renderTradeMyCounter();
 }
 function renderTradeMyCounter() {
-    const el = $('tm-my-counter');
-    if (!el) return;
+    const el = $('tm-my-counter'); if (!el) return;
     const myNick = getViewerNick().toLowerCase();
     if (!myNick) { el.innerHTML = '👤 Мои: <b>0</b>'; el.classList.remove('has-active'); return; }
-    const count = tradesCache.filter(t =>
-        (t.nickname || '').toLowerCase() === myNick && t.status !== 'done'
-    ).length;
+    const count = tradesCache.filter(t => (t.nickname || '').toLowerCase() === myNick && t.status !== 'done').length;
     el.innerHTML = `👤 Мои: <b>${count}</b>`;
     el.classList.toggle('has-active', count > 0);
 }
@@ -2095,7 +2266,6 @@ function tradeVisibleListings() {
             if (aMine !== bMine) return aMine - bMine;
             return new Date(b.created_at) - new Date(a.created_at);
         }); break;
-        case 'new':
         default: list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     }
     return list;
@@ -2131,36 +2301,20 @@ function renderTradeListings() {
         else if (isAccepted) statusBadge = `<span class="tm-badge progress">⏳ В работе</span>`;
         else statusBadge = `<span class="tm-badge free">🔵 Свободна</span>`;
         let actionsHtml = '';
-        if (!isDone && !isAccepted && !isMine) {
-            actionsHtml = `<div class="tm-listing-actions"><button class="tm-accept" data-id="${t.id}">🤝 Принять</button></div>`;
-        } else if (!isDone && isAccepted && isMine) {
-            actionsHtml = `<div class="tm-listing-actions">
-                <button class="tm-confirm" data-id="${t.id}">✅ Подтвердить</button>
-                <button class="tm-cancel" data-id="${t.id}">✖ Отменить</button>
-            </div>`;
-        } else if (canEdit) {
-            actionsHtml = `<div class="tm-listing-actions">
-                <button class="tm-edit" data-id="${t.id}">✏️ Редактировать</button>
-            </div>`;
-        } else if (canRepeat) {
-            actionsHtml = `<div class="tm-listing-actions">
-                <button class="tm-repeat" data-id="${t.id}">🔁 Повторить заявку</button>
-            </div>`;
-        }
+        if (!isDone && !isAccepted && !isMine) actionsHtml = `<div class="tm-listing-actions"><button class="tm-accept" data-id="${t.id}">🤝 Принять</button></div>`;
+        else if (!isDone && isAccepted && isMine) actionsHtml = `<div class="tm-listing-actions"><button class="tm-confirm" data-id="${t.id}">✅ Подтвердить</button><button class="tm-cancel" data-id="${t.id}">✖ Отменить</button></div>`;
+        else if (canEdit) actionsHtml = `<div class="tm-listing-actions"><button class="tm-edit" data-id="${t.id}">✏️ Редактировать</button></div>`;
+        else if (canRepeat) actionsHtml = `<div class="tm-listing-actions"><button class="tm-repeat" data-id="${t.id}">🔁 Повторить заявку</button></div>`;
         let acceptedNote = '';
         if (isAccepted) acceptedNote = `<div class="tm-accepted-note">🤝 Принял: <b>${escapeHtml(t.accepted_by)}</b>${iAmAccepter ? ' — ждём подтверждения' : ''}</div>`;
         else if (isDone) acceptedNote = `<div class="tm-accepted-note">✅ Сделка завершена${t.accepted_by ? ` — с <b>${escapeHtml(t.accepted_by)}</b>` : ''}</div>`;
-
         const el = document.createElement('article');
         el.className = 'tm-listing ' + t.type + (isMine ? ' mine' : '') + (isDone ? ' done' : '');
         el.dataset.id = t.id;
         let shipThumbHtml = '';
         if (t.category === 'ship') {
             const shipObj = shipsCache.find(s => s.name.toLowerCase() === (t.name || '').toLowerCase());
-            if (shipObj?.image_url) {
-                el.classList.add('has-ship-thumb');
-                shipThumbHtml = `<img class="tm-ship-thumb" src="${escapeHtml(shipObj.image_url)}" alt="" onerror="this.style.display='none'">`;
-            }
+            if (shipObj?.image_url) { el.classList.add('has-ship-thumb'); shipThumbHtml = `<img class="tm-ship-thumb" src="${escapeHtml(shipObj.image_url)}" alt="" onerror="this.style.display='none'">`; }
         }
         el.innerHTML = `
             <div class="tm-listing-head">
@@ -2183,8 +2337,7 @@ function renderTradeListings() {
             </div>
             ${t.port ? `<div class="tm-listing-port">⚓ Порт: ${escapeHtml(t.port)}</div>` : ''}
             ${t.note ? `<div class="tm-listing-note">«${escapeHtml(t.note)}»</div>` : ''}
-            ${acceptedNote}
-            ${actionsHtml}
+            ${acceptedNote}${actionsHtml}
             <div class="tm-listing-foot">
                 <span class="author" data-nick="${escapeHtml(t.nickname)}">👤 ${escapeHtml(t.nickname)} ${ratingHtml}</span>
                 <span class="time">${tradeTimeAgo(t.created_at)}</span>
@@ -2231,19 +2384,10 @@ on('tm-ship-select', 'change', e => {
     const preview = $('tm-ship-preview');
     const img = $('tm-ship-preview-img');
     const info = $('tm-ship-preview-info');
-    if (!opt || !opt.value) {
-        if (preview) preview.hidden = true;
-        return;
-    }
+    if (!opt || !opt.value) { if (preview) preview.hidden = true; return; }
     if (preview) preview.hidden = false;
     if (img) img.src = opt.dataset.image || '';
-    if (info) {
-        info.innerHTML = `
-            <b>${escapeHtml(opt.value)}</b><br>
-            Уровень: ${ROMAN[opt.dataset.level] || opt.dataset.level || '—'} · ${escapeHtml(opt.dataset.type || '')}<br>
-            💪 Прочность: ${opt.dataset.durability || '—'} · 🔫 Орудия: ${opt.dataset.guns || '—'}
-        `;
-    }
+    if (info) info.innerHTML = `<b>${escapeHtml(opt.value)}</b><br>Уровень: ${ROMAN[opt.dataset.level] || opt.dataset.level || '—'} · ${escapeHtml(opt.dataset.type || '')}<br>💪 Прочность: ${opt.dataset.durability || '—'} · 🔫 Орудия: ${opt.dataset.guns || '—'}`;
     const nameField = $('tm-name');
     if (nameField) {
         const prevOpt = nameField.dataset.previousShip;
@@ -2257,9 +2401,7 @@ on('tm-sort', 'change', e => { tradeSort = e.target.value; renderTradeListings()
 on('tm-status-filters', 'click', e => {
     const chip = e.target.closest('.tm-chip'); if (!chip) return;
     document.querySelectorAll('#tm-status-filters .tm-chip').forEach(c => c.classList.remove('active'));
-    chip.classList.add('active');
-    tradeStatusFilter = chip.dataset.status;
-    renderTradeListings();
+    chip.classList.add('active'); tradeStatusFilter = chip.dataset.status; renderTradeListings();
 });
 on('tm-type-filters', 'click', e => {
     const chip = e.target.closest('.tm-chip'); if (!chip) return;
@@ -2363,7 +2505,7 @@ on('tm-submit', 'click', async () => {
     renderTrades();
 });
 
-/* ============ РЕДАКТИРОВАНИЕ ТОРГОВОЙ ЗАЯВКИ ============ */
+/* ============ РЕДАКТИРОВАНИЕ / ПОВТОР / ПРИНЯТИЕ СДЕЛКИ ============ */
 function openTradeEditModal(t) {
     if (!t) return;
     editingTradeId = t.id;
@@ -2378,9 +2520,7 @@ function openTradeEditModal(t) {
     $('tradeEditItemName').focus();
 }
 on('tradeEditCancel', 'click', () => { $('tradeEditModal').hidden = true; editingTradeId = null; });
-on('tradeEditModal', 'click', e => {
-    if (e.target.id === 'tradeEditModal') { $('tradeEditModal').hidden = true; editingTradeId = null; }
-});
+on('tradeEditModal', 'click', e => { if (e.target.id === 'tradeEditModal') { $('tradeEditModal').hidden = true; editingTradeId = null; } });
 on('tradeEditSave', 'click', async () => {
     if (!editingTradeId) return;
     const name = val('tradeEditItemName').trim();
@@ -2392,42 +2532,28 @@ on('tradeEditSave', 'click', async () => {
     if (!name) { err.textContent = 'Укажите название'; return; }
     if (!price || price <= 0) { err.textContent = 'Некорректная цена'; return; }
     if (!qty || qty <= 0) { err.textContent = 'Некорректное количество'; return; }
-    const { error } = await supabase.from('trades').update({
-        name, price, qty, port: port || null, note: note || null
-    }).eq('id', editingTradeId);
+    const { error } = await supabase.from('trades').update({ name, price, qty, port: port || null, note: note || null }).eq('id', editingTradeId);
     if (error) { err.textContent = 'Ошибка: ' + error.message; return; }
     await logAdminAction('Изменил торговую заявку', name);
-    $('tradeEditModal').hidden = true;
-    editingTradeId = null;
-    renderTrades();
+    $('tradeEditModal').hidden = true; editingTradeId = null; renderTrades();
 });
-
-/* ============ ПОВТОРИТЬ ТОРГОВУЮ ЗАЯВКУ ============ */
 function repeatTrade(t) {
     if (!t) return;
-    const clanSel = $('tm-clan');
-    if (clanSel && clansCache[t.clan]) clanSel.value = t.clan;
-    const catSel = $('tm-category');
-    if (catSel) catSel.value = t.category;
+    const clanSel = $('tm-clan'); if (clanSel && clansCache[t.clan]) clanSel.value = t.clan;
+    const catSel = $('tm-category'); if (catSel) catSel.value = t.category;
     tradeFormType = t.type;
-    document.querySelectorAll('.tm-type-btn').forEach(b => {
-        b.classList.toggle('active', b.dataset.type === t.type);
-    });
+    document.querySelectorAll('.tm-type-btn').forEach(b => { b.classList.toggle('active', b.dataset.type === t.type); });
     $('tm-name').value = t.name;
     $('tm-price').value = t.price;
     $('tm-qty').value = t.qty;
     $('tm-port').value = t.port || '';
     $('tm-note').value = t.note || '';
-    const nickEl = $('tm-nickname');
-    if (nickEl && !nickEl.value) nickEl.value = getViewerNick() || t.nickname;
+    const nickEl = $('tm-nickname'); if (nickEl && !nickEl.value) nickEl.value = getViewerNick() || t.nickname;
     updateTradeFormTotal();
     updateShipPickerVisibility();
-    const form = document.querySelector('.tm-panel');
-    if (form) form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const form = document.querySelector('.tm-panel'); if (form) form.scrollIntoView({ behavior: 'smooth', block: 'center' });
     setTradeStatus('🔁 Данные перенесены. Проверьте и опубликуйте.', 'success');
 }
-
-/* ============ ПРИНЯТИЕ СДЕЛКИ ============ */
 function openAcceptTradeModal(t) {
     acceptingTrade = t;
     $('acceptTradeName').textContent = t.name;
@@ -2454,7 +2580,7 @@ on('doAcceptTrade', 'click', async () => {
     if (error) { err.textContent = 'Ошибка: ' + error.message; return; }
     localStorage.setItem(VIEWER_NICK_KEY, nick);
     sendHeartbeat();
-    await createNotification(acceptingTrade.nickname, 'trade', '🤝 Вашу заявку приняли', `${nick} принял заявку «${acceptingTrade.name}». Подтвердите сделку, когда всё готово.`, null);
+    await createNotification(acceptingTrade.nickname, 'trade', '🤝 Вашу заявку приняли', `${nick} принял заявку «${acceptingTrade.name}». Подтвердите сделку.`, null);
     const tn = $('tm-nickname'); if (tn) tn.value = nick;
     closeAcceptTradeModal(); renderTrades();
     setTradeStatus('✅ Вы приняли заявку. Ждите подтверждения.', 'success');
@@ -2537,7 +2663,7 @@ on('applyBtn', 'click', async () => {
     $('applyClan').value = '';
 });
 
-/* ============ FAQ ============ */
+/* ============ FAQ / ПАРТНЁРЫ / ТАКТИКА АДМИН ============ */
 async function loadFaq() {
     const { data, error } = await supabase.from('faq').select('*').order('sort_order');
     if (error) return;
@@ -2579,11 +2705,8 @@ on('faqAddBtn', 'click', async () => {
     $('faqQ').value = ''; $('faqA').value = '';
     loadFaq();
 });
-
-/* ============ ПАРТНЁРЫ ============ */
 async function loadPartners() {
-    const { data, error } = await supabase.from('partners').select('*')
-        .order('sort_order', { ascending: true }).order('created_at', { ascending: true });
+    const { data, error } = await supabase.from('partners').select('*').order('sort_order', { ascending: true }).order('created_at', { ascending: true });
     if (error) return;
     partnersCache = data || [];
     renderPartnersHome(); renderPartnersAdmin();
@@ -2714,9 +2837,7 @@ on('partnerAddBtn', 'click', async () => {
     if (!name) { flashStatusEl(statusEl, 'Укажи название', '#ff7a7a'); return; }
     if (!url) { flashStatusEl(statusEl, 'Укажи ссылку', '#ff7a7a'); return; }
     if (!/^https?:\/\//i.test(url)) { flashStatusEl(statusEl, 'Ссылка с http(s)://', '#ff7a7a'); return; }
-    const { error } = await supabase.from('partners').insert({
-        name, url, logo_url: partnerLogoData || null, description: desc || null, sort_order: partnersCache.length
-    });
+    const { error } = await supabase.from('partners').insert({ name, url, logo_url: partnerLogoData || null, description: desc || null, sort_order: partnersCache.length });
     if (error) { flashStatusEl(statusEl, 'Ошибка: ' + error.message, '#ff7a7a'); return; }
     ['partnerName','partnerUrl','partnerDesc'].forEach(id => { const el = $(id); if (el) el.value = ''; });
     partnerLogoData = null; $('partnerLogoFile').value = '';
@@ -2724,8 +2845,6 @@ on('partnerAddBtn', 'click', async () => {
     flashStatusEl(statusEl, '✔ Добавлено', '#6ee7a7');
     await loadPartners();
 });
-
-/* ============ АДМИН: ТАКТИКА ============ */
 function renderTacticsAdmin() {
     const container = $('tacticsAdminList'); if (!container) return;
     container.innerHTML = '';
@@ -2798,7 +2917,7 @@ on('tacAddBtn', 'click', async () => {
     await loadTactics();
 });
 
-/* ============ АДМИН: СОЮЗЫ ============ */
+/* ============ АДМИН: СОЮЗЫ / НАСТРОЙКИ / СТАТИСТИКА ============ */
 on('allyAddBtn', 'click', async () => {
     const id = val('allyId').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
     const name = val('allyName').trim(), desc = val('allyDesc').trim();
@@ -2833,8 +2952,6 @@ async function deleteAlliance(id, name) {
     await supabase.from('alliances').delete().eq('id', id);
     await loadAlliances(); await loadClans();
 }
-
-/* ============ НАСТРОЙКИ / СТАТИСТИКА ============ */
 async function loadSettings() {
     const { data, error } = await supabase.from('site_settings').select('*').eq('id', 'main').single();
     if (error) return;
@@ -2873,20 +2990,20 @@ async function loadStats() {
     } catch (err) { }
 }
 
-/* ============ КОНТАКТЫ ============ */
+/* ============ КОНТАКТЫ / ИГРЫ / АДМИН ГИЛЬДИИ ============ */
 function renderContacts() {
     const container = $('contactsList'); if (!container) return;
     container.innerHTML = '';
     let clans = [];
-    if (isOwner) { clans = Object.values(clansCache); }
+    if (isOwner) clans = Object.values(clansCache);
     else if (isAdmin && myAdminClanId) {
         const my = clansCache[myAdminClanId];
         if (my) clans = Object.values(clansCache).filter(c => c.id === myAdminClanId || (my.alliance_id && c.alliance_id === my.alliance_id));
-    } else if (isAdmin) { clans = Object.values(clansCache); }
+    } else if (isAdmin) clans = Object.values(clansCache);
     else if (currentClan && clansCache[currentClan]?.alliance_id) {
         const ally = clansCache[currentClan].alliance_id;
         clans = Object.values(clansCache).filter(c => c.alliance_id === ally);
-    } else if (currentClan) { clans = [clansCache[currentClan]].filter(Boolean); }
+    } else if (currentClan) clans = [clansCache[currentClan]].filter(Boolean);
     if (!clans.length) { container.innerHTML = '<div class="empty">Гильдий пока нет</div>'; return; }
     clans.forEach(clan => {
         const card = document.createElement('div');
@@ -2911,8 +3028,6 @@ function renderContacts() {
         container.appendChild(card);
     });
 }
-
-/* ============ АДМИН: ИГРЫ ============ */
 function renderGamesAdmin() {
     const container = $('gamesAdminList'); if (!container) return;
     container.innerHTML = '';
@@ -2971,8 +3086,6 @@ async function deleteGame(id, name) {
     if (currentGame === id) { currentGame = null; localStorage.removeItem(GAME_STORAGE_KEY); }
     await loadGames(); await loadClans();
 }
-
-/* ============ АДМИН: ГИЛЬДИИ ============ */
 function renderAdminClanSelect() {
     const sel = $('adminClanSelect'); if (!sel) return;
     const cur = sel.value; sel.innerHTML = '';
@@ -3042,8 +3155,7 @@ function updateAdminFields() {
     $('adminPanelMsg').textContent = '';
 }
 on('saveAdminSettings', 'click', async () => {
-    const cid = val('adminClanSelect');
-    if (!cid) return;
+    const cid = val('adminClanSelect'); if (!cid) return;
     const clan = clansCache[cid]; if (!clan) return;
     const msg = $('adminPanelMsg');
     const newPass = val('adminNewPass').trim();
@@ -3119,7 +3231,7 @@ on('saveSiteSettings', 'click', async () => {
     msg.textContent = '✔ Сохранено'; msg.style.color = '#6ee7a7';
 });
 
-/* ============ ДОБАВЛЕНИЕ ГИЛЬДИИ ============ */
+/* ============ ДОБАВЛЕНИЕ / РЕДАКТИРОВАНИЕ ЗАПИСЕЙ ============ */
 on('openAddClan', 'click', () => {
     ['newClanId','newClanName','newClanDesc','newClanRules','newClanPass','newClanAdminPass','newClanDiscord','newClanImage','newClanBg','newClanLeaderNick','newClanPhone'].forEach(id => { const el = $(id); if (el) el.value = ''; });
     const flagEl = $('newClanFlag'); if (flagEl) flagEl.value = 'neutral';
@@ -3165,8 +3277,6 @@ on('saveNewClan', 'click', async () => {
     msg.textContent = '✔ Гильдия создана'; msg.style.color = '#6ee7a7';
     setTimeout(() => { $('addClanModal').hidden = true; }, 800);
 });
-
-/* ============ РЕДАКТИРОВАНИЕ ЗАПИСИ ============ */
 function openEditModal(tab, item) {
     editingItem = { tab, id: item.id };
     $('editPlayerGuild').value = item.player_guild || '';
@@ -3182,10 +3292,7 @@ on('saveEdit', 'click', async () => {
     const pg = val('editPlayerGuild').trim(), nick = val('editNickname').trim();
     if (!pg && !nick) { $('editError').textContent = 'Заполни Гильдию или Ник'; return; }
     const { tab, id } = editingItem;
-    const data = {
-        nickname: nick || null, player_guild: pg || null,
-        faction: val('editFaction').trim() || null, note: val('editNote').trim() || null
-    };
+    const data = { nickname: nick || null, player_guild: pg || null, faction: val('editFaction').trim() || null, note: val('editNote').trim() || null };
     if (isAdmin) {
         const { error } = await supabase.from(tab).update(data).eq('id', id);
         if (error) { $('editError').textContent = 'Ошибка: ' + error.message; return; }
@@ -3205,10 +3312,7 @@ on('addBtn', 'click', async () => {
     if (!canEditClan(currentClan)) return;
     const pg = val('playerGuild').trim(), nick = val('nickname').trim();
     if (!pg && !nick) { flashStatus('Заполни Гильдию или Ник', '#ff7a7a'); return; }
-    const data = {
-        nickname: nick || null, player_guild: pg || null,
-        faction: val('faction').trim() || null, note: val('note').trim() || null
-    };
+    const data = { nickname: nick || null, player_guild: pg || null, faction: val('faction').trim() || null, note: val('note').trim() || null };
     if (isAdmin) {
         const { error } = await supabase.from(currentTab).insert({ ...data, clan: currentClan });
         if (error) { flashStatus('Ошибка: ' + error.message, '#ff7a7a'); return; }
@@ -3276,7 +3380,7 @@ document.querySelectorAll('#moveModal [data-target]').forEach(btn => {
     });
 });
 
-/* ============ #build ============ */
+/* ============ #build / ПРОФИЛЬ / УВЕДОМЛЕНИЯ ============ */
 async function handleBuildHash() {
     const m = location.hash.match(/^#build=([a-f0-9-]+)$/i); if (!m) return;
     const { data, error } = await supabase.from('builds').select('*').eq('id', m[1]).single();
@@ -3294,8 +3398,6 @@ async function handleBuildHash() {
     }, 600);
 }
 window.addEventListener('hashchange', () => { if (location.hash.startsWith('#build=')) handleBuildHash(); });
-
-/* ============ ПРОФИЛЬ ============ */
 async function openProfile(nickname) {
     if (!nickname) return;
     $('profileNickname').textContent = nickname;
@@ -3303,7 +3405,7 @@ async function openProfile(nickname) {
     statsEl.innerHTML = '<div class="empty">Загрузка…</div>';
     $('profileModal').hidden = false;
     try {
-        const [en, fr, ne, pe, tradesBuy, tradesSell] = await Promise.all([
+        const [en, fr, ne, pe, tb, ts] = await Promise.all([
             supabase.from('enemies').select('id', { count: 'exact', head: true }).eq('nickname', nickname),
             supabase.from('friends').select('id', { count: 'exact', head: true }).eq('nickname', nickname),
             supabase.from('neutral').select('id', { count: 'exact', head: true }).eq('nickname', nickname),
@@ -3316,8 +3418,8 @@ async function openProfile(nickname) {
             { label: '🟢 В списках друзей', value: fr.count || 0 },
             { label: '⚪ В нейтралитете', value: ne.count || 0 },
             { label: '🟡 В «не трогать»', value: pe.count || 0 },
-            { label: '🛒 Заявок на покупку', value: tradesBuy.count || 0 },
-            { label: '💰 Заявок на продажу', value: tradesSell.count || 0 }
+            { label: '🛒 Заявок на покупку', value: tb.count || 0 },
+            { label: '💰 Заявок на продажу', value: ts.count || 0 }
         ];
         const { data: online } = await supabase.from('online_users').select('last_seen').eq('nickname', nickname).maybeSingle();
         let onlineLabel = '⚫ Офлайн';
@@ -3328,17 +3430,11 @@ async function openProfile(nickname) {
             else if (diff < 86400000) onlineLabel = `🔵 Был ${Math.floor(diff/3600000)} ч назад`;
         }
         stats.unshift({ label: '📡 Статус', value: onlineLabel });
-        statsEl.innerHTML = stats.map(s => `
-            <div class="profile-stat-row">
-                <span class="profile-stat-label">${s.label}</span>
-                <span class="profile-stat-value">${s.value}</span>
-            </div>`).join('');
+        statsEl.innerHTML = stats.map(s => `<div class="profile-stat-row"><span class="profile-stat-label">${s.label}</span><span class="profile-stat-value">${s.value}</span></div>`).join('');
     } catch (err) { statsEl.innerHTML = `<div class="empty">Ошибка: ${err.message}</div>`; }
 }
 on('closeProfile', 'click', () => { $('profileModal').hidden = true; });
 on('profileModal', 'click', e => { if (e.target.id === 'profileModal') $('profileModal').hidden = true; });
-
-/* ============ УВЕДОМЛЕНИЯ ============ */
 async function loadNotifications() {
     const nick = getViewerNick();
     if (!nick) { notifications = []; renderNotifications(); return; }
@@ -3565,10 +3661,7 @@ async function clearChat() {
 function openChat(mode, opts = {}) {
     const clearBtn = $('chatClear'); if (clearBtn) clearBtn.hidden = !isAdmin && !canEditClan(currentClan);
     $('chatPanel').hidden = false;
-    if (mode === 'voice') {
-        voiceRoomOverride = opts.room || null;
-        setChatMode('voice');
-    }
+    if (mode === 'voice') { voiceRoomOverride = opts.room || null; setChatMode('voice'); }
     else if (mode === 'private' && chatPrivateWith) setChatMode('private');
     else if (mode === 'general') setChatMode('general');
     else if (mode === 'leaders') setChatMode('leaders');
@@ -3620,7 +3713,7 @@ function initChatRealtime() {
         }).subscribe();
 }
 
-/* ============ REALTIME ============ */
+/* ============ REALTIME / НОВОСТИ / ПАНЕЛЬ ГЛАВЫ ============ */
 function initRealtime() {
     closeRealtime();
     if (!currentClan) return;
@@ -3642,8 +3735,6 @@ function closeRealtime() {
     if (onlineChannel) { supabase.removeChannel(onlineChannel); onlineChannel = null; }
     if (notifChannel) { supabase.removeChannel(notifChannel); notifChannel = null; }
 }
-
-/* ============ НОВОСТИ ============ */
 function openVkNewsModal() {
     const modal = $('vkNewsModal'); if (!modal) return;
     modal.classList.remove('vk-news-fullscreen');
@@ -3694,9 +3785,7 @@ async function loadNews() {
             card.innerHTML = `
                 <div class="vk-news-header"><span class="vk-news-date">📅 ${escapeHtml(date)}</span></div>
                 ${cleanDesc ? `<div class="vk-news-text">${escapeHtml(cleanDesc)}${cleanDesc.length >= 200 ? '…' : ''}</div>` : ''}
-                <div class="vk-news-footer">
-                    <span class="vk-news-link">Читать полностью →</span>
-                </div>`;
+                <div class="vk-news-footer"><span class="vk-news-link">Читать полностью →</span></div>`;
             card.addEventListener('click', () => openVkNewsFullscreen({ title, date, link, desc }));
             container.appendChild(card);
         }
@@ -3741,9 +3830,7 @@ on('closeVkNews', 'click', closeVkNewsModal);
 on('vkNewsModal', 'click', e => { if (e.target.id === 'vkNewsModal') closeVkNewsModal(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { const m = $('vkNewsModal'); if (m && !m.hidden) closeVkNewsModal(); } });
 
-/* ============================================================
-   ПАНЕЛЬ ГЛАВЫ КЛАНА
-   ============================================================ */
+/* ============ ПАНЕЛЬ ГЛАВЫ КЛАНА ============ */
 function updateLeaderButtonsVisibility() {
     const show = isClanLeader();
     ['leaderPanelBtn', 'leaderPanelBtn2', 'leaderPanelBtn3'].forEach(id => {
@@ -3754,7 +3841,7 @@ function updateLeaderButtonsVisibility() {
 }
 function openLeaderPanel() {
     const clanId = getLeaderClanId();
-    if (!clanId) { alert('У вас нет привязанной гильдии. Обратитесь к владельцу сайта.'); return; }
+    if (!clanId) { alert('У вас нет привязанной гильдии.'); return; }
     const nameEl = $('leaderClanName');
     if (nameEl) nameEl.textContent = clansCache[clanId]?.name || clanId;
     showScreen('leader');
@@ -3764,15 +3851,12 @@ function openLeaderPanel() {
 function closeLeaderPanel() { showScreen('home'); }
 on('leaderBackBtn', 'click', closeLeaderPanel);
 ['leaderPanelBtn', 'leaderPanelBtn2', 'leaderPanelBtn3'].forEach(id => on(id, 'click', openLeaderPanel));
-
 async function renderLeaderEvents(clanId) {
     const container = $('leaderEventsList'); if (!container) return;
     container.innerHTML = '<div class="empty">Загрузка…</div>';
-    const { data: shared, error: e1 } = await supabase.from('events')
-        .select('*').eq('is_shared', true).order('event_date', { ascending: true });
+    const { data: shared, error: e1 } = await supabase.from('events').select('*').eq('is_shared', true).order('event_date', { ascending: true });
     if (e1) { container.innerHTML = `<div class="empty">Ошибка: ${escapeHtml(e1.message)}</div>`; return; }
-    const { data: accepted, error: e2 } = await supabase.from('clan_events')
-        .select('event_id').eq('clan_id', clanId);
+    const { data: accepted, error: e2 } = await supabase.from('clan_events').select('event_id').eq('clan_id', clanId);
     if (e2) console.warn('clan_events load error:', e2.message);
     const acceptedIds = new Set((accepted || []).map(x => x.event_id));
     if (!shared?.length) { container.innerHTML = '<div class="empty">Общих событий пока нет</div>'; return; }
@@ -3800,13 +3884,8 @@ async function renderLeaderEvents(clanId) {
                 </button>
             </div>`;
         card.querySelector('[data-action]').addEventListener('click', async () => {
-            if (isAccepted) {
-                await supabase.from('clan_events').delete().eq('clan_id', clanId).eq('event_id', ev.id);
-            } else {
-                await supabase.from('clan_events').insert({
-                    clan_id: clanId, event_id: ev.id, accepted_by: getViewerNick() || null
-                });
-            }
+            if (isAccepted) await supabase.from('clan_events').delete().eq('clan_id', clanId).eq('event_id', ev.id);
+            else await supabase.from('clan_events').insert({ clan_id: clanId, event_id: ev.id, accepted_by: getViewerNick() || null });
             renderLeaderEvents(clanId);
         });
         container.appendChild(card);
@@ -3817,12 +3896,8 @@ async function renderLeaderAlliances(clanId) {
     const outCont = $('leaderAllianceOutgoing');
     if (incCont) incCont.innerHTML = '<div class="empty">Загрузка…</div>';
     if (outCont) outCont.innerHTML = '<div class="empty">Загрузка…</div>';
-    const { data: incoming } = await supabase.from('alliance_requests')
-        .select('*').eq('to_clan', clanId).eq('status', 'pending')
-        .order('created_at', { ascending: false });
-    const { data: outgoing } = await supabase.from('alliance_requests')
-        .select('*').eq('from_clan', clanId).eq('status', 'pending')
-        .order('created_at', { ascending: false });
+    const { data: incoming } = await supabase.from('alliance_requests').select('*').eq('to_clan', clanId).eq('status', 'pending').order('created_at', { ascending: false });
+    const { data: outgoing } = await supabase.from('alliance_requests').select('*').eq('from_clan', clanId).eq('status', 'pending').order('created_at', { ascending: false });
     if (incCont) {
         incCont.innerHTML = '';
         if (!incoming?.length) incCont.innerHTML = '<div class="empty">Входящих заявок нет</div>';
@@ -3858,9 +3933,7 @@ async function renderLeaderAlliances(clanId) {
                     <div class="application-date">${new Date(r.created_at).toLocaleString('ru-RU')}</div>
                 </div>
                 ${r.message ? `<div class="application-why">${escapeHtml(r.message)}</div>` : ''}
-                <div class="application-actions">
-                    <button class="delete">🗑 Отменить</button>
-                </div>`;
+                <div class="application-actions"><button class="delete">🗑 Отменить</button></div>`;
             card.querySelector('.delete').addEventListener('click', async () => {
                 if (!confirm('Отменить исходящую заявку?')) return;
                 await supabase.from('alliance_requests').delete().eq('id', r.id);
@@ -3888,8 +3961,7 @@ async function respondAllianceRequest(id, status, clanId) {
         }
         await supabase.from('clans').update({ alliance_id: allyId }).eq('id', req.from_clan);
         await supabase.from('clans').update({ alliance_id: allyId }).eq('id', req.to_clan);
-        await loadAlliances();
-        await loadClans();
+        await loadAlliances(); await loadClans();
     }
     await createNotification(req.from_clan, 'system',
         status === 'accepted' ? 'Союз заключён' : 'Заявка на союз отклонена',
@@ -3917,9 +3989,7 @@ on('leaderOfferAllianceBtn', 'click', () => {
     $('leaderAlliancePickerModal').hidden = false;
 });
 on('leaderAlliancePickerCancel', 'click', () => { $('leaderAlliancePickerModal').hidden = true; });
-on('leaderAlliancePickerModal', 'click', e => {
-    if (e.target.id === 'leaderAlliancePickerModal') $('leaderAlliancePickerModal').hidden = true;
-});
+on('leaderAlliancePickerModal', 'click', e => { if (e.target.id === 'leaderAlliancePickerModal') $('leaderAlliancePickerModal').hidden = true; });
 on('leaderAlliancePickerSend', 'click', async () => {
     const toClan = val('leaderAlliancePickerSelect');
     const message = val('leaderAlliancePickerMsg').trim();
@@ -3929,17 +3999,13 @@ on('leaderAlliancePickerSend', 'click', async () => {
     if (!myClanId) { err.textContent = 'Нет привязки к гильдии'; return; }
     if (!toClan) { err.textContent = 'Выберите гильдию'; return; }
     if (toClan === myClanId) { err.textContent = 'Нельзя предложить союз своей гильдии'; return; }
-    const { data: existing } = await supabase.from('alliance_requests').select('id')
-        .eq('from_clan', myClanId).eq('to_clan', toClan).eq('status', 'pending').maybeSingle();
+    const { data: existing } = await supabase.from('alliance_requests').select('id').eq('from_clan', myClanId).eq('to_clan', toClan).eq('status', 'pending').maybeSingle();
     if (existing) { err.textContent = 'Заявка уже отправлена'; return; }
     $('leaderAlliancePickerSend').disabled = true;
-    const { error } = await supabase.from('alliance_requests').insert({
-        from_clan: myClanId, to_clan: toClan, message: message || null, status: 'pending'
-    });
+    const { error } = await supabase.from('alliance_requests').insert({ from_clan: myClanId, to_clan: toClan, message: message || null, status: 'pending' });
     $('leaderAlliancePickerSend').disabled = false;
     if (error) { err.textContent = 'Ошибка: ' + error.message; return; }
-    await createNotification(toClan, 'system', 'Заявка на союз',
-        `Гильдия «${clansCache[myClanId]?.name || myClanId}» предлагает союз`, null);
+    await createNotification(toClan, 'system', 'Заявка на союз', `Гильдия «${clansCache[myClanId]?.name || myClanId}» предлагает союз`, null);
     $('leaderAlliancePickerModal').hidden = true;
     renderLeaderAlliances(myClanId);
 });
@@ -3973,6 +4039,8 @@ on('leaderOpenVoiceTop', 'click', () => openChat('voice', { room: 'wosb_leaders_
     renderTradeClanFilters();
     await renderTrades();
     await loadNotifications();
+    // Калькуляторы сборки
+    initShipBuilders();
     applyAdminUI();
     updateFlagPreview('newClanFlag', 'newClanFlagPreview');
     updateFlagPreview('adminClanFlag', 'adminClanFlagPreview');

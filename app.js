@@ -1,9 +1,9 @@
 import { supabase } from './supabase.js';
 
-console.log('🚀 app.js v2.1.1');
+console.log('🚀 app.js v2.2.0');
 
 const ADMIN_EMAILS_FALLBACK = ['dead_antihrist@mail.ru'];
-const APP_VERSION = '2.1.1';
+const APP_VERSION = '2.2.0';
 const BINDING_OWNERS = ['kolibri@wosb.ru', 'dead_antihrist@mail.ru'];
 
 const CLAN_FLAGS = {
@@ -35,6 +35,18 @@ const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
 
 const MAP_DEFAULT_DETAILED = 'images/map/detailed.jpg';
 const MAP_DEFAULT_CLEAN    = 'images/map/clean.jpg';
+
+const ALLY_TYPES = {
+    full:   { icon: '🤝', name: 'Полный',   cls: 'full'   },
+    trade:  { icon: '💰', name: 'Торговый', cls: 'trade'  },
+    battle: { icon: '⚔️', name: 'Боевой',   cls: 'battle' }
+};
+
+const CATALOG_ICONS = {
+    weapon_small: '🟢', weapon_medium: '🟡', weapon_large: '🔴',
+    module: '⚙️', ammo: '💣', blueprint: '📜',
+    consumable: '🧪', cargo: '📦', upgrade: '🔧', specialist: '👤'
+};
 
 let gamesCache = {}, clansCache = {}, alliancesCache = {};
 let settingsCache = null, faqCache = [], partnersCache = [], tacticsCache = [], tradesCache = [];
@@ -73,9 +85,12 @@ let mapDetailedData = null, mapCleanData = null;
 
 let factionsCache = [], portsCache = [], ranksCache = [];
 
-/* === КАТАЛОГ БИЛДОВ === */
 let buildItemsCache = [];
 let specialistSkillsCache = {};
+
+let evMapData = null;
+let evMapMarkerX = null;
+let evMapMarkerY = null;
 
 const $ = id => document.getElementById(id);
 function on(id, event, handler, opts) {
@@ -589,8 +604,9 @@ function renderAllianceSelects() {
         optEmpty.value = ''; optEmpty.textContent = '— Без союза —';
         sel.appendChild(optEmpty);
         Object.values(alliancesCache).forEach(a => {
+            const tp = ALLY_TYPES[a.type] || ALLY_TYPES.full;
             const o = document.createElement('option');
-            o.value = a.id; o.textContent = a.name; sel.appendChild(o);
+            o.value = a.id; o.textContent = `${tp.icon} ${a.name}`; sel.appendChild(o);
         });
         if (cur && (cur === '' || alliancesCache[cur])) sel.value = cur;
     });
@@ -602,11 +618,15 @@ function renderAlliancesAdmin() {
     if (!list.length) { container.innerHTML = '<div class="empty">Пока нет союзов</div>'; return; }
     list.forEach(a => {
         const memberClans = Object.values(clansCache).filter(c => c.alliance_id === a.id);
+        const tp = ALLY_TYPES[a.type] || ALLY_TYPES.full;
         const el = document.createElement('div');
         el.className = 'alliance-admin-item';
         el.innerHTML = `
             <div class="alliance-header">
-                <div class="alliance-title">🤝 <b>${escapeHtml(a.name)}</b> <span class="alliance-id">[${escapeHtml(a.id)}]</span></div>
+                <div class="alliance-title">🤝 <b>${escapeHtml(a.name)}</b>
+                    <span class="alliance-id">[${escapeHtml(a.id)}]</span>
+                    <span class="alliance-type ${tp.cls}">${tp.icon} ${tp.name}</span>
+                </div>
                 <div class="alliance-actions">
                     <button class="edit" title="Редактировать">✏️</button>
                     <button class="delete" title="Удалить">🗑</button>
@@ -743,9 +763,9 @@ document.querySelectorAll('.admin-nav-item').forEach(btn => {
         if (panel === 'settings') renderSiteFields();
         if (panel === 'resources') renderPricingGrid();
         if (panel === 'shipcost') { renderRecipeShipSelect(); renderRecipeRows(); renderDiscountsAdmin(); }
+        if (panel === 'catalog') renderCatalogAdmin();
         if (panel === 'map') renderMapAdmin();
         if (panel === 'ports') { renderFactionsAdmin(); renderPortsAdmin(); renderRanksAdmin(); fillPortFactionSelect(); }
-        if (panel === 'catalog') renderCatalogAdmin();
     });
 });
 on('adminBackHome', 'click', () => { currentClan = null; showScreen('home'); });
@@ -1420,9 +1440,10 @@ function openClanInfo(id, opts = {}) {
     const allyWrap = $('clanInfoAllianceWrap');
     if (clan.alliance_id && alliancesCache[clan.alliance_id]) {
         const ally = alliancesCache[clan.alliance_id];
+        const tp = ALLY_TYPES[ally.type] || ALLY_TYPES.full;
         const members = Object.values(clansCache).filter(c => c.alliance_id === ally.id && c.id !== clan.id);
         if (allyWrap) allyWrap.hidden = false;
-        setText('clanInfoAlliance', `${ally.name}${ally.description ? ' — ' + ally.description : ''}\nСостоят: ${members.length ? members.map(c => c.name).join(', ') : 'только эта гильдия'}`);
+        setText('clanInfoAlliance', `${tp.icon} ${ally.name} · ${tp.name}${ally.description ? ' — ' + ally.description : ''}\nСостоят: ${members.length ? members.map(c => c.name).join(', ') : 'только эта гильдия'}`);
     } else { if (allyWrap) allyWrap.hidden = true; }
     const loginBtn = $('clanLoginBtn'); const viewBtn = $('clanViewBtn');
     if (loginBtn) loginBtn.hidden = loggedInSomewhere || locked;
@@ -1509,7 +1530,8 @@ function updateAllianceBar() {
     const members = Object.values(clansCache).filter(c => c.alliance_id === myClan.alliance_id && c.id !== currentClan);
     if (!members.length) { bar.hidden = true; return; }
     bar.hidden = false;
-    bar.querySelector('.alliance-bar-label').textContent = `🤝 ${ally ? ally.name : 'Союз'}:`;
+    const tp = ALLY_TYPES[ally?.type] || ALLY_TYPES.full;
+    bar.querySelector('.alliance-bar-label').textContent = `${tp.icon} ${ally ? ally.name : 'Союз'} · ${tp.name}:`;
     list.innerHTML = '';
     members.forEach(c => {
         const btn = document.createElement('button');
@@ -1878,19 +1900,40 @@ async function renderEvents() {
         const month = monthNames[d.getMonth()];
         const time = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
         const card = document.createElement('div');
-        card.className = 'event-card' + (isPast ? ' past' : '');
+        const hasMap = !!ev.map_image;
+        card.className = 'event-card' + (isPast ? ' past' : '') + (hasMap ? ' has-map' : '');
         const scopeBadge = ev.is_shared
             ? `<span class="event-badge shared">🌐 Общий</span>`
             : `<span class="event-badge clan">🏰 ${escapeHtml(clansCache[ev.clan]?.name || ev.clan)}</span>`;
         const canDel = canEditClan(ev.clan);
         const actions = canDel ? `<div class="event-actions"><button class="delete">🗑</button></div>` : '';
+
+        const mapHtml = hasMap ? `
+            <div class="event-map">
+                <img src="${escapeHtml(ev.map_image)}" alt="">
+                ${ev.marker_x != null && ev.marker_y != null
+                    ? `<div class="event-map-marker" style="left:${ev.marker_x}%;top:${ev.marker_y}%;">📍</div>`
+                    : ''}
+                <div class="event-map-hint">🔍 Открыть карту</div>
+            </div>` : '';
+
         card.innerHTML = `
-            <div class="event-date-block"><div class="event-day">${day}</div><div class="event-month">${month}</div></div>
-            <div class="event-info">
-                <div class="event-title">${scopeBadge}${escapeHtml(ev.title)}</div>
-                <div class="event-time">🕐 ${d.toLocaleDateString('ru-RU')} в ${time}</div>
-                ${ev.description ? `<div class="event-desc">${escapeHtml(ev.description)}</div>` : ''}
-            </div>${actions}`;
+            ${mapHtml}
+            <div class="event-row">
+                <div class="event-date-block"><div class="event-day">${day}</div><div class="event-month">${month}</div></div>
+                <div class="event-info">
+                    <div class="event-title">${scopeBadge}${escapeHtml(ev.title)}</div>
+                    <div class="event-time">🕐 ${d.toLocaleDateString('ru-RU')} в ${time}</div>
+                    ${ev.description ? `<div class="event-desc">${escapeHtml(ev.description)}</div>` : ''}
+                </div>
+                ${actions}
+            </div>`;
+
+        if (hasMap) {
+            card.querySelector('.event-map').addEventListener('click', () => {
+                openEventMapFullscreen(ev.map_image, ev.marker_x, ev.marker_y, ev.title);
+            });
+        }
         if (canDel) {
             card.querySelector('.delete').addEventListener('click', async () => {
                 if (!confirm('Удалить событие?')) return;
@@ -1910,6 +1953,45 @@ async function renderEvents() {
         container.appendChild(card);
     });
 }
+
+/* ============ СОБЫТИЕ: КАРТА В ФОРМЕ ============ */
+on('evMapPick', 'click', () => { const f = $('evMapFile'); if (f) { f.value = ''; f.click(); } });
+on('evMapFile', 'change', async e => {
+    const file = e.target.files[0]; if (!file) return;
+    if (file.size > 8 * 1024 * 1024) { alert('Максимум 8 МБ'); return; }
+    try {
+        const dataUrl = await compressImage(file, 1600, 0.85);
+        evMapData = dataUrl;
+        const img = $('evMapImg'); if (img) img.src = dataUrl;
+        $('evMapPreview').hidden = false;
+        $('evMapMarker').hidden = true;
+        $('evMapClear').hidden = false;
+        evMapMarkerX = null; evMapMarkerY = null;
+    } catch (err) { alert('Ошибка: ' + err.message); }
+});
+on('evMapClear', 'click', () => {
+    evMapData = null;
+    evMapMarkerX = null; evMapMarkerY = null;
+    const f = $('evMapFile'); if (f) f.value = '';
+    const prev = $('evMapPreview'); if (prev) prev.hidden = true;
+    const m = $('evMapMarker'); if (m) m.hidden = true;
+    $('evMapClear').hidden = true;
+});
+on('evMapStage', 'click', e => {
+    if (!evMapData) return;
+    const stage = $('evMapStage');
+    const rect = stage.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    if (x < 0 || x > 100 || y < 0 || y > 100) return;
+    evMapMarkerX = Math.round(x * 10) / 10;
+    evMapMarkerY = Math.round(y * 10) / 10;
+    const m = $('evMapMarker');
+    m.style.left = evMapMarkerX + '%';
+    m.style.top  = evMapMarkerY + '%';
+    m.hidden = false;
+});
+
 on('evAddBtn', 'click', async () => {
     if (!canEditClan(currentClan)) return;
     const title = val('evTitle').trim();
@@ -1922,22 +2004,66 @@ on('evAddBtn', 'click', async () => {
     if (!title) { flashStatusEl(statusEl, 'Введите название', '#ff7a7a'); return; }
     if (!dateStr) { flashStatusEl(statusEl, 'Укажите дату', '#ff7a7a'); return; }
     if (isShared && !isOwner) { flashStatusEl(statusEl, 'Общие события создаёт только владелец', '#ff7a7a'); return; }
+
+    const payload = {
+        title,
+        event_date: new Date(dateStr).toISOString(),
+        description: desc || null,
+        map_image: evMapData || null,
+        marker_x: evMapMarkerX,
+        marker_y: evMapMarkerY
+    };
+
     if (isAdmin) {
-        const { error } = await supabase.from('events').insert({
-            clan: clanVal, is_shared: isShared, title, event_date: new Date(dateStr).toISOString(), description: desc || null
-        });
+        const { error } = await supabase.from('events').insert({ clan: clanVal, is_shared: isShared, ...payload });
         if (error) { flashStatusEl(statusEl, 'Ошибка: ' + error.message, '#ff7a7a'); return; }
     } else {
         const { data: resp, error } = await supabase.rpc('clan_admin_action', {
             action: 'insert', target_table: 'events', target_clan: currentClan, entered_password: currentClanPass,
-            data: { title, event_date: new Date(dateStr).toISOString(), description: desc || null }
+            data: payload
         });
         if (error || resp?.error) { flashStatusEl(statusEl, 'Ошибка: ' + (resp?.error || error.message), '#ff7a7a'); return; }
     }
     await logAdminAction('Добавил событие', title);
     ['evTitle','evDate','evDesc'].forEach(id => { const el = $(id); if (el) el.value = ''; });
+    evMapData = null; evMapMarkerX = null; evMapMarkerY = null;
+    const prev = $('evMapPreview'); if (prev) prev.hidden = true;
+    const m = $('evMapMarker'); if (m) m.hidden = true;
+    const clr = $('evMapClear'); if (clr) clr.hidden = true;
     flashStatusEl(statusEl, '✔ Добавлено', '#6ee7a7');
     renderEvents();
+});
+
+/* ============ СОБЫТИЕ: ФУЛЛСКРИН КАРТЫ ============ */
+function openEventMapFullscreen(src, mx, my, title) {
+    const fs = $('eventMapFullscreen'); if (!fs) return;
+    const img = $('eventMapFsImg');
+    const marker = $('eventMapFsMarker');
+    const titleEl = $('eventMapFsTitle');
+    if (img) img.src = src;
+    if (titleEl) titleEl.textContent = '🗺 ' + (title || 'Карта события');
+    if (marker) {
+        if (mx != null && my != null) {
+            marker.style.left = mx + '%';
+            marker.style.top = my + '%';
+            marker.hidden = false;
+        } else marker.hidden = true;
+    }
+    fs.hidden = false;
+    document.body.style.overflow = 'hidden';
+}
+function closeEventMapFullscreen() {
+    const fs = $('eventMapFullscreen'); if (!fs) return;
+    fs.hidden = true;
+    document.body.style.overflow = '';
+}
+on('eventMapFsClose', 'click', closeEventMapFullscreen);
+on('eventMapFullscreen', 'click', e => { if (e.target.id === 'eventMapFullscreen') closeEventMapFullscreen(); });
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+        const fs = $('eventMapFullscreen');
+        if (fs && !fs.hidden) closeEventMapFullscreen();
+    }
 });
 
 /* ============ КАЗНА ============ */
@@ -2948,14 +3074,8 @@ on('tacAddBtn', 'click', async () => {
 });
 
 /* ============================================================
-   КАТАЛОГ БИЛДОВ (оружие / модули / расходники / паруса / спецы)
+   КАТАЛОГ БИЛДОВ
    ============================================================ */
-const CATALOG_ICONS = {
-    weapon_small: '🟢', weapon_medium: '🟡', weapon_large: '🔴',
-    module: '⚙️', ammo: '💣', blueprint: '📜',
-    consumable: '🧪', cargo: '📦', upgrade: '🔧', specialist: '👤'
-};
-
 async function loadBuildItems() {
     const [items, skills] = await Promise.all([
         supabase.from('build_items').select('*')
@@ -3011,13 +3131,11 @@ function renderCatalogAdmin() {
         container.innerHTML = '<div class="empty">Каталог пуст. Добавь первый элемент сверху.</div>';
         return;
     }
-
     const byType = {};
     buildItemsCache.forEach(it => {
         const t = it.type || 'other';
         (byType[t] ||= []).push(it);
     });
-
     Object.keys(byType).sort().forEach(type => {
         const typeDet = document.createElement('details');
         typeDet.className = 'catalog-node';
@@ -3027,13 +3145,11 @@ function renderCatalogAdmin() {
         </summary>`;
         const typeBody = document.createElement('div');
         typeBody.className = 'catalog-body';
-
         const bySub = {};
         byType[type].forEach(it => {
             const sg = it.subgroup || '—';
             (bySub[sg] ||= []).push(it);
         });
-
         Object.keys(bySub).sort().forEach(sg => {
             const sgDet = document.createElement('details');
             sgDet.className = 'catalog-node sub';
@@ -3048,7 +3164,6 @@ function renderCatalogAdmin() {
             sgDet.appendChild(sgBody);
             typeBody.appendChild(sgDet);
         });
-
         typeDet.appendChild(typeBody);
         container.appendChild(typeDet);
     });
@@ -3120,7 +3235,6 @@ function buildCatalogItem(item) {
                 await supabase.from('specialist_skills').update({ stat_name, value }).eq('id', id);
             }
         }
-
         Object.assign(item, payload);
         msg.textContent = '✔ Сохранено'; msg.style.color = '#6ee7a7';
         setTimeout(() => { msg.textContent = ''; }, 1500);
@@ -3159,7 +3273,6 @@ function buildCatalogItem(item) {
         };
         d.querySelectorAll('[data-skill-id]').forEach(row => bindCatalogSkillRow(row, item.id));
     }
-
     return d;
 }
 
@@ -3209,7 +3322,7 @@ on('biAddBtn', 'click', async () => {
 });
 
 /* ============================================================
-   РЕСУРСЫ — СПРАВОЧНИК С ГРУППАМИ
+   РЕСУРСЫ — ТАБЛИЦА
    ============================================================ */
 const PRICING_GROUPS = [
     { id: 'raw',       name: '🪵 Сырьё',         cls: 'pricing-group-raw' },
@@ -3255,47 +3368,62 @@ function renderPricingGrid() {
     PRICING_GROUPS.forEach(g => {
         const items = byGroup[g.id] || [];
         if (!items.length) return;
+        items.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0) || (a.name || '').localeCompare(b.name || ''));
         const section = document.createElement('section');
         section.className = 'pricing-group ' + g.cls;
         const title = document.createElement('h3');
         title.className = 'pricing-group-title';
         title.innerHTML = `${g.name} <span class="count">· ${items.length}</span>`;
         section.appendChild(title);
-        const grid = document.createElement('div');
-        grid.className = 'pricing-grid';
-        items.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0) || (a.name || '').localeCompare(b.name || ''));
+
+        const wrap = document.createElement('div');
+        wrap.className = 'pricing-table-wrap';
+        const table = document.createElement('table');
+        table.className = 'pricing-table';
+        table.innerHTML = `
+            <thead>
+                <tr>
+                    <th class="pt-col-icon"></th>
+                    <th class="pt-col-name">Ресурс</th>
+                    <th class="pt-col-price">Цена</th>
+                    <th class="pt-col-actions"></th>
+                </tr>
+            </thead>
+            <tbody></tbody>`;
+        const tbody = table.querySelector('tbody');
         items.forEach(r => {
             const iconHtml = r.image_url
                 ? `<img src="${escapeHtml(r.image_url)}" alt="" onerror="this.parentNode.innerHTML='${escapeHtml(r.icon || '📦')}'">`
                 : (r.icon || '📦');
             const latin = (r.name_latin || r.id || '').toUpperCase();
-            const card = document.createElement('div');
-            card.className = 'pricing-card';
-            card.dataset.id = r.id;
-            card.innerHTML = `
-                <div class="pricing-card-head">
-                    <span class="pricing-card-icon">${iconHtml}</span>
-                    <span class="pricing-card-name">
-                        <span class="main">${escapeHtml(r.name)}</span>
-                        <span class="latin">${escapeHtml(latin)}</span>
-                    </span>
-                </div>
-                <div class="pricing-card-price">
-                    <span class="pricing-card-prefix">G</span>
-                    <input type="number" class="pricing-card-input"
-                           data-id="${escapeHtml(r.id)}"
-                           value="${Number(r.price) || 0}"
-                           min="0" step="1">
-                </div>
-                <div class="pricing-card-actions">
-                    <button class="pricing-card-btn edit" data-id="${escapeHtml(r.id)}" title="Редактировать">✏️ Изменить</button>
-                    <button class="pricing-card-btn del" data-id="${escapeHtml(r.id)}" title="Удалить">🗑</button>
-                </div>`;
-            grid.appendChild(card);
+            const tr = document.createElement('tr');
+            tr.dataset.id = r.id;
+            tr.innerHTML = `
+                <td class="pt-col-icon"><span class="pt-icon">${iconHtml}</span></td>
+                <td class="pt-col-name">
+                    <span class="pt-name">${escapeHtml(r.name)}</span>
+                    <span class="pt-latin">${escapeHtml(latin)}</span>
+                </td>
+                <td class="pt-col-price">
+                    <div class="pt-price-wrap">
+                        <span class="pt-coin">🪙</span>
+                        <input type="number" class="pricing-card-input"
+                               data-id="${escapeHtml(r.id)}"
+                               value="${Number(r.price) || 0}"
+                               min="0" step="1">
+                    </div>
+                </td>
+                <td class="pt-col-actions">
+                    <button class="pricing-card-btn edit" data-id="${escapeHtml(r.id)}" title="Редактировать">✏️</button>
+                    <button class="pricing-card-btn del"  data-id="${escapeHtml(r.id)}" title="Удалить">🗑</button>
+                </td>`;
+            tbody.appendChild(tr);
         });
-        section.appendChild(grid);
+        wrap.appendChild(table);
+        section.appendChild(wrap);
         container.appendChild(section);
     });
+
     container.querySelectorAll('.pricing-card-input').forEach(inp => {
         inp.addEventListener('input', e => {
             const id = e.target.dataset.id;
@@ -4215,32 +4343,43 @@ on('ranks-reload', 'click', loadRanks);
 /* ============ АДМИН: СОЮЗЫ / НАСТРОЙКИ / СТАТИСТИКА ============ */
 on('allyAddBtn', 'click', async () => {
     const id = val('allyId').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
-    const name = val('allyName').trim(), desc = val('allyDesc').trim();
+    const name = val('allyName').trim();
+    const desc = val('allyDesc').trim();
+    const type = val('allyType') || 'full';
     const msg = $('allyMsg'); msg.textContent = '';
     if (!id || !name) { msg.textContent = 'ID и название обязательны'; msg.style.color = '#ff7a7a'; return; }
     if (alliancesCache[id]) { msg.textContent = 'ID занят'; msg.style.color = '#ff7a7a'; return; }
-    const { error } = await supabase.from('alliances').insert({ id, name, description: desc || null });
+    const { error } = await supabase.from('alliances').insert({ id, name, description: desc || null, type });
     if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
     ['allyId','allyName','allyDesc'].forEach(i => { const el = $(i); if (el) el.value = ''; });
+    $('allyType').value = 'full';
     msg.textContent = '✔ Союз создан'; msg.style.color = '#6ee7a7';
     await loadAlliances();
 });
 function openAllianceEdit(a) {
     editingAlliance = a;
-    $('allyEditId').value = a.id; $('allyEditName').value = a.name || '';
+    $('allyEditId').value = a.id;
+    $('allyEditName').value = a.name || '';
     $('allyEditDesc').value = a.description || '';
-    $('allyEditMsg').textContent = ''; $('allyEditModal').hidden = false;
+    $('allyEditType').value = a.type || 'full';
+    $('allyEditMsg').textContent = '';
+    $('allyEditModal').hidden = false;
     $('allyEditName').focus();
 }
 on('cancelAllyEdit', 'click', () => { $('allyEditModal').hidden = true; editingAlliance = null; });
 on('saveAllyEdit', 'click', async () => {
     if (!editingAlliance) return;
-    const name = val('allyEditName').trim(), desc = val('allyEditDesc').trim();
+    const name = val('allyEditName').trim();
+    const desc = val('allyEditDesc').trim();
+    const type = val('allyEditType') || 'full';
     const msg = $('allyEditMsg');
     if (!name) { msg.textContent = 'Укажи название'; msg.style.color = '#ff7a7a'; return; }
-    const { error } = await supabase.from('alliances').update({ name, description: desc || null }).eq('id', editingAlliance.id);
+    const { error } = await supabase.from('alliances')
+        .update({ name, description: desc || null, type })
+        .eq('id', editingAlliance.id);
     if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
-    $('allyEditModal').hidden = true; editingAlliance = null; await loadAlliances();
+    $('allyEditModal').hidden = true; editingAlliance = null;
+    await loadAlliances();
 });
 async function deleteAlliance(id, name) {
     if (!confirm(`Удалить союз «${name}»?`)) return;
@@ -5162,22 +5301,38 @@ async function renderLeaderEvents(clanId) {
         const d = new Date(ev.event_date);
         const isPast = d.getTime() < Date.now();
         const card = document.createElement('div');
-        card.className = 'event-card' + (isPast ? ' past' : '');
+        card.className = 'event-card' + (isPast ? ' past' : '') + (ev.map_image ? ' has-map' : '');
+        const mapHtml = ev.map_image ? `
+            <div class="event-map">
+                <img src="${escapeHtml(ev.map_image)}" alt="">
+                ${ev.marker_x != null && ev.marker_y != null
+                    ? `<div class="event-map-marker" style="left:${ev.marker_x}%;top:${ev.marker_y}%;">📍</div>`
+                    : ''}
+                <div class="event-map-hint">🔍 Открыть карту</div>
+            </div>` : '';
         card.innerHTML = `
-            <div class="event-date-block">
-                <div class="event-day">${String(d.getDate()).padStart(2,'0')}</div>
-                <div class="event-month">${mNames[d.getMonth()]}</div>
-            </div>
-            <div class="event-info">
-                <div class="event-title"><span class="event-badge shared">🌐 Общий</span>${escapeHtml(ev.title)}</div>
-                <div class="event-time">🕐 ${d.toLocaleDateString('ru-RU')} в ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}</div>
-                ${ev.description ? `<div class="event-desc">${escapeHtml(ev.description)}</div>` : ''}
-            </div>
-            <div class="event-actions">
-                <button data-action="${isAccepted ? 'leave' : 'accept'}" class="${isAccepted ? 'ghost' : ''}">
-                    ${isAccepted ? '✅ Принято — отменить' : '➕ Принять участие'}
-                </button>
+            ${mapHtml}
+            <div class="event-row">
+                <div class="event-date-block">
+                    <div class="event-day">${String(d.getDate()).padStart(2,'0')}</div>
+                    <div class="event-month">${mNames[d.getMonth()]}</div>
+                </div>
+                <div class="event-info">
+                    <div class="event-title"><span class="event-badge shared">🌐 Общий</span>${escapeHtml(ev.title)}</div>
+                    <div class="event-time">🕐 ${d.toLocaleDateString('ru-RU')} в ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}</div>
+                    ${ev.description ? `<div class="event-desc">${escapeHtml(ev.description)}</div>` : ''}
+                </div>
+                <div class="event-actions">
+                    <button data-action="${isAccepted ? 'leave' : 'accept'}" class="${isAccepted ? 'ghost' : ''}">
+                        ${isAccepted ? '✅ Принято — отменить' : '➕ Принять участие'}
+                    </button>
+                </div>
             </div>`;
+        if (ev.map_image) {
+            card.querySelector('.event-map').addEventListener('click', () => {
+                openEventMapFullscreen(ev.map_image, ev.marker_x, ev.marker_y, ev.title);
+            });
+        }
         card.querySelector('[data-action]').addEventListener('click', async () => {
             if (isAccepted) await supabase.from('clan_events').delete().eq('clan_id', clanId).eq('event_id', ev.id);
             else await supabase.from('clan_events').insert({ clan_id: clanId, event_id: ev.id, accepted_by: getViewerNick() || null });
@@ -5251,7 +5406,8 @@ async function respondAllianceRequest(id, status, clanId) {
             await supabase.from('alliances').insert({
                 id: allyId,
                 name: `${clansCache[req.from_clan]?.name || req.from_clan} & ${clansCache[req.to_clan]?.name || req.to_clan}`,
-                description: 'Автоматически сформирован'
+                description: 'Автоматически сформирован',
+                type: 'full'
             });
         }
         await supabase.from('clans').update({ alliance_id: allyId }).eq('id', req.from_clan);

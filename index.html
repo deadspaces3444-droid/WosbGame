@@ -16,9 +16,7 @@
             <button id="openGeneralChatBtn" class="icon-btn" title="Общий чат">🌍</button>
             <button id="openVoiceChatBtn" class="icon-btn" title="Голосовой чат">🎙</button>
             <button id="themeToggle" class="icon-btn" title="Сменить тему">🌓</button>
-            <button id="notifBell" class="icon-btn" title="Уведомления">
-                🔔<span id="notifBadge" class="notif-badge" hidden>0</span>
-            </button>
+            <button id="notifBell" class="icon-btn" title="Уведомления">🔔<span id="notifBadge" class="notif-badge" hidden>0</span></button>
             <button id="leaderPanelBtn" class="icon-btn" hidden title="Панель главы гильдии">🎖</button>
             <span id="adminInfo"></span>
             <button id="adminPanelBtn" hidden title="Админ-панель">⚙️</button>
@@ -28,8 +26,8 @@
 
         <div class="home-wrap">
             <div class="hero-video">
-                <video autoplay muted loop playsinline preload="auto" poster="videoshero.jpg">
-                    <source src="videoshero.mp4" type="video/mp4" onerror="console.error('❌ Не удалось загрузить videoshero.mp4. Проверь: 1) файл лежит рядом с index.html; 2) имя точно videoshero.mp4; 3) кодек H.264')">
+                <video autoplay muted loop playsinline preload="auto">
+                    <source src="videoshero.mp4" type="video/mp4">
                     Ваш браузер не поддерживает видео.
                 </video>
                 <div class="hero-overlay"></div>
@@ -53,6 +51,7 @@
                     <header class="tm-topbar">
                         <h3 class="tm-title">📣 Биржа заявок</h3>
                         <span class="tm-subtitle">World of Sea Battle</span>
+                        <span id="tm-my-counter" class="tm-my-counter" title="Ваши активные заявки">👤 Мои: <b>0</b></span>
                     </header>
                     <div class="tm-counters">
                         <div class="tm-counter buy">
@@ -81,6 +80,18 @@
                             </div>
                             <div class="tm-fg"><label>Гильдия</label><select id="tm-clan"></select></div>
                             <div class="tm-fg"><label>Категория</label><select id="tm-category"></select></div>
+
+                            <div class="tm-fg tm-ship-picker" id="tm-ship-picker" hidden>
+                                <label>Корабль из справочника</label>
+                                <select id="tm-ship-select">
+                                    <option value="">— Выберите корабль —</option>
+                                </select>
+                                <div id="tm-ship-preview" class="tm-ship-preview" hidden>
+                                    <img id="tm-ship-preview-img" src="" alt="">
+                                    <div id="tm-ship-preview-info" class="tm-ship-preview-info"></div>
+                                </div>
+                            </div>
+
                             <div class="tm-fg"><label>Название *</label><input type="text" id="tm-name" maxlength="60" placeholder="Например: Дубовые доски"></div>
                             <div class="tm-frow">
                                 <div class="tm-fg"><label>Цена за ед. *</label><input type="number" id="tm-price" min="1" step="1" placeholder="0"></div>
@@ -96,7 +107,19 @@
                         <section class="tm-panel">
                             <h4 class="tm-panel-title">📋 Доска заявок</h4>
                             <div class="tm-filters">
-                                <input type="search" id="tm-search" placeholder="🔍 Поиск по названию...">
+                                <input type="search" id="tm-search" placeholder="🔍 Поиск по названию, нику, порту...">
+                                <select id="tm-sort" class="tm-sort-select">
+                                    <option value="new">🆕 Сначала новые</option>
+                                    <option value="price-asc">💲 Цена ↑</option>
+                                    <option value="price-desc">💲 Цена ↓</option>
+                                    <option value="qty-desc">📦 Кол-во ↓</option>
+                                    <option value="my-first">👤 Сначала мои</option>
+                                </select>
+                                <div class="tm-filter-row" id="tm-status-filters">
+                                    <span class="tm-chip active" data-status="active">🟢 Активные</span>
+                                    <span class="tm-chip" data-status="done">✅ Завершённые</span>
+                                    <span class="tm-chip" data-status="all">📋 Все</span>
+                                </div>
                                 <div class="tm-filter-row" id="tm-clan-filters"></div>
                                 <div class="tm-filter-row" id="tm-type-filters">
                                     <span class="tm-chip active" data-type="all">Все</span>
@@ -106,6 +129,7 @@
                                 <div class="tm-filter-row" id="tm-cat-filters"></div>
                                 <div class="tm-filter-row">
                                     <label class="tm-mine-check"><input type="checkbox" id="tm-only-mine"> Только мои заявки</label>
+                                    <label class="tm-mine-check"><input type="checkbox" id="tm-only-ships"> 🚢 Только корабли</label>
                                 </div>
                             </div>
                             <div id="tm-listings" class="tm-listings"></div>
@@ -165,7 +189,7 @@
         <button id="backToHomeBtn" class="back-btn">← Назад</button>
         <div class="clan-info-wrap">
             <div class="clan-info">
-                <img id="clanInfoLogo" class="clan-info-logo" src="" alt="">
+                <div id="clanInfoLogoWrap" class="clan-info-logo-wrap"></div>
                 <h1 id="clanInfoName" class="clan-info-name"></h1>
                 <p id="clanInfoLeader" class="clan-info-leader" hidden></p>
                 <p id="clanInfoDesc" class="clan-info-desc"></p>
@@ -194,7 +218,7 @@
     <div id="clanView" hidden>
         <header>
             <button id="backBtn" class="back-btn">← Назад</button>
-            <h1><img id="clanIcon" class="clan-icon-small" src="" alt=""><span id="clanTitle"></span></h1>
+            <h1><span id="clanIconWrap" class="clan-icon-wrap"></span><span id="clanTitle"></span></h1>
             <div class="top-right">
                 <span id="adminInfo3"></span>
                 <button id="themeToggle3" class="icon-btn" title="Сменить тему">🌓</button>
@@ -220,6 +244,7 @@
                 <button class="side-item" data-section="treasury"><span class="side-ico">💰</span><span>Казна</span></button>
                 <button class="side-item" data-section="pvp"><span class="side-ico">⚔️</span><span>Билды ПВП</span></button>
                 <button class="side-item" data-section="pb"><span class="side-ico">🛡</span><span>Билды ПБ</span></button>
+                <button class="side-item" data-section="ships"><span class="side-ico">🚢</span><span>Корабли</span></button>
                 <button class="side-item" data-section="contacts"><span class="side-ico">💬</span><span>Контакты</span></button>
                 <button class="side-item" data-section="members"><span class="side-ico">👥</span><span>Участники</span></button>
                 <button class="side-item" id="openTacticsBtn"><span class="side-ico">📖</span><span>Тактика боя</span></button>
@@ -286,7 +311,8 @@
                 <div id="section-pvp" class="clan-section">
                     <h2>⚔️ Билды для ПВП</h2>
                     <section class="add-form clan-admin-only" hidden>
-                        <textarea id="pvpShip" placeholder="Название корабля" rows="1" maxlength="60"></textarea>
+                        <select id="pvpShip" class="build-ship-select"><option value="">— Выберите корабль —</option></select>
+                        <img id="pvpShipPreview" class="build-ship-preview" src="" alt="" hidden>
                         <textarea id="pvpUpgrades" placeholder="Апгрейды — каждый с новой строки" rows="3"></textarea>
                         <textarea id="pvpWeapS" placeholder="Малые пушки (до 12 фунтов)" rows="2"></textarea>
                         <textarea id="pvpWeapM" placeholder="Средние пушки (до 24 фунтов)" rows="2"></textarea>
@@ -307,7 +333,8 @@
                     <h2>🛡 Билды для ПБ</h2>
                     <section class="add-form clan-admin-only" hidden>
                         <textarea id="pbRank" placeholder="Ранг (1-6)" rows="1" maxlength="10"></textarea>
-                        <textarea id="pbShip" placeholder="Название корабля" rows="1" maxlength="60"></textarea>
+                        <select id="pbShip" class="build-ship-select"><option value="">— Выберите корабль —</option></select>
+                        <img id="pbShipPreview" class="build-ship-preview" src="" alt="" hidden>
                         <textarea id="pbUpgrades" placeholder="Апгрейды — каждый с новой строки" rows="3"></textarea>
                         <textarea id="pbWeapS" placeholder="Малые пушки (до 12 фунтов)" rows="2"></textarea>
                         <textarea id="pbWeapM" placeholder="Средние пушки (до 24 фунтов)" rows="2"></textarea>
@@ -322,6 +349,47 @@
                         <span id="pbStatus"></span>
                     </section>
                     <div id="pbList" class="builds-list"></div>
+                </div>
+
+                <div id="section-ships" class="clan-section">
+                    <h2>🚢 Справочник кораблей</h2>
+                    <p class="hint">Все корабли World of Sea Battle с характеристиками</p>
+
+                    <div class="ships-filters">
+                        <input type="search" id="ships-search" class="search-input" placeholder="🔍 Поиск по названию...">
+                        <select id="ships-sort" class="ships-sort-select">
+                            <option value="level-desc">📊 Уровень ↓</option>
+                            <option value="level-asc">📊 Уровень ↑</option>
+                            <option value="name-asc">🔤 Название А→Я</option>
+                            <option value="name-desc">🔤 Название Я→А</option>
+                            <option value="durability-desc">💪 Прочность ↓</option>
+                            <option value="speed-desc">⚡ Скорость ↓</option>
+                            <option value="maneuverability-desc">🔄 Маневренность ↓</option>
+                            <option value="armor-desc">🛡 Броня ↓</option>
+                            <option value="guns-desc">🔫 Орудия ↓</option>
+                            <option value="cargo-desc">📦 Трюм ↓</option>
+                            <option value="crew-desc">👥 Экипаж ↓</option>
+                        </select>
+                        <div class="ships-filter-row" id="ships-level-filters">
+                            <span class="ships-chip active" data-level="all">Все уровни</span>
+                            <span class="ships-chip" data-level="7">VII</span>
+                            <span class="ships-chip" data-level="6">VI</span>
+                            <span class="ships-chip" data-level="5">V</span>
+                            <span class="ships-chip" data-level="4">IV</span>
+                            <span class="ships-chip" data-level="3">III</span>
+                            <span class="ships-chip" data-level="2">II</span>
+                            <span class="ships-chip" data-level="1">I</span>
+                        </div>
+                        <div class="ships-filter-row" id="ships-type-filters">
+                            <span class="ships-chip active" data-type="all">Все типы</span>
+                            <span class="ships-chip" data-type="Быстроходные">⚡ Быстроходные</span>
+                            <span class="ships-chip" data-type="Боевые">⚔️ Боевые</span>
+                            <span class="ships-chip" data-type="Транспортные">📦 Транспортные</span>
+                            <span class="ships-chip" data-type="Тяжёлые">🛡 Тяжёлые</span>
+                        </div>
+                    </div>
+
+                    <div id="shipsGrid" class="ships-grid-view"></div>
                 </div>
 
                 <div id="section-contacts" class="clan-section">
@@ -370,7 +438,6 @@
                         <div class="empty">Нажмите «Обновить»</div>
                     </div>
                 </div>
-
             </div>
         </div>
     </div>
@@ -386,9 +453,7 @@
 
         <div class="home-wrap" style="padding-top:120px;">
             <h1 class="section-title">🎖 Панель главы гильдии</h1>
-            <p class="hint" style="text-align:center;font-size:14px;">
-                Гильдия: <b id="leaderClanName">—</b>
-            </p>
+            <p class="hint" style="text-align:center;font-size:14px;">Гильдия: <b id="leaderClanName">—</b></p>
 
             <section class="apply-section">
                 <h2 class="section-title">📅 Общие события владельца</h2>
@@ -401,10 +466,8 @@
                 <div class="modal-actions" style="justify-content:center;margin-bottom:16px;">
                     <button id="leaderOfferAllianceBtn" class="big-btn primary">➕ Предложить союз другой гильдии</button>
                 </div>
-
                 <h3 style="color:var(--blue);margin:12px 0 8px;">📥 Входящие заявки</h3>
                 <div id="leaderAllianceIncoming" class="applications-list" style="width:100%;max-width:900px;"></div>
-
                 <h3 style="color:var(--blue);margin:20px 0 8px;">📤 Исходящие заявки</h3>
                 <div id="leaderAllianceOutgoing" class="applications-list" style="width:100%;max-width:900px;"></div>
             </section>
@@ -423,10 +486,7 @@
         <div class="modal-content">
             <h2>🤝 Предложить союз</h2>
             <p class="hint" style="margin:0;">Выбери гильдию, которой хочешь предложить союз.</p>
-            <div class="admin-field">
-                <label>Гильдия</label>
-                <select id="leaderAlliancePickerSelect"></select>
-            </div>
+            <div class="admin-field"><label>Гильдия</label><select id="leaderAlliancePickerSelect"></select></div>
             <div class="admin-field">
                 <label>Сообщение (необязательно)</label>
                 <textarea id="leaderAlliancePickerMsg" rows="3" maxlength="300" placeholder="Расскажите о своей гильдии..."></textarea>
@@ -447,6 +507,7 @@
                 <button class="admin-nav-item active" data-apanel="clans"><span class="admin-nav-ico">🏰</span><span>Гильдии</span></button>
                 <button class="admin-nav-item" data-apanel="alliances"><span class="admin-nav-ico">🤝</span><span>Союзы</span></button>
                 <button class="admin-nav-item" data-apanel="games"><span class="admin-nav-ico">🎮</span><span>Игры</span></button>
+                <button class="admin-nav-item" data-apanel="ships"><span class="admin-nav-ico">🚢</span><span>Корабли</span></button>
                 <button class="admin-nav-item" data-apanel="partners"><span class="admin-nav-ico">🤝</span><span>Партнёры</span></button>
                 <button class="admin-nav-item" data-apanel="faq"><span class="admin-nav-ico">❓</span><span>FAQ</span></button>
                 <button class="admin-nav-item" data-apanel="tactics"><span class="admin-nav-ico">📖</span><span>Тактика</span></button>
@@ -469,40 +530,55 @@
                         <label>Текущий пароль</label>
                         <div class="password-field">
                             <input type="password" id="adminCurrentPass" readonly>
-                            <button type="button" class="pwd-toggle" data-target="adminCurrentPass" title="Показать">👁</button>
+                            <button type="button" class="pwd-toggle" data-target="adminCurrentPass">👁</button>
                         </div>
                     </div>
                     <div class="admin-field">
                         <label>Новый пароль гильдии</label>
                         <div class="password-field">
                             <input type="password" id="adminNewPass" placeholder="Оставь пустым, чтобы не менять">
-                            <button type="button" class="pwd-toggle" data-target="adminNewPass" title="Показать">👁</button>
+                            <button type="button" class="pwd-toggle" data-target="adminNewPass">👁</button>
                         </div>
                     </div>
                     <div class="admin-field">
                         <label>Текущий админ-пароль</label>
                         <div class="password-field">
                             <input type="password" id="adminCurrentAdminPass" readonly>
-                            <button type="button" class="pwd-toggle" data-target="adminCurrentAdminPass" title="Показать">👁</button>
+                            <button type="button" class="pwd-toggle" data-target="adminCurrentAdminPass">👁</button>
                         </div>
                     </div>
                     <div class="admin-field">
                         <label>Новый админ-пароль</label>
                         <div class="password-field">
                             <input type="password" id="adminNewAdminPass" placeholder="Оставь пустым, чтобы не менять">
-                            <button type="button" class="pwd-toggle" data-target="adminNewAdminPass" title="Показать">👁</button>
+                            <button type="button" class="pwd-toggle" data-target="adminNewAdminPass">👁</button>
                         </div>
                     </div>
-                    <div class="admin-field">
-                        <label>👑 Ник главы гильдии</label>
-                        <input type="text" id="adminLeaderNick" placeholder="Например: Тайпан56" maxlength="40">
-                    </div>
+                    <div class="admin-field"><label>👑 Ник главы гильдии</label><input type="text" id="adminLeaderNick" placeholder="Например: Тайпан56" maxlength="40"></div>
                     <div class="admin-field"><label>Discord-ссылка</label><input type="text" id="adminDiscord" placeholder="https://discord.gg/xxxxx" maxlength="200"></div>
                     <div class="admin-field"><label>Телефон (необязательно)</label><input type="text" id="adminPhone" placeholder="+7 999 123-45-67" maxlength="30"></div>
                     <div class="admin-field"><label>Новости</label><textarea id="adminNews" rows="5"></textarea></div>
-                    <div class="admin-field"><label>Логотип (PNG)</label><input type="text" id="adminClanImage" placeholder="images/clan.png" maxlength="200"></div>
+
                     <div class="admin-field">
-                        <label>Флаг (если нет PNG)</label>
+                        <label>Логотип гильдии</label>
+                        <div class="logo-upload">
+                            <input type="file" id="adminClanImageFile" accept="image/*,video/mp4,video/webm" hidden>
+                            <button type="button" id="adminClanImagePick" class="logo-pick-btn">📷 Загрузить файл</button>
+                            <div id="adminClanImagePreview" class="logo-preview" hidden>
+                                <img id="adminClanImagePreviewImg" src="" alt="">
+                                <button type="button" id="adminClanImageClear" class="logo-clear">✕</button>
+                            </div>
+                            <span id="adminClanImageName" class="logo-name"></span>
+                        </div>
+                        <input type="text" id="adminClanImage" placeholder="Или ссылка: https://... или путь images/clan.png" maxlength="500">
+                        <p class="hint" style="margin:6px 0 0;font-size:11px;line-height:1.5;">
+                            💡 <b>Приоритет:</b> загруженный файл → ссылка → путь → флаг.<br>
+                            🎞 Поддерживаются GIF, MP4, WebM — анимированные лого работают автоматически.
+                        </p>
+                    </div>
+
+                    <div class="admin-field">
+                        <label>Флаг (если нет лого)</label>
                         <select id="adminClanFlag">
                             <option value="neutral">Нейтральный</option>
                             <option value="pirate">Пиратский</option>
@@ -513,14 +589,8 @@
                         <div id="adminClanFlagPreview" class="flag-preview"></div>
                     </div>
                     <div class="admin-field"><label>Правила</label><textarea id="adminRules" rows="8"></textarea></div>
-                    <div class="admin-field">
-                        <label>👑 Список адмиралов (по одному нику в строке)</label>
-                        <textarea id="adminNicks" rows="6" placeholder="Тайпан56&#10;SamuRay"></textarea>
-                    </div>
-                    <div class="admin-field">
-                        <label>👥 Список участников гильдии (номер - ник)</label>
-                        <textarea id="adminMembers" rows="10" placeholder="1 - Тайпан56&#10;2 - SamuRay"></textarea>
-                    </div>
+                    <div class="admin-field"><label>👑 Список адмиралов (по одному нику в строке)</label><textarea id="adminNicks" rows="6" placeholder="Тайпан56&#10;SamuRay"></textarea></div>
+                    <div class="admin-field"><label>👥 Список участников (номер - ник)</label><textarea id="adminMembers" rows="10" placeholder="1 - Тайпан56&#10;2 - SamuRay"></textarea></div>
                     <p id="adminPanelMsg" class="error"></p>
                     <div class="modal-actions">
                         <button id="saveAdminSettings">💾 Сохранить</button>
@@ -554,6 +624,15 @@
                     <span id="gameStatus"></span>
                 </div>
                 <div id="gamesAdminList" class="partners-admin-list"></div>
+            </section>
+
+            <section class="admin-section" data-apanel="ships">
+                <h2 class="admin-section-title">🚢 Справочник кораблей</h2>
+                <p class="hint">Управление базой кораблей. Обновляется автоматически скриптом parse-ships.js.</p>
+                <div class="modal-actions" style="margin-bottom:14px;">
+                    <button id="reloadShipsBtn" class="secondary">🔄 Обновить список</button>
+                </div>
+                <div id="adminShipsList" class="partners-admin-list"></div>
             </section>
 
             <section class="admin-section" data-apanel="partners">
@@ -606,19 +685,13 @@
 
             <section class="admin-section" data-apanel="online">
                 <h2 class="admin-section-title">👥 Кто сейчас на сайте</h2>
-                <div class="modal-actions" style="margin-bottom:12px">
-                    <button id="refreshOnlineList" class="secondary">🔄 Обновить</button>
-                </div>
-                <div id="adminOnlineList" class="online-list">
-                    <div class="empty">Загрузка…</div>
-                </div>
+                <div class="modal-actions" style="margin-bottom:12px"><button id="refreshOnlineList" class="secondary">🔄 Обновить</button></div>
+                <div id="adminOnlineList" class="online-list"><div class="empty">Загрузка…</div></div>
             </section>
 
             <section class="admin-section" data-apanel="admins">
                 <h2 class="admin-section-title">👑 Админы сайта</h2>
-                <p class="hint">
-                    <b>👑 Владелец</b> — полный доступ. <b>⚙️ Админ</b> / <b>🎖 Глава Клана</b> с привязкой редактируют только свою гильдию.
-                </p>
+                <p class="hint"><b>👑 Владелец</b> — полный доступ. <b>⚙️ Админ</b> / <b>🎖 Глава Клана</b> с привязкой редактируют только свою гильдию.</p>
 
                 <div class="admin-card owner-only" hidden>
                     <h3 style="font-size:15px;color:#ffd479;margin-bottom:6px;">➕ Добавить админа</h3>
@@ -705,6 +778,25 @@
         </div>
     </div>
 
+    <div id="tradeEditModal" class="modal" hidden>
+        <div class="modal-content">
+            <h2>✏️ Редактировать заявку</h2>
+            <p id="tradeEditName" class="auth-clan-name"></p>
+            <div class="tm-fg"><label>Название *</label><input type="text" id="tradeEditItemName" maxlength="60"></div>
+            <div class="tm-frow">
+                <div class="tm-fg"><label>Цена за ед. *</label><input type="number" id="tradeEditPrice" min="1" step="1"></div>
+                <div class="tm-fg"><label>Количество *</label><input type="number" id="tradeEditQty" min="1" step="1"></div>
+            </div>
+            <div class="tm-fg"><label>Порт</label><input type="text" id="tradeEditPort" maxlength="60"></div>
+            <div class="tm-fg"><label>Примечание</label><textarea id="tradeEditNote" maxlength="140" rows="2"></textarea></div>
+            <p id="tradeEditError" class="error"></p>
+            <div class="modal-actions">
+                <button id="tradeEditSave">💾 Сохранить</button>
+                <button id="tradeEditCancel" class="secondary">Отмена</button>
+            </div>
+        </div>
+    </div>
+
     <div id="adminAuthModal" class="modal" hidden>
         <div class="modal-content">
             <h2>🔐 Вход администратора</h2>
@@ -761,9 +853,23 @@
             <div class="admin-field"><label>Админ-пароль</label><input type="text" id="newClanAdminPass"></div>
             <div class="admin-field"><label>Discord</label><input type="text" id="newClanDiscord" placeholder="https://discord.gg/xxxxx"></div>
             <div class="admin-field"><label>Телефон (необязательно)</label><input type="text" id="newClanPhone" placeholder="+7 999 123-45-67" maxlength="30"></div>
-            <div class="admin-field"><label>Логотип (PNG, необязательно)</label><input type="text" id="newClanImage" placeholder="images/clan3.png"></div>
+
             <div class="admin-field">
-                <label>Флаг (если нет PNG)</label>
+                <label>Логотип гильдии (необязательно)</label>
+                <div class="logo-upload">
+                    <input type="file" id="newClanImageFile" accept="image/*,video/mp4,video/webm" hidden>
+                    <button type="button" id="newClanImagePick" class="logo-pick-btn">📷 Загрузить файл</button>
+                    <div id="newClanImagePreview" class="logo-preview" hidden>
+                        <img id="newClanImagePreviewImg" src="" alt="">
+                        <button type="button" id="newClanImageClear" class="logo-clear">✕</button>
+                    </div>
+                    <span id="newClanImageName" class="logo-name"></span>
+                </div>
+                <input type="text" id="newClanImage" placeholder="Или ссылка: https://... или путь images/clan3.png" maxlength="500">
+            </div>
+
+            <div class="admin-field">
+                <label>Флаг (если нет лого)</label>
                 <select id="newClanFlag">
                     <option value="neutral">Нейтральный</option>
                     <option value="pirate">Пиратский</option>
@@ -806,7 +912,7 @@
                     <option value="russia">Российской империи</option>
                 </select>
             </div>
-            <div class="admin-field"><label>Ссылка на логотип (не обязательно)</label><input type="text" id="crImage" maxlength="300" placeholder="images/clan.png"></div>
+            <div class="admin-field"><label>Ссылка на логотип (не обязательно)</label><input type="text" id="crImage" maxlength="500" placeholder="https://... или images/clan.png"></div>
             <p id="clanRequestMsg" class="error"></p>
             <div class="modal-actions">
                 <button id="clanRequestSubmit">📨 Отправить заявку</button>
@@ -985,7 +1091,7 @@
 
     <footer class="site-footer">
         <span class="footer-left">Mist Time — Сергеев С.В</span>
-        <span class="footer-right">v1.9.2</span>
+        <span class="footer-right">v2.0.0</span>
     </footer>
 
     <script type="module" src="app.js"></script>

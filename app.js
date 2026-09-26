@@ -1338,9 +1338,31 @@ function initCollapsibleSections() {
     });
 }
 
+/* ============ СВОРАЧИВАНИЕ БОКОВЫХ МЕНЮ ============ */
+function initNavGroups() {
+    const state = getCollapsedState();
+    document.querySelectorAll('.nav-group').forEach(group => {
+        const id = group.dataset.navgroup;
+        if (!id || group.dataset.navReady) return;
+        group.dataset.navReady = '1';
+        const header = group.querySelector('.nav-group-header');
+        const chevron = header?.querySelector('.nav-group-chevron');
+        if (!header || !chevron) return;
+
+        const key = 'nav-' + id;
+        const isCollapsed = !!state[key];
+        group.classList.toggle('collapsed', isCollapsed);
+
+        header.addEventListener('click', () => {
+            const nowCollapsed = !group.classList.contains('collapsed');
+            group.classList.toggle('collapsed', nowCollapsed);
+            setCollapsedState(key, nowCollapsed);
+        });
+    });
+}
+
 /* ============ СВОРАЧИВАНИЕ АДМИН-КАРТОЧЕК И МОДАЛОК ============ */
 function initCollapsibleAdminCards() {
-    // 1. Карточки в админке (.admin-card с h3 сверху)
     document.querySelectorAll('.admin-card').forEach((card, idx) => {
         if (card.dataset.collapseReady) return;
         const h3 = card.querySelector(':scope > h3');
@@ -1374,7 +1396,6 @@ function initCollapsibleAdminCards() {
         });
     });
 
-    // 2. Секции внутри модалок (.modal-content) — группируем .admin-field блоками
     document.querySelectorAll('.modal-content').forEach((modal, idx) => {
         if (modal.dataset.collapseReady) return;
         if (modal.querySelector('.modal-actions')) {
@@ -1385,9 +1406,8 @@ function initCollapsibleAdminCards() {
 }
 
 function wrapModalFieldsIntoGroups(modal, idx) {
-    // Если в модалке больше 6 полей — группируем их по 3 с заголовком
     const fields = Array.from(modal.querySelectorAll(':scope > .admin-field, :scope > input, :scope > select, :scope > textarea'));
-    if (fields.length < 7) return; // мелкие модалки не трогаем
+    if (fields.length < 7) return;
 
     const groupsDef = [
         { title: '🔧 Основное', from: 0, to: 3 },
@@ -1395,7 +1415,6 @@ function wrapModalFieldsIntoGroups(modal, idx) {
         { title: '📄 Прочее', from: 6, to: fields.length }
     ];
 
-    // Найдём, куда вставлять (перед .modal-actions или .error)
     const insertBeforeEl = modal.querySelector('.modal-actions') || modal.querySelector('.error');
     if (!insertBeforeEl) return;
 
@@ -1929,9 +1948,10 @@ async function loadList(tab) {
 /* ============ БИЛДЫ ============ */
 function parseLines(text) { if (!text) return []; return String(text).split('\n').map(s => s.trim()).filter(Boolean); }
 function parseBonus(text) {
-    const m = String(text).match(/^(.+?)\s*([+-]\s*\d+(?:[.,]\d+)?)\s*$/);
+    const m = String(text).match(/^(.+?)\s*([+-]\s*\d+(?:[.,]\d+)?)\s*(%?)\s*$/);
     if (!m) return { stat: String(text).trim(), value: null };
-    return { stat: m[1].trim(), value: parseFloat(m[2].replace(/\s/g, '').replace(',', '.')) };
+    const stat = m[3] === '%' ? `${m[1].trim()} (%)` : m[1].trim();
+    return { stat, value: parseFloat(m[2].replace(/\s/g, '').replace(',', '.')) };
 }
 function parseBonuses(str) {
     return String(str || '').split(',').map(s => s.trim()).filter(Boolean).map(parseBonus);
@@ -3459,9 +3479,10 @@ on('tacAddBtn', 'click', async () => {
    КАТАЛОГ БИЛДОВ + ИМПОРТ
    ============================================================ */
 function parseBonusLine(line) {
-    const m = String(line).trim().match(/^(.+?)\s*([+-]\s*\d+(?:[.,]\d+)?)\s*$/);
+    const m = String(line).trim().match(/^(.+?)\s*([+-]\s*\d+(?:[.,]\d+)?)\s*(%?)\s*$/);
     if (!m) return { stat: String(line).trim(), value: null };
-    return { stat: m[1].trim(), value: parseFloat(m[2].replace(/\s/g, '').replace(',', '.')) };
+    const stat = m[3] === '%' ? `${m[1].trim()} (%)` : m[1].trim();
+    return { stat, value: parseFloat(m[2].replace(/\s/g, '').replace(',', '.')) };
 }
 function normalizeGroupName(raw, map) {
     const key = String(raw || '').trim().toLowerCase();
@@ -3472,7 +3493,7 @@ function parseSpecialistsFile(text) {
     text.split(/\r?\n/).forEach((raw, idx) => {
         const line = raw.trim();
         if (!line || line.startsWith('#')) return;
-        const parts = line.split(/\s*[-–—]\s*/);
+        const parts = line.split(/\s+[-–—]\s+/);
         if (parts.length < 2) { errors.push(`Строка ${idx + 1}: пропущено « - »`); return; }
         const grpRaw = parts[0].trim();
         const name = (parts[1] || '').trim();
@@ -3489,7 +3510,7 @@ function parseWeaponsFile(text) {
     text.split(/\r?\n/).forEach((raw, idx) => {
         const line = raw.trim();
         if (!line || line.startsWith('#')) return;
-        const parts = line.split(/\s*[-–—]\s*/);
+        const parts = line.split(/\s+[-–—]\s+/);
         if (parts.length < 2) { errors.push(`Строка ${idx + 1}: пропущено « - »`); return; }
         const sizeRaw = parts[0].trim();
         const name = parts.slice(1).join(' - ').trim();
@@ -3505,7 +3526,7 @@ function parseUpgradesFile(text) {
     text.split(/\r?\n/).forEach((raw, idx) => {
         const line = raw.trim();
         if (!line || line.startsWith('#')) return;
-        const parts = line.split(/\s*[-–—]\s*/);
+        const parts = line.split(/\s+[-–—]\s+/);
         if (parts.length < 3) { errors.push(`Строка ${idx + 1}: нужно «Название - Раздел - Бонусы»`); return; }
         const name = parts[0].trim();
         const secRaw = parts[1].trim();
@@ -3522,7 +3543,7 @@ function parseShellsFile(text) {
     text.split(/\r?\n/).forEach((raw, idx) => {
         const line = raw.trim();
         if (!line || line.startsWith('#')) return;
-        const parts = line.split(/\s*[-–—]\s*/);
+        const parts = line.split(/\s+[-–—]\s+/);
         if (parts.length < 2) { errors.push(`Строка ${idx + 1}: пропущено « - »`); return; }
         const tRaw = parts[0].trim();
         const name = parts.slice(1).join(' - ').trim();
@@ -3592,6 +3613,23 @@ async function importShells(items) {
         if (error) fail++; else ok++;
     }
     return { ok, fail };
+}
+
+async function clearBuildItemsByTypes(types, label) {
+    const items = buildItemsCache.filter(x => types.includes(x.type));
+    if (!items.length) { alert(`Нечего очищать: ${label}`); return; }
+    if (!confirm(`Удалить ${items.length} записей (${label})? Это необратимо.`)) return;
+    const ids = items.map(s => s.id);
+    if (types.includes('specialist')) {
+        const { error: e1 } = await supabase.from('specialist_skills').delete().in('specialist_id', ids);
+        if (e1) return alert('Ошибка навыков: ' + e1.message);
+    }
+    const { error: e2 } = await supabase.from('build_items').delete().in('id', ids);
+    if (e2) return alert('Ошибка: ' + e2.message);
+    await logAdminAction('Очистил каталог', label, `${items.length} записей`);
+    await loadBuildItems();
+    renderCatalogAdmin();
+    alert(`✔ Удалено ${items.length} записей`);
 }
 
 async function loadBuildItems() {
@@ -3875,6 +3913,12 @@ setupImportHandler('biImportSpecsBtn', 'biImportSpecsFile', 'biImportSpecsStatus
 setupImportHandler('biImportWeaponsBtn', 'biImportWeaponsFile', 'biImportWeaponsStatus', parseWeaponsFile, importWeapons);
 setupImportHandler('biImportUpgradesBtn', 'biImportUpgradesFile', 'biImportUpgradesStatus', parseUpgradesFile, importUpgrades);
 setupImportHandler('biImportShellsBtn', 'biImportShellsFile', 'biImportShellsStatus', parseShellsFile, importShells);
+
+on('biClearSpecsBtn',    'click', () => clearBuildItemsByTypes(['specialist'], 'специалисты'));
+on('biClearWeaponsBtn',  'click', () => clearBuildItemsByTypes(
+    ['weapon_small', 'weapon_medium', 'weapon_large', 'weapon_mortar'], 'пушки'));
+on('biClearUpgradesBtn', 'click', () => clearBuildItemsByTypes(['upgrade'], 'апгрейды'));
+on('biClearShellsBtn',   'click', () => clearBuildItemsByTypes(['shell'], 'снаряды'));
 
 /* ============================================================
    РЕСУРСЫ — ТАБЛИЦА
@@ -6303,6 +6347,7 @@ on('admiralVoiceBtn', 'click', () => openChat('voice', { room: 'wosb_admirals_' 
     onDiscountTypeChange();
     initCollapsibleSections();
     initCollapsibleAdminCards();
+    initNavGroups();
     const lastClan = localStorage.getItem(LAST_CLAN_KEY);
     if (lastClan && isUnlocked() && clansCache[lastClan]) {
         openClan(lastClan, localStorage.getItem(CLAN_ADMIN_PASS_KEY) === '1');

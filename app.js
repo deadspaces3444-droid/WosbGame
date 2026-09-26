@@ -1,10 +1,4 @@
 import { supabase } from './supabase.js';
-// === НОВОЕ ===
-import {
-    loadReference, fillBuildDatalists,
-    renderShipsAdmin, renderResourcesAdmin, renderBuildItemsAdmin,
-    bindReferenceAddButtons
-} from './reference.js';
 
 console.log('🚀 app.js v1.8.8');
 
@@ -113,11 +107,13 @@ function canEditBindings() {
 /* ============ ПРАВА ============ */
 function canEditClan(clanId) {
     if (isOwner) return true;
+
     if (isAdmin) {
         if (myAdminClanId) return clanId === myAdminClanId;
         if (isMod) return false;
         return true;
     }
+
     if (clanId === currentClan && currentClanIsAdmin) return true;
     return false;
 }
@@ -126,6 +122,7 @@ function getMyClanId() { return localStorage.getItem(MY_CLAN_KEY) || null; }
 
 function canAccessClan(clanId) {
     if (isOwner) return true;
+
     if (isAdmin && myAdminClanId) {
         if (clanId === myAdminClanId) return true;
         const my = clansCache[myAdminClanId];
@@ -133,7 +130,9 @@ function canAccessClan(clanId) {
         if (!my || !target || !my.alliance_id) return false;
         return target.alliance_id === my.alliance_id;
     }
+
     if (isAdmin) return true;
+
     const myClan = getMyClanId();
     if (!myClan) return false;
     if (clanId === myClan) return true;
@@ -616,10 +615,6 @@ document.querySelectorAll('.admin-nav-item').forEach(btn => {
         if (panel === 'admins') renderSiteAdminsAdmin();
         if (panel === 'clanRequests') renderClanRequestsAdmin();
         if (panel === 'settings') renderSiteFields();
-        // === НОВОЕ ===
-        if (panel === 'ships') renderShipsAdmin();
-        if (panel === 'resources') renderResourcesAdmin();
-        if (panel === 'buildItems') renderBuildItemsAdmin();
     });
 });
 on('adminBackHome', 'click', () => { currentClan = null; showScreen('home'); });
@@ -3212,11 +3207,6 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') { const m = 
     applyAdminUI();
     updateFlagPreview('newClanFlag', 'newClanFlagPreview');
     updateFlagPreview('adminClanFlag', 'adminClanFlagPreview');
-    // === НОВОЕ: справочники ===
-    await loadReference();
-    fillBuildDatalists();
-    bindReferenceAddButtons();
-    // === /НОВОЕ ===
     const lastClan = localStorage.getItem(LAST_CLAN_KEY);
     if (lastClan && isUnlocked() && clansCache[lastClan]) {
         openClan(lastClan, localStorage.getItem(CLAN_ADMIN_PASS_KEY) === '1');

@@ -1916,3 +1916,106 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
 .partners-admin-item select.role-select:focus,
 .partners-admin-item select.clan-select:focus { outline: none; border-color: var(--accent); }
 .partners-admin-item select.clan-select:hover { border-color: var(--accent); }
+/* ============ АДМИН-АККОРДЕОН (для Кораблей/Ресурсов/Каталога) ============ */
+.admin-accordion { display: flex; flex-direction: column; gap: 8px; }
+
+.admin-accordion-item {
+  background: linear-gradient(180deg, var(--panel-3) 0%, var(--panel) 100%);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 3px 0 rgba(0,0,0,.2);
+  transition: border-color .2s;
+}
+.admin-accordion-item:hover { border-color: var(--accent); }
+.admin-accordion-item.sub { background: var(--panel-2); }
+.admin-accordion-item.sub .admin-accordion-header { font-size: 13px; padding: 10px 14px; }
+
+.admin-accordion-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px; cursor: pointer; user-select: none;
+  font-weight: 700; color: var(--text); list-style: none;
+}
+.admin-accordion-header::-webkit-details-marker { display: none; }
+.admin-accordion-header::before {
+  content: '▶'; color: var(--accent); font-size: 11px;
+  transition: transform .25s; flex-shrink: 0;
+}
+.admin-accordion-item[open] > .admin-accordion-header::before { transform: rotate(90deg); }
+
+.admin-accordion-body {
+  padding: 4px 16px 16px 38px;
+  display: flex; flex-direction: column; gap: 10px;
+  animation: faqSlideIn .25s ease;
+}
+.admin-accordion-body .row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+.admin-accordion-body label {
+  display: block;
+  font-size: 11px; color: var(--muted); font-weight: 600;
+  text-transform: uppercase; letter-spacing: .4px; margin-bottom: 4px;
+}
+.admin-accordion-body input,
+.admin-accordion-body select,
+.admin-accordion-body textarea {
+  width: 100%; padding: 8px 11px;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 7px; color: var(--text);
+  font-family: inherit; font-size: 13px;
+}
+.admin-accordion-body input:focus,
+.admin-accordion-body select:focus,
+.admin-accordion-body textarea:focus {
+  outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.acc-count {
+  margin-left: auto;
+  color: var(--muted);
+  font-weight: 400;
+  font-size: 12px;
+}
+.acc-hidden {
+  color: var(--red);
+  font-size: 11px;
+  margin-left: 8px;
+}
+
+/* Вложенный блок навыков специалиста */
+.skills-block {
+  margin-top: 10px; padding-top: 12px;
+  border-top: 1px dashed var(--border);
+}
+.skills-block-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 8px;
+}
+.skills-block-head b {
+  font-size: 12px; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .4px;
+}
+.skills-block-head button {
+  font-size: 12px; padding: 5px 10px;
+  background: var(--panel-3); border: 1px solid var(--border);
+  color: var(--text-dim); border-radius: 6px; cursor: pointer;
+  font-family: inherit; font-weight: 600;
+}
+.skills-block-head button:hover { color: var(--green); border-color: var(--green); }
+
+.skill-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 32px;
+  gap: 6px; margin-bottom: 6px; align-items: center;
+}
+.skill-row input { min-width: 0; }
+.skill-row button {
+  width: 32px; height: 32px;
+  background: var(--panel-2); border: 1px solid var(--border);
+  color: var(--red); border-radius: 6px; cursor: pointer;
+  font-size: 13px;
+}
+.skill-row button:hover { background: var(--red); color: #fff; border-color: var(--red); }

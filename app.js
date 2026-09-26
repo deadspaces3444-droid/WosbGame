@@ -835,6 +835,7 @@ document.querySelectorAll('.admin-nav-item').forEach(btn => {
         if (panel === 'catalog') renderCatalogAdmin();
         if (panel === 'map') renderMapAdmin();
         if (panel === 'ports') { renderFactionsAdmin(); renderPortsAdmin(); renderRanksAdmin(); fillPortFactionSelect(); }
+        setTimeout(initCollapsibleAdminCards, 100);
     });
 });
 on('adminBackHome', 'click', () => { currentClan = null; showScreen('home'); });
@@ -1333,6 +1334,99 @@ function initCollapsibleSections() {
         titleEl.addEventListener('click', toggle);
         titleEl.addEventListener('keydown', e => {
             if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(e); }
+        });
+    });
+}
+
+/* ============ СВОРАЧИВАНИЕ АДМИН-КАРТОЧЕК И МОДАЛОК ============ */
+function initCollapsibleAdminCards() {
+    // 1. Карточки в админке (.admin-card с h3 сверху)
+    document.querySelectorAll('.admin-card').forEach((card, idx) => {
+        if (card.dataset.collapseReady) return;
+        const h3 = card.querySelector(':scope > h3');
+        if (!h3) return;
+        card.dataset.collapseReady = '1';
+
+        const id = 'admin-card-' + idx + '-' + (h3.textContent || '').trim().slice(0, 24).replace(/[^a-zа-яё0-9]+/gi, '');
+
+        h3.classList.add('collapsible-card-title');
+        const chevron = document.createElement('span');
+        chevron.className = 'collapse-chevron';
+        chevron.textContent = '▾';
+        h3.appendChild(chevron);
+
+        const body = document.createElement('div');
+        body.className = 'collapsible-card-body';
+        Array.from(card.children).forEach(k => { if (k !== h3) body.appendChild(k); });
+        card.appendChild(body);
+
+        const state = getCollapsedState();
+        const isCollapsed = !!state[id];
+        card.classList.toggle('collapsed', isCollapsed);
+        chevron.textContent = isCollapsed ? '▸' : '▾';
+
+        h3.addEventListener('click', (e) => {
+            if (e.target.closest('button, a, input, select')) return;
+            const nowCollapsed = !card.classList.contains('collapsed');
+            card.classList.toggle('collapsed', nowCollapsed);
+            chevron.textContent = nowCollapsed ? '▸' : '▾';
+            setCollapsedState(id, nowCollapsed);
+        });
+    });
+
+    // 2. Секции внутри модалок (.modal-content) — группируем .admin-field блоками
+    document.querySelectorAll('.modal-content').forEach((modal, idx) => {
+        if (modal.dataset.collapseReady) return;
+        if (modal.querySelector('.modal-actions')) {
+            modal.dataset.collapseReady = '1';
+            wrapModalFieldsIntoGroups(modal, idx);
+        }
+    });
+}
+
+function wrapModalFieldsIntoGroups(modal, idx) {
+    // Если в модалке больше 6 полей — группируем их по 3 с заголовком
+    const fields = Array.from(modal.querySelectorAll(':scope > .admin-field, :scope > input, :scope > select, :scope > textarea'));
+    if (fields.length < 7) return; // мелкие модалки не трогаем
+
+    const groupsDef = [
+        { title: '🔧 Основное', from: 0, to: 3 },
+        { title: '⚙️ Дополнительно', from: 3, to: 6 },
+        { title: '📄 Прочее', from: 6, to: fields.length }
+    ];
+
+    // Найдём, куда вставлять (перед .modal-actions или .error)
+    const insertBeforeEl = modal.querySelector('.modal-actions') || modal.querySelector('.error');
+    if (!insertBeforeEl) return;
+
+    const state = getCollapsedState();
+
+    groupsDef.forEach((g, gi) => {
+        const slice = fields.slice(g.from, g.to);
+        if (!slice.length) return;
+
+        const groupId = 'modal-group-' + idx + '-' + gi;
+        const group = document.createElement('div');
+        group.className = 'modal-group';
+        if (state[groupId]) group.classList.add('collapsed');
+
+        const header = document.createElement('div');
+        header.className = 'modal-group-header';
+        header.innerHTML = `<span>${g.title}</span><span class="collapse-chevron">${state[groupId] ? '▸' : '▾'}</span>`;
+
+        const body = document.createElement('div');
+        body.className = 'modal-group-body';
+
+        slice.forEach(f => body.appendChild(f));
+        group.appendChild(header);
+        group.appendChild(body);
+        modal.insertBefore(group, insertBeforeEl);
+
+        header.addEventListener('click', () => {
+            const now = !group.classList.contains('collapsed');
+            group.classList.toggle('collapsed', now);
+            header.querySelector('.collapse-chevron').textContent = now ? '▸' : '▾';
+            setCollapsedState(groupId, now);
         });
     });
 }
@@ -6208,6 +6302,7 @@ on('admiralVoiceBtn', 'click', () => openChat('voice', { room: 'wosb_admirals_' 
     updateFlagPreview('adminClanFlag', 'adminClanFlagPreview');
     onDiscountTypeChange();
     initCollapsibleSections();
+    initCollapsibleAdminCards();
     const lastClan = localStorage.getItem(LAST_CLAN_KEY);
     if (lastClan && isUnlocked() && clansCache[lastClan]) {
         openClan(lastClan, localStorage.getItem(CLAN_ADMIN_PASS_KEY) === '1');

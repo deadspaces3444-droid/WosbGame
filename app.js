@@ -2082,6 +2082,9 @@ async function addBuild(type) {
     }
     await logAdminAction(`Добавил билд ${type.toUpperCase()}`, ship);
     ['Rank','Upgrades','WeapS','WeapM','WeapL','WeapMortar','Shells','Cons1','Cons2','Cons3','Cargo','Specs'].forEach(s => { const el = $(`${type}${s}`); if (el) el.value = ''; });
+    renderBuildSpecChips(`${type}SpecsChips`, `${type}Specs`);
+    const pickerSel = $(`${type}SpecsSelect`); if (pickerSel) pickerSel.value = '';
+    const pickerBtn = $(`${type}SpecsAdd`);   if (pickerBtn) pickerBtn.disabled = true;
     const shipSel = $(`${type}Ship`); if (shipSel) shipSel.value = '';
     const preview = $(`${type}ShipPreview`); if (preview) preview.hidden = true;
     flashStatusEl(statusEl, '✔ Добавлено', '#6ee7a7');
@@ -2108,6 +2111,11 @@ function openBuildEdit(item) {
     $('buildEditCons3').value = item.consumable3 || '';
     $('buildEditCargo').value = item.cargo || '';
     $('buildEditSpecs').value = item.specialists || '';
+    renderBuildSpecChips('buildEditSpecsChips', 'buildEditSpecs');
+    {
+        const s = $('buildEditSpecsSelect'); if (s) s.value = '';
+        const b = $('buildEditSpecsAdd');    if (b) b.disabled = true;
+    }
     renderScopeSelects();
     $('buildEditScope').value = item.is_shared ? SHARED : (item.clan || SHARED);
     $('buildEditError').textContent = '';
@@ -3692,7 +3700,128 @@ function fillBuildDatalists() {
     if (uL) uL.innerHTML = others.map(x => `<option value="${escapeHtml(x.name)}">`).join('');
     const sL = document.getElementById('sailsList');
     if (sL) sL.innerHTML = sails.map(x => `<option value="${escapeHtml(x.name)}">`).join('');
+
+    fillSpecialistPickers();
 }
+
+/* ============ ПИКЕР СПЕЦИАЛИСТОВ В БИЛДАХ ============ */
+function getSpecialistBonusLine(spec) {
+    const skills = specialistSkillsCache[spec.id] || [];
+    if (skills.length) {
+        return skills
+            .slice()
+            .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+            .map(s => {
+                const v = Number(s.value) || 0;
+                return `${s.stat_name} ${v > 0 ? '+' : ''}${v}`;
+            })
+            .join(' | ');
+    }
+    if (spec.bonuses) {
+        return String(spec.bonuses)
+            .split(',')
+            .map(x => x.trim())
+            .filter(Boolean)
+            .join(' | ');
+    }
+    return '';
+}
+
+function renderBuildSpecChips(chipsId, textareaId) {
+    const chips = $(chipsId);
+    const ta = $(textareaId);
+    if (!chips || !ta) return;
+    const specs = parseSpecialists(ta.value || '');
+    chips.innerHTML = '';
+    if (!specs.length) {
+        chips.innerHTML = '<div class="spec-picker-empty">Специалисты не выбраны</div>';
+        return;
+    }
+    specs.forEach((sp, idx) => {
+        const chip = document.createElement('div');
+        chip.className = 'spec-chip';
+        const bonusesHtml = sp.bonuses.length
+            ? sp.bonuses.map(b => {
+                const cls = b.value === null ? 'neutral' : (b.value > 0 ? 'plus' : 'minus');
+                const val = b.value === null ? '' : ` ${b.value > 0 ? '+' : ''}${b.value}`;
+                return `<span class="spec-chip-bonus ${cls}">${escapeHtml(b.stat)}${val}</span>`;
+            }).join('')
+            : '';
+        chip.innerHTML = `
+            <span class="spec-chip-name">👤 ${escapeHtml(sp.name)}</span>
+            <div class="spec-chip-bonuses">${bonusesHtml}</div>
+            <button type="button" class="spec-chip-del" data-idx="${idx}" title="Убрать">✕</button>`;
+        chip.querySelector('.spec-chip-del').addEventListener('click', () => {
+            const lines = String(ta.value || '').split('\n').filter(Boolean);
+            lines.splice(idx, 1);
+            ta.value = lines.join('\n');
+            renderBuildSpecChips(chipsId, textareaId);
+        });
+        chips.appendChild(chip);
+    });
+}
+
+function fillSpecialistPickers() {
+    const specialists = buildItemsCache
+        .filter(x => x.type === 'specialist' && x.is_active !== false)
+        .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    ['pvpSpecsSelect', 'pbSpecsSelect', 'buildEditSpecsSelect'].forEach(selId => {
+        const sel = $(selId);
+        if (!sel) return;
+        const cur = sel.value;
+        sel.innerHTML = '<option value="">— Выберите специалиста —</option>';
+        specialists.forEach(sp => {
+            const o = document.createElement('option');
+            o.value = String(sp.id);
+            o.textContent = sp.name;
+            sel.appendChild(o);
+        });
+        if (cur && sel.querySelector(`option[value="${cur}"]`)) sel.value = cur;
+    });
+}
+
+function addSpecialistToTextarea(selectId, textareaId, chipsId) {
+    const sel = $(selectId);
+    const ta = $(textareaId);
+    if (!sel || !ta || !sel.value) return;
+    const spec = buildItemsCache.find(x => String(x.id) === sel.value);
+    if (!spec) return;
+
+    const existing = parseSpecialists(ta.value || '');
+    if (existing.some(s => s.name.trim().toLowerCase() === spec.name.trim().toLowerCase())) {
+        alert(`«${spec.name}» уже добавлен`);
+        sel.value = '';
+        const btn = $(selectId.replace('Select', 'Add'));
+        if (btn) btn.disabled = true;
+        return;
+    }
+
+    const bonusLine = getSpecialistBonusLine(spec);
+    const newLine = bonusLine ? `${spec.name} | ${bonusLine}` : spec.name;
+    const lines = String(ta.value || '').split('\n').filter(Boolean);
+    lines.push(newLine);
+    ta.value = lines.join('\n');
+
+    sel.value = '';
+    const btn = $(selectId.replace('Select', 'Add'));
+    if (btn) btn.disabled = true;
+    renderBuildSpecChips(chipsId, textareaId);
+}
+
+function wireSpecPicker(selectId, addBtnId, chipsId, textareaId) {
+    const sel = $(selectId);
+    const btn = $(addBtnId);
+    if (sel) {
+        sel.addEventListener('change', () => {
+            if (btn) btn.disabled = !sel.value;
+        });
+    }
+    if (btn) {
+        btn.addEventListener('click', () => addSpecialistToTextarea(selectId, textareaId, chipsId));
+    }
+    renderBuildSpecChips(chipsId, textareaId);
+}
+
 function renderCatalogAdmin() {
     const container = $('catalogTree'); if (!container) return;
     container.innerHTML = '';
@@ -3919,7 +4048,6 @@ on('biClearWeaponsBtn',  'click', () => clearBuildItemsByTypes(
     ['weapon_small', 'weapon_medium', 'weapon_large', 'weapon_mortar'], 'пушки'));
 on('biClearUpgradesBtn', 'click', () => clearBuildItemsByTypes(['upgrade'], 'апгрейды'));
 on('biClearShellsBtn',   'click', () => clearBuildItemsByTypes(['shell'], 'снаряды'));
-
 /* ============================================================
    РЕСУРСЫ — ТАБЛИЦА
    ============================================================ */
@@ -6348,6 +6476,9 @@ on('admiralVoiceBtn', 'click', () => openChat('voice', { room: 'wosb_admirals_' 
     initCollapsibleSections();
     initCollapsibleAdminCards();
     initNavGroups();
+    wireSpecPicker('pvpSpecsSelect', 'pvpSpecsAdd', 'pvpSpecsChips', 'pvpSpecs');
+    wireSpecPicker('pbSpecsSelect',  'pbSpecsAdd',  'pbSpecsChips',  'pbSpecs');
+    wireSpecPicker('buildEditSpecsSelect', 'buildEditSpecsAdd', 'buildEditSpecsChips', 'buildEditSpecs');
     const lastClan = localStorage.getItem(LAST_CLAN_KEY);
     if (lastClan && isUnlocked() && clansCache[lastClan]) {
         openClan(lastClan, localStorage.getItem(CLAN_ADMIN_PASS_KEY) === '1');

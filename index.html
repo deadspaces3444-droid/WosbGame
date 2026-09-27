@@ -515,7 +515,20 @@
                         <input type="text" id="pvpCons2" list="consumablesList" placeholder="Расходник 2" maxlength="40">
                         <input type="text" id="pvpCons3" list="consumablesList" placeholder="Расходник 3" maxlength="40">
                         <input type="text" id="pvpCargo" list="cargoList" placeholder="Наполнение трюма" maxlength="200">
-                        <textarea id="pvpSpecs" placeholder="Специалисты — Имя | Бонус +5 | Бонус -3" rows="3"></textarea>
+                        <div class="spec-picker">
+                            <div class="spec-picker-head">
+                                <span class="spec-picker-title">👤 Специалисты</span>
+                                <span class="spec-picker-hint">Выбери из справочника</span>
+                            </div>
+                            <div class="spec-picker-chips" id="pvpSpecsChips"></div>
+                            <div class="spec-picker-row">
+                                <select id="pvpSpecsSelect" class="spec-picker-select">
+                                    <option value="">— Выберите специалиста —</option>
+                                </select>
+                                <button type="button" id="pvpSpecsAdd" class="spec-picker-add" disabled>➕ Добавить</button>
+                            </div>
+                            <textarea id="pvpSpecs" hidden></textarea>
+                        </div>
                         <select id="pvpScope"></select>
                         <button id="pvpAddBtn">➕ Добавить</button>
                         <span id="pvpStatus"></span>
@@ -539,7 +552,20 @@
                         <input type="text" id="pbCons2" list="consumablesList" placeholder="Расходник 2" maxlength="40">
                         <input type="text" id="pbCons3" list="consumablesList" placeholder="Расходник 3" maxlength="40">
                         <input type="text" id="pbCargo" list="cargoList" placeholder="Наполнение трюма" maxlength="200">
-                        <textarea id="pbSpecs" placeholder="Специалисты — Имя | Бонус +5 | Бонус -3" rows="3"></textarea>
+                        <div class="spec-picker">
+                            <div class="spec-picker-head">
+                                <span class="spec-picker-title">👤 Специалисты</span>
+                                <span class="spec-picker-hint">Выбери из справочника</span>
+                            </div>
+                            <div class="spec-picker-chips" id="pbSpecsChips"></div>
+                            <div class="spec-picker-row">
+                                <select id="pbSpecsSelect" class="spec-picker-select">
+                                    <option value="">— Выберите специалиста —</option>
+                                </select>
+                                <button type="button" id="pbSpecsAdd" class="spec-picker-add" disabled>➕ Добавить</button>
+                            </div>
+                            <textarea id="pbSpecs" hidden></textarea>
+                        </div>
                         <select id="pbScope"></select>
                         <button id="pbAddBtn">➕ Добавить</button>
                         <span id="pbStatus"></span>
@@ -1595,7 +1621,19 @@
             <div class="admin-field"><label>Расходник 2</label><input type="text" id="buildEditCons2" maxlength="40"></div>
             <div class="admin-field"><label>Расходник 3</label><input type="text" id="buildEditCons3" maxlength="40"></div>
             <div class="admin-field"><label>Трюм</label><textarea id="buildEditCargo" rows="2"></textarea></div>
-            <div class="admin-field"><label>Специалисты</label><textarea id="buildEditSpecs" rows="4"></textarea></div>
+            <div class="admin-field">
+                <label>Специалисты</label>
+                <div class="spec-picker">
+                    <div class="spec-picker-chips" id="buildEditSpecsChips"></div>
+                    <div class="spec-picker-row">
+                        <select id="buildEditSpecsSelect" class="spec-picker-select">
+                            <option value="">— Выберите специалиста —</option>
+                        </select>
+                        <button type="button" id="buildEditSpecsAdd" class="spec-picker-add" disabled>➕ Добавить</button>
+                    </div>
+                    <textarea id="buildEditSpecs" hidden></textarea>
+                </div>
+            </div>
             <div class="admin-field"><label>Привязать к</label><select id="buildEditScope"></select></div>
             <p id="buildEditError" class="error"></p>
             <div class="modal-actions">

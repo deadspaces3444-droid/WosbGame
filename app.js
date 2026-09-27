@@ -1,9 +1,9 @@
 import { supabase } from './supabase.js';
 
-console.log('🚀 app.js v2.3.3 (part 1)');
+console.log('🚀 app.js v3.0.0 (part 1)');
 
 const ADMIN_EMAILS_FALLBACK = ['dead_antihrist@mail.ru'];
-const APP_VERSION = '2.3.3';
+const APP_VERSION = '3.0.0';
 const BINDING_OWNERS = ['kolibri@wosb.ru', 'dead_antihrist@mail.ru'];
 
 const CLAN_FLAGS = {
@@ -93,6 +93,32 @@ const SHELL_TYPES = {
     'тяжелые':    { en: 'heavy',      label: '🏋 Тяжёлые' }
 };
 
+/* ============================================================
+   v3.0 — КОНСТАНТЫ ЛИЧНОГО ДЕЛА
+============================================================ */
+const PRIVACY_SECTIONS = ['clanCard', 'clanAwards', 'siteAchievements', 'stats', 'treasury', 'trades', 'events', 'builds'];
+const PRIVACY_DEFAULT = {
+    clanCard: true,
+    clanAwards: true,
+    siteAchievements: true,
+    stats: true,
+    treasury: true,
+    trades: true,
+    events: true,
+    builds: true
+};
+const PRIVACY_LABELS = {
+    clanCard:          { icon: '🎖', name: 'Чин в гильдии' },
+    clanAwards:        { icon: '🏅', name: 'Награды гильдии' },
+    siteAchievements:  { icon: '⭐', name: 'Награды сайта' },
+    stats:             { icon: '📊', name: 'Статистика службы' },
+    treasury:          { icon: '💰', name: 'Вклады в казну' },
+    trades:            { icon: '🤝', name: 'Торговый послужной список' },
+    events:            { icon: '📅', name: 'Боевой журнал' },
+    builds:            { icon: '⚔️', name: 'Авторские билды' }
+};
+
+/* --- новые кэши --- */
 let gamesCache = {}, clansCache = {}, alliancesCache = {};
 let settingsCache = null, faqCache = [], partnersCache = [], tacticsCache = [], tradesCache = [];
 let shipsCache = [];
@@ -137,12 +163,28 @@ let evMapData = null;
 let evMapMarkers = [];
 let evMapNextId = 1;
 
-/* --- новые --- */
+/* --- опросы/сравнение --- */
 let pollsCache = [];
 let pollVotesCache = { options: {}, votes: {} };
 let compareShips = [];
 let compareBuilds = [];
 let _lastBuildsByType = { pvp: [], pb: [] };
+
+/* --- v3.0: карточки, награды, приватность --- */
+let clanCardsCache = {};      // { clanId: [cards] }
+let clanAwardsCache = {};     // { clanId: [awards] }
+let memberCardsCache = {};    // { clanId: { nickname: cardRow } }
+let memberAwardsCache = {};   // { clanId: { nickname: [awardsRows] } }
+let userPrivacyCache = {};    // { nickname: {section: bool} }
+let personalCurrentNick = null;
+let personalIsMine = false;
+let personalEditMode = false;
+let boardFilter = 'all';
+let boardSort = 'card';
+let editingClanCardId = null;
+let editingClanAwardId = null;
+let clanCardIconData = null;
+let clanAwardIconData = null;
 
 const $ = id => document.getElementById(id);
 function on(id, event, handler, opts) {
@@ -283,7 +325,7 @@ function toggleTheme() {
     applyTheme(cur === 'dark' ? 'light' : 'dark');
 }
 function initTheme() { applyTheme(localStorage.getItem(THEME_KEY) || 'dark'); }
-['themeToggle','themeToggle2','themeToggle3','themeToggle4','themeToggle5'].forEach(id => on(id, 'click', toggleTheme));
+['themeToggle','themeToggle2','themeToggle3','themeToggle4','themeToggle5','themeToggle6'].forEach(id => on(id, 'click', toggleTheme));
 
 /* ============ ЛОГИ ============ */
 async function logAdminAction(action, target = null, details = null) {
@@ -555,6 +597,8 @@ async function sendHeartbeat() {
         }
     } catch (e) { }
     updateOnlineCount();
+    /* v3.0 — переподписываемся на уведомления, если ник только что появился */
+    if (nickname && !nickname.startsWith('guest_')) initGlobalNotifications();
 }
 async function updateOnlineCount() {
     const threshold = new Date(Date.now() - ONLINE_WINDOW_MS).toISOString();
@@ -620,6 +664,28 @@ function compressLogo(file, maxSize = 128, quality = 0.85) {
         reader.onerror = reject; reader.readAsDataURL(file);
     });
 }
+/* v3.0 — сохранение иконки карточки/награды с сохранением прозрачности */
+function compressIcon(file, maxSize = 256, quality = 0.92) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = e => {
+            const img = new Image();
+            img.onload = () => {
+                const ratio = img.width / img.height;
+                let w = maxSize, h = maxSize;
+                if (ratio > 1) h = Math.round(maxSize / ratio);
+                else if (ratio < 1) w = Math.round(maxSize * ratio);
+                const canvas = document.createElement('canvas');
+                canvas.width = w; canvas.height = h;
+                canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                const isPng = file.type === 'image/png' || file.type === 'image/webp' || file.type === 'image/gif';
+                resolve(canvas.toDataURL(isPng ? 'image/png' : 'image/jpeg', quality));
+            };
+            img.onerror = reject; img.src = e.target.result;
+        };
+        reader.onerror = reject; reader.readAsDataURL(file);
+    });
+}
 on('bgChangeBtn', 'click', () => { if (!canEditClan(currentClan)) return; bgFileInput.value = ''; bgFileInput.click(); });
 bgFileInput?.addEventListener('change', async () => {
     const file = bgFileInput.files[0]; if (!file) return;
@@ -646,6 +712,8 @@ function showScreen(name) {
     if (leader) leader.hidden = name !== 'leader';
     const admiral = $('screen-admiral');
     if (admiral) admiral.hidden = name !== 'admiral';
+    const personal = $('screen-personal');
+    if (personal) personal.hidden = name !== 'personal';
     window.scrollTo(0, 0); applyBg();
 }
 
@@ -810,6 +878,7 @@ document.querySelectorAll('.side-item').forEach(btn => {
         else if (section === 'pb') renderBuilds('pb');
         else if (section === 'ships') loadShips();
         else if (section === 'builder') { if (builderClanCtrl) builderClanCtrl.refresh(); }
+        else if (section === 'board') renderBoard();
         else if (section === 'contacts') renderContacts();
         else if (section === 'members') { renderMembers(); renderAdmins(); }
         else if (section === 'applications') renderApplications();
@@ -828,6 +897,8 @@ document.querySelectorAll('.admin-nav-item').forEach(btn => {
         const section = document.querySelector(`.admin-section[data-apanel="${panel}"]`);
         if (section) section.classList.add('active');
         if (panel === 'clans') renderAdminClanSelect();
+        if (panel === 'clanCards') renderAdminClanCardsPanel();
+        if (panel === 'clanAwards') renderAdminClanAwardsPanel();
         if (panel === 'alliances') renderAlliancesAdmin();
         if (panel === 'games') renderGamesAdmin();
         if (panel === 'ships') renderAdminShips();
@@ -1554,6 +1625,11 @@ function applyAdminUI() {
     });
     document.querySelectorAll('.owner-only').forEach(el => { el.hidden = !isOwner; });
     const clearBtn = $('chatClear'); if (clearBtn) clearBtn.hidden = !isAdmin;
+    /* v3.0 — кнопки личного дела */
+    const hasNick = !!getViewerNick();
+    ['personalCabinetBtn', 'personalCabinetBtn2', 'personalCabinetBtn3'].forEach(id => {
+        const el = $(id); if (el) el.hidden = !hasNick;
+    });
     renderAll();
     updateLeaderButtonsVisibility();
 }
@@ -1658,6 +1734,13 @@ async function loadClans() {
     renderApplyClanSelect(); renderAlliancesAdmin();
     renderSiteAdminsAdmin();
     if (currentClan) updateAllianceBar();
+    /* v3.0 — подгружаем карточки/награды текущей гильдии */
+    if (currentClan) {
+        loadClanCards(currentClan).catch(() => {});
+        loadClanAwards(currentClan).catch(() => {});
+        loadMemberCards(currentClan).catch(() => {});
+        loadMemberAwards(currentClan).catch(() => {});
+    }
 }
 function getClansForGame(gameId) {
     return Object.values(clansCache).filter(c => (c.game_id || 'wosb') === gameId);
@@ -1886,7 +1969,13 @@ function openClan(id, isClanAdminLogin = false) {
     renderEvents(); renderTreasury(); renderApplications();
     renderMembers(); renderAdmins();
     loadPolls();
+    loadClanCards(id).catch(() => {});
+    loadClanAwards(id).catch(() => {});
+    loadMemberCards(id).catch(() => {});
+    loadMemberAwards(id).catch(() => {});
+    renderBoard().catch(() => {});
     sendHeartbeat(); initRealtime();
+    initGlobalNotifications();
 }
 on('backBtn', 'click', () => {
     currentClan = null; currentClanIsAdmin = false; currentClanPass = null;
@@ -4065,6 +4154,7 @@ on('biClearWeaponsBtn',  'click', () => clearBuildItemsByTypes(
     ['weapon_small', 'weapon_medium', 'weapon_large', 'weapon_mortar'], 'пушки'));
 on('biClearUpgradesBtn', 'click', () => clearBuildItemsByTypes(['upgrade'], 'апгрейды'));
 on('biClearShellsBtn',   'click', () => clearBuildItemsByTypes(['shell'], 'снаряды'));
+
 /* ============================================================
    РЕСУРСЫ — ТАБЛИЦА
    ============================================================ */
@@ -5373,9 +5463,18 @@ on('deleteClanBtn', 'click', async () => {
         await supabase.from('treasury').delete().eq('clan', cid);
         await supabase.from('trades').delete().eq('clan', cid);
         await supabase.from('builds').delete().eq('clan', cid).eq('is_shared', false);
+        /* v3.0 — чистим карточки, награды, привязки */
+        await supabase.from('member_cards').delete().eq('clan_id', cid);
+        await supabase.from('member_awards').delete().eq('clan_id', cid);
+        await supabase.from('clan_cards').delete().eq('clan_id', cid);
+        await supabase.from('clan_awards').delete().eq('clan_id', cid);
         const { error } = await supabase.from('clans').delete().eq('id', cid);
         if (error) throw error;
         delete clansCache[cid];
+        delete clanCardsCache[cid];
+        delete clanAwardsCache[cid];
+        delete memberCardsCache[cid];
+        delete memberAwardsCache[cid];
         if (currentClan === cid) { currentClan = null; ['guild_last_clan','guild_unlocked','guild_my_clan'].forEach(k => localStorage.removeItem(k)); }
         renderHomeCards(); renderAdminClanSelect(); renderScopeSelects(); renderContacts();
         renderTradeClanSelect(); renderTradeClanFilters(); renderAlliancesAdmin(); applyBg();
@@ -5577,6 +5676,7 @@ async function openProfile(nickname) {
     const statsEl = $('profileStats');
     statsEl.innerHTML = '<div class="empty">Загрузка…</div>';
     $('profileModal').hidden = false;
+    $('profileModal').dataset.nick = nickname;
     try {
         const [en, fr, ne, pe, tb, ts] = await Promise.all([
             supabase.from('enemies').select('id', { count: 'exact', head: true }).eq('nickname', nickname),
@@ -5609,6 +5709,11 @@ async function openProfile(nickname) {
 }
 on('closeProfile', 'click', () => { $('profileModal').hidden = true; });
 on('profileModal', 'click', e => { if (e.target.id === 'profileModal') $('profileModal').hidden = true; });
+on('profileOpenFullBtn', 'click', () => {
+    const nick = $('profileModal').dataset.nick;
+    $('profileModal').hidden = true;
+    if (nick) openPersonalCabinet(nick);
+});
 async function loadNotifications() {
     const nick = getViewerNick();
     if (!nick) { notifications = []; renderNotifications(); return; }
@@ -5647,6 +5752,11 @@ function renderNotifications() {
             if (!n.is_read) {
                 await supabase.from('notifications').update({ is_read: true }).eq('id', id);
                 n.is_read = true; renderNotifications();
+            }
+            /* v3.0 — если это уведомление о личном сообщении, открываем переписку */
+            if (n.type === 'chat' && n.link && n.link.startsWith('private:')) {
+                const from = n.link.slice('private:'.length);
+                if (from) openPrivateChat(from);
             }
             $('notifPanel').hidden = true;
         });
@@ -5818,6 +5928,11 @@ async function sendChatMessage() {
     $('chatSend').disabled = false;
     if (error) { alert('Ошибка: ' + error.message); return; }
     input.value = '';
+    /* v3.0 — уведомление получателю при личном сообщении */
+    if (chatMode === 'private' && chatPrivateWith) {
+        const short = text.length > 120 ? text.slice(0, 120) + '…' : text;
+        createNotification(chatPrivateWith, 'chat', `✉️ Личное сообщение от ${nick}`, short, `private:${nick}`).catch(() => {});
+    }
 }
 async function clearChat() {
     if (!isAdmin && !canEditClan(currentClan)) return;
@@ -5859,6 +5974,7 @@ function openPrivateChat(nickname) {
     if (!$('screen-admin').hidden) showScreen('home');
     const lp = $('screen-leader'); if (lp && !lp.hidden) lp.hidden = true;
     const ap = $('screen-admiral'); if (ap && !ap.hidden) ap.hidden = true;
+    const pp = $('screen-personal'); if (pp && !pp.hidden) pp.hidden = true;
 }
 function closeChat() {
     $('chatPanel').hidden = true;
@@ -5907,20 +6023,36 @@ function initRealtime() {
     onlineChannel = supabase.channel('online')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'online_users' }, () => updateOnlineCount())
         .subscribe();
-    const nick = getViewerNick();
-    if (nick) {
-        notifChannel = supabase.channel('notif_' + nick)
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_nickname=eq.${nick}` }, payload => {
-                notifications.unshift(payload.new);
-                if (notifications.length > 50) notifications.pop();
-                renderNotifications();
-                ['notifBell', 'notifBell2'].forEach(id => { const b = $(id); if (!b) return; b.style.transform = 'scale(1.15)'; b.classList.add('has-notif'); setTimeout(() => b.style.transform = '', 300); });
-            }).subscribe();
-    }
+    initGlobalNotifications();
 }
 function closeRealtime() {
     if (onlineChannel) { supabase.removeChannel(onlineChannel); onlineChannel = null; }
+    /* v3.0 — notifChannel НЕ трогаем здесь, он глобальный */
+}
+
+/* ============ v3.0 — ГЛОБАЛЬНЫЕ УВЕДОМЛЕНИЯ ============ */
+let _globalNotifNick = null;
+function initGlobalNotifications() {
+    const nick = getViewerNick();
+    if (!nick || nick.startsWith('guest_')) return;
+    if (_globalNotifNick === nick && notifChannel) return;
     if (notifChannel) { supabase.removeChannel(notifChannel); notifChannel = null; }
+    _globalNotifNick = nick;
+    notifChannel = supabase.channel('notif_' + nick)
+        .on('postgres_changes', {
+            event: 'INSERT', schema: 'public', table: 'notifications',
+            filter: `user_nickname=eq.${nick}`
+        }, payload => {
+            notifications.unshift(payload.new);
+            if (notifications.length > 50) notifications.pop();
+            renderNotifications();
+            ['notifBell', 'notifBell2'].forEach(id => {
+                const b = $(id); if (!b) return;
+                b.style.transform = 'scale(1.15)';
+                b.classList.add('has-notif');
+                setTimeout(() => b.style.transform = '', 300);
+            });
+        }).subscribe();
 }
 
 /* ============ НОВОСТИ ============ */
@@ -6449,6 +6581,7 @@ on('admiralLogRefresh', 'click', () => { logAdmiralAction('Обновил жур
 on('admiralWriteLeadersBtn', 'click', () => openChat('leaders'));
 on('admiralWriteAdmiralsBtn', 'click', () => openChat('admirals'));
 on('admiralVoiceBtn', 'click', () => openChat('voice', { room: 'wosb_admirals_' + String(currentClan || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase() }));
+
 /* ============================================================
    СРАВНЕНИЕ КОРАБЛЕЙ И БИЛДОВ
 ============================================================ */
@@ -6615,7 +6748,6 @@ async function renderBuildCompareTable() {
     html += '</tbody></table>';
     return html;
 }
-
 /* ============================================================
    ХЭШ-РОУТИНГ
 ============================================================ */
@@ -6631,8 +6763,12 @@ function applyHashRoute() {
 
     const parts = raw.split('/');
     const scope = parts[0];
-    const target = parts[1];
+    const target = parts.slice(1).join('/');
 
+    if (scope === 'user' && target) {
+        setTimeout(() => openPersonalCabinet(decodeURIComponent(target)), 250);
+        return;
+    }
     if (scope === 'clan' && currentClan && target) {
         const btn = document.querySelector(`.side-item[data-section="${target}"]`);
         if (btn && !btn.classList.contains('active')) btn.click();
@@ -6937,22 +7073,1123 @@ function findBuildInCacheByShipAndType(shipName, type) {
     return (_lastBuildsByType[type] || []).find(b => b.ship_name === shipName);
 }
 
-/* ============ СТАРТ ============ */
+/* ============================================================
+   v3.0 — КАРТОЧКИ ГИЛЬДИЙ (ЧИНЫ / ДОЛЖНОСТИ)
+============================================================ */
+async function loadClanCards(clanId) {
+    if (!clanId) return [];
+    const { data, error } = await supabase.from('clan_cards')
+        .select('*').eq('clan_id', clanId)
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: true });
+    if (error) { console.warn('clan_cards load:', error.message); clanCardsCache[clanId] = []; return []; }
+    clanCardsCache[clanId] = data || [];
+    return clanCardsCache[clanId];
+}
+function getClanCards(clanId) { return clanCardsCache[clanId] || []; }
+function getClanCardById(clanId, cardId) {
+    if (!cardId) return null;
+    return getClanCards(clanId).find(c => String(c.id) === String(cardId)) || null;
+}
+function renderCardIconHtml(card, size = 'md') {
+    if (!card) return '';
+    if (card.icon_url) return `<img src="${escapeHtml(card.icon_url)}" alt="" onerror="this.style.display='none'">`;
+    return `<span>${escapeHtml(card.icon || '🎖')}</span>`;
+}
+
+/* ============================================================
+   v3.0 — НАГРАДЫ ГИЛЬДИЙ (КАСТОМНЫЕ МЕДАЛИ)
+============================================================ */
+async function loadClanAwards(clanId) {
+    if (!clanId) return [];
+    const { data, error } = await supabase.from('clan_awards')
+        .select('*').eq('clan_id', clanId)
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: true });
+    if (error) { console.warn('clan_awards load:', error.message); clanAwardsCache[clanId] = []; return []; }
+    clanAwardsCache[clanId] = data || [];
+    return clanAwardsCache[clanId];
+}
+function getClanAwards(clanId) { return clanAwardsCache[clanId] || []; }
+function getClanAwardById(clanId, awardId) {
+    if (!awardId) return null;
+    return getClanAwards(clanId).find(a => String(a.id) === String(awardId)) || null;
+}
+function renderAwardIconHtml(award) {
+    if (!award) return '';
+    if (award.icon_url) return `<img src="${escapeHtml(award.icon_url)}" alt="" onerror="this.style.display='none'">`;
+    return `<span>${escapeHtml(award.icon || '🏅')}</span>`;
+}
+
+/* ============================================================
+   v3.0 — ПРИВЯЗКА ИГРОК → КАРТОЧКА / НАГРАДЫ
+============================================================ */
+async function loadMemberCards(clanId) {
+    if (!clanId) return;
+    const { data, error } = await supabase.from('member_cards').select('*').eq('clan_id', clanId);
+    if (error) { console.warn('member_cards load:', error.message); memberCardsCache[clanId] = {}; return; }
+    const map = {};
+    (data || []).forEach(row => { map[(row.nickname || '').toLowerCase()] = row; });
+    memberCardsCache[clanId] = map;
+}
+async function loadMemberAwards(clanId) {
+    if (!clanId) return;
+    const { data, error } = await supabase.from('member_awards').select('*').eq('clan_id', clanId).order('awarded_at', { ascending: false });
+    if (error) { console.warn('member_awards load:', error.message); memberAwardsCache[clanId] = {}; return; }
+    const map = {};
+    (data || []).forEach(row => {
+        const k = (row.nickname || '').toLowerCase();
+        (map[k] ||= []).push(row);
+    });
+    memberAwardsCache[clanId] = map;
+}
+function getMemberCard(clanId, nickname) {
+    if (!clanId || !nickname) return null;
+    const map = memberCardsCache[clanId] || {};
+    const row = map[nickname.toLowerCase()];
+    if (!row) return null;
+    return { row, card: getClanCardById(clanId, row.card_id) };
+}
+function getMemberAwards(clanId, nickname) {
+    if (!clanId || !nickname) return [];
+    const map = memberAwardsCache[clanId] || {};
+    return (map[nickname.toLowerCase()] || []).map(r => ({ row: r, award: getClanAwardById(clanId, r.award_id) })).filter(x => x.award);
+}
+
+async function assignMemberCard(clanId, nickname, cardId, note = null) {
+    if (!canEditClan(clanId)) { alert('Нет прав'); return false; }
+    const payload = {
+        clan_id: clanId,
+        nickname,
+        card_id: cardId,
+        awarded_by: getViewerNick() || null,
+        awarded_at: new Date().toISOString(),
+        note: note || null
+    };
+    const { error } = await supabase.from('member_cards').upsert(payload, { onConflict: 'clan_id,nickname' });
+    if (error) { alert('Ошибка: ' + error.message); return false; }
+    await logAdminAction('Назначил чин', nickname, `card_id: ${cardId}`);
+    await loadMemberCards(clanId);
+    await createNotification(nickname, 'system', '🎖 Вам назначен чин',
+        `Гильдия назначила вам «${getClanCardById(clanId, cardId)?.name || '—'}»`, null).catch(() => {});
+    return true;
+}
+async function removeMemberCard(clanId, nickname) {
+    if (!canEditClan(clanId)) return false;
+    const { error } = await supabase.from('member_cards').delete().eq('clan_id', clanId).eq('nickname', nickname);
+    if (error) { alert('Ошибка: ' + error.message); return false; }
+    await loadMemberCards(clanId);
+    return true;
+}
+async function giveMemberAward(clanId, nickname, awardId, reason = null) {
+    if (!canEditClan(clanId)) { alert('Нет прав'); return false; }
+    const { error } = await supabase.from('member_awards').insert({
+        clan_id: clanId,
+        nickname,
+        award_id: awardId,
+        awarded_by: getViewerNick() || null,
+        reason: reason || null
+    });
+    if (error) { alert('Ошибка: ' + error.message); return false; }
+    const award = getClanAwardById(clanId, awardId);
+    await logAdminAction('Выдал награду', nickname, `award: ${award?.name || awardId}`);
+    await loadMemberAwards(clanId);
+    await createNotification(nickname, 'system', '🏅 Вам выдана награда',
+        `«${award?.name || '—'}»${reason ? ' — ' + reason : ''}`, null).catch(() => {});
+    return true;
+}
+async function revokeMemberAward(awardRowId) {
+    const { error } = await supabase.from('member_awards').delete().eq('id', awardRowId);
+    if (error) { alert('Ошибка: ' + error.message); return false; }
+    return true;
+}
+
+/* ============================================================
+   v3.0 — ДОСКА ГИЛЬДИИ
+============================================================ */
+async function renderBoard() {
+    const container = $('boardGrid'); if (!container) return;
+    if (!currentClan) return;
+    container.innerHTML = '<div class="empty">Загрузка…</div>';
+
+    await Promise.all([
+        loadClanCards(currentClan),
+        loadClanAwards(currentClan),
+        loadMemberCards(currentClan),
+        loadMemberAwards(currentClan)
+    ]);
+
+    const members = parseMembersList(clansCache[currentClan]?.members_list || '');
+    const admins = parseMembersList(clansCache[currentClan]?.admin_nicks || '');
+    const allNicks = new Map();
+    members.forEach(m => { allNicks.set(m.name.toLowerCase(), m.name); });
+    admins.forEach(m => { allNicks.set(m.name.toLowerCase(), m.name); });
+
+    const onlineSet = new Set();
+    try {
+        const threshold = new Date(Date.now() - ONLINE_WINDOW_MS).toISOString();
+        const { data: online } = await supabase.from('online_users')
+            .select('nickname').gte('last_seen', threshold);
+        (online || []).forEach(u => { if (u.nickname) onlineSet.add(u.nickname.toLowerCase()); });
+    } catch {}
+
+    let list = Array.from(allNicks.values()).map(nick => {
+        const cm = getMemberCard(currentClan, nick);
+        const aw = getMemberAwards(currentClan, nick);
+        const isOnline = onlineSet.has(nick.toLowerCase());
+        return {
+            nick,
+            card: cm?.card || null,
+            cardRow: cm?.row || null,
+            awards: aw,
+            isOnline
+        };
+    });
+
+    const q = ($('board-search')?.value || '').trim().toLowerCase();
+    if (q) list = list.filter(x => x.nick.toLowerCase().includes(q));
+
+    if (boardFilter === 'online') list = list.filter(x => x.isOnline);
+    else if (boardFilter === 'awards') list = list.filter(x => x.awards.length > 0);
+    else if (boardFilter === 'noCard') list = list.filter(x => !x.card);
+
+    const cardOrder = (c) => c ? (c.sort_order || 0) : 999999;
+    switch (boardSort) {
+        case 'awards': list.sort((a, b) => b.awards.length - a.awards.length || a.nick.localeCompare(b.nick)); break;
+        case 'online': list.sort((a, b) => (b.isOnline ? 1 : 0) - (a.isOnline ? 1 : 0) || a.nick.localeCompare(b.nick)); break;
+        case 'name-asc': list.sort((a, b) => a.nick.localeCompare(b.nick)); break;
+        case 'name-desc': list.sort((a, b) => b.nick.localeCompare(a.nick)); break;
+        default: list.sort((a, b) => cardOrder(a.card) - cardOrder(b.card) || a.nick.localeCompare(b.nick));
+    }
+
+    if (!list.length) {
+        container.innerHTML = '<div class="empty">На доске пока никого нет. Добавьте участников в разделе «Участники».</div>';
+        return;
+    }
+
+    const adminNicksLower = new Set(admins.map(m => m.name.toLowerCase()));
+    container.innerHTML = '';
+    list.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'board-card' + (item.isOnline ? ' online' : '');
+
+        const cardIcon = item.card
+            ? (item.card.icon_url
+                ? `<img src="${escapeHtml(item.card.icon_url)}" alt="">`
+                : `<span>${escapeHtml(item.card.icon || '🎖')}</span>`)
+            : `<span>🏴</span>`;
+
+        const cardName = item.card ? escapeHtml(item.card.name) : 'Без чина';
+        const cardColor = item.card?.color || 'var(--muted)';
+
+        const awardsHtml = item.awards.length
+            ? item.awards.slice(0, 5).map(aw => {
+                const ic = aw.award.icon_url
+                    ? `<img src="${escapeHtml(aw.award.icon_url)}" alt="" title="${escapeHtml(aw.award.name)}">`
+                    : `<span title="${escapeHtml(aw.award.name)}">${escapeHtml(aw.award.icon || '🏅')}</span>`;
+                return `<span class="board-card-award">${ic}</span>`;
+            }).join('') +
+              (item.awards.length > 5 ? `<span class="board-card-award-more">+${item.awards.length - 5}</span>` : '')
+            : '<span class="board-card-empty-awards">— нет наград —</span>';
+
+        const isAdmiral = adminNicksLower.has(item.nick.toLowerCase());
+        const admiralBadge = isAdmiral ? '<span class="personal-hero-tag gold" style="font-size:10px;padding:3px 8px;">👑 адмирал</span>' : '';
+
+        card.innerHTML = `
+            <div class="board-card-header">
+                <div class="board-card-avatar">${cardIcon}</div>
+                <div style="flex:1;min-width:0;">
+                    <div class="board-card-nick">${escapeHtml(item.nick)}</div>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;">${admiralBadge}</div>
+                </div>
+            </div>
+            <div class="board-card-rank" style="border-color:${escapeHtml(cardColor)}44;">
+                <span class="board-card-rank-icon">${item.card?.icon_url ? `<img src="${escapeHtml(item.card.icon_url)}" alt="">` : `<span>${escapeHtml(item.card?.icon || '🎖')}</span>`}</span>
+                <span class="board-card-rank-name" style="color:${escapeHtml(cardColor)};">${cardName}</span>
+            </div>
+            <div class="board-card-awards">${awardsHtml}</div>
+            <div class="board-card-footer">
+                <span>${item.isOnline ? '<span class="board-card-online-label">🟢 В сети</span>' : '<span class="board-card-offline-label">⚫ Офлайн</span>'}</span>
+                <span>${item.awards.length ? `🏅 ${item.awards.length}` : ''}</span>
+            </div>`;
+
+        card.addEventListener('click', (e) => {
+            if (e.target.closest('.board-card-award')) return;
+            openPersonalCabinet(item.nick);
+        });
+        container.appendChild(card);
+    });
+
+    const adminActions = document.querySelector('.board-admin-actions');
+    if (adminActions) adminActions.hidden = !canEditClan(currentClan);
+}
+on('board-search', 'input', () => { if (currentClan) renderBoard(); });
+on('board-sort', 'change', e => { boardSort = e.target.value; if (currentClan) renderBoard(); });
+on('board-filters', 'click', e => {
+    const chip = e.target.closest('.board-chip'); if (!chip) return;
+    document.querySelectorAll('#board-filters .board-chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    boardFilter = chip.dataset.filter;
+    if (currentClan) renderBoard();
+});
+
+on('boardCreateCardBtn', 'click', () => openClanCardEdit(null, currentClan));
+on('boardCreateAwardBtn', 'click', () => openClanAwardEdit(null, currentClan));
+on('boardAssignCardBtn', 'click', () => openMemberCardAssignModal());
+on('boardGiveAwardBtn', 'click', () => openMemberAwardGiveModal());
+
+/* ============================================================
+   v3.0 — МОДАЛКА РЕДАКТИРОВАНИЯ КАРТОЧКИ ГИЛЬДИИ
+============================================================ */
+function openClanCardEdit(card, clanId) {
+    if (!clanId) return;
+    editingClanCardId = card?.id || null;
+    clanCardIconData = card?.icon_url && card.icon_url.startsWith('data:') ? card.icon_url : null;
+    $('clanCardEditTitle').textContent = card ? '✏️ Редактировать чин' : '🎖 Новый чин';
+    $('clanCardEditId').value = card?.id || '';
+    $('clanCardName').value = card?.name || '';
+    $('clanCardDesc').value = card?.description || '';
+    $('clanCardIcon').value = card?.icon || '';
+    $('clanCardColor').value = card?.color || '#3b82f6';
+    $('clanCardSort').value = card?.sort_order ?? 0;
+    $('clanCardDefault').checked = !!card?.is_default;
+    const prev = $('clanCardIconPreview');
+    const prevImg = $('clanCardIconPreviewImg');
+    const nameEl = $('clanCardIconName');
+    if (card?.icon_url) { prevImg.src = card.icon_url; prev.hidden = false; nameEl.textContent = 'загружено'; }
+    else { prev.hidden = true; nameEl.textContent = ''; }
+    const fileEl = $('clanCardIconFile'); if (fileEl) fileEl.value = '';
+    $('clanCardEditMsg').textContent = '';
+    $('clanCardEditModal').hidden = false;
+    $('clanCardEditModal').dataset.clanId = clanId;
+    $('clanCardName').focus();
+}
+on('clanCardCancel', 'click', () => { $('clanCardEditModal').hidden = true; editingClanCardId = null; });
+on('clanCardEditModal', 'click', e => { if (e.target.id === 'clanCardEditModal') { $('clanCardEditModal').hidden = true; editingClanCardId = null; } });
+on('clanCardIconPick', 'click', () => { const f = $('clanCardIconFile'); if (f) { f.value = ''; f.click(); } });
+on('clanCardIconFile', 'change', async e => {
+    const file = e.target.files[0]; if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { alert('Максимум 2 МБ'); return; }
+    try {
+        const dataUrl = await compressIcon(file, 256, 0.92);
+        clanCardIconData = dataUrl;
+        $('clanCardIconPreviewImg').src = dataUrl;
+        $('clanCardIconPreview').hidden = false;
+        $('clanCardIconName').textContent = file.name;
+    } catch (err) { alert('Ошибка: ' + err.message); }
+});
+on('clanCardIconClear', 'click', () => {
+    clanCardIconData = null;
+    $('clanCardIconPreview').hidden = true;
+    $('clanCardIconFile').value = '';
+    $('clanCardIconName').textContent = '';
+});
+on('clanCardSave', 'click', async () => {
+    const msg = $('clanCardEditMsg'); msg.textContent = '';
+    const clanId = $('clanCardEditModal').dataset.clanId;
+    if (!clanId || !canEditClan(clanId)) { msg.textContent = 'Нет прав'; msg.style.color = '#ff7a7a'; return; }
+    const name = val('clanCardName').trim();
+    if (!name) { msg.textContent = 'Введите название чина'; msg.style.color = '#ff7a7a'; return; }
+    const iconUrl = clanCardIconData ||
+        (editingClanCardId ? getClanCardById(clanId, editingClanCardId)?.icon_url : null);
+    const payload = {
+        clan_id: clanId,
+        name,
+        description: val('clanCardDesc').trim() || null,
+        icon: val('clanCardIcon').trim() || null,
+        icon_url: iconUrl || null,
+        color: val('clanCardColor') || '#3b82f6',
+        sort_order: parseInt(val('clanCardSort')) || 0,
+        is_default: $('clanCardDefault').checked
+    };
+    const btn = $('clanCardSave'); btn.disabled = true; btn.textContent = '⏳…';
+    let error;
+    if (editingClanCardId) {
+        ({ error } = await supabase.from('clan_cards').update(payload).eq('id', editingClanCardId));
+    } else {
+        ({ error } = await supabase.from('clan_cards').insert(payload));
+    }
+    btn.disabled = false; btn.textContent = '💾 Сохранить';
+    if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
+    await logAdminAction(editingClanCardId ? 'Обновил чин гильдии' : 'Создал чин гильдии', name);
+    $('clanCardEditModal').hidden = true;
+    editingClanCardId = null;
+    clanCardIconData = null;
+    await loadClanCards(clanId);
+    renderAdminClanCardsPanel();
+    if (currentClan) { renderBoard(); }
+});
+
+/* ============================================================
+   v3.0 — МОДАЛКА РЕДАКТИРОВАНИЯ НАГРАДЫ ГИЛЬДИИ
+============================================================ */
+function openClanAwardEdit(award, clanId) {
+    if (!clanId) return;
+    editingClanAwardId = award?.id || null;
+    clanAwardIconData = award?.icon_url && award.icon_url.startsWith('data:') ? award.icon_url : null;
+    $('clanAwardEditTitle').textContent = award ? '✏️ Редактировать награду' : '🏅 Новая награда';
+    $('clanAwardEditId').value = award?.id || '';
+    $('clanAwardName').value = award?.name || '';
+    $('clanAwardDesc').value = award?.description || '';
+    $('clanAwardIcon').value = award?.icon || '';
+    $('clanAwardColor').value = award?.color || '#ffd479';
+    $('clanAwardSort').value = award?.sort_order ?? 0;
+    const prev = $('clanAwardIconPreview');
+    const prevImg = $('clanAwardIconPreviewImg');
+    const nameEl = $('clanAwardIconName');
+    if (award?.icon_url) { prevImg.src = award.icon_url; prev.hidden = false; nameEl.textContent = 'загружено'; }
+    else { prev.hidden = true; nameEl.textContent = ''; }
+    const fileEl = $('clanAwardIconFile'); if (fileEl) fileEl.value = '';
+    $('clanAwardEditMsg').textContent = '';
+    $('clanAwardEditModal').hidden = false;
+    $('clanAwardEditModal').dataset.clanId = clanId;
+    $('clanAwardName').focus();
+}
+on('clanAwardCancel', 'click', () => { $('clanAwardEditModal').hidden = true; editingClanAwardId = null; });
+on('clanAwardEditModal', 'click', e => { if (e.target.id === 'clanAwardEditModal') { $('clanAwardEditModal').hidden = true; editingClanAwardId = null; } });
+on('clanAwardIconPick', 'click', () => { const f = $('clanAwardIconFile'); if (f) { f.value = ''; f.click(); } });
+on('clanAwardIconFile', 'change', async e => {
+    const file = e.target.files[0]; if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { alert('Максимум 2 МБ'); return; }
+    try {
+        const dataUrl = await compressIcon(file, 256, 0.92);
+        clanAwardIconData = dataUrl;
+        $('clanAwardIconPreviewImg').src = dataUrl;
+        $('clanAwardIconPreview').hidden = false;
+        $('clanAwardIconName').textContent = file.name;
+    } catch (err) { alert('Ошибка: ' + err.message); }
+});
+on('clanAwardIconClear', 'click', () => {
+    clanAwardIconData = null;
+    $('clanAwardIconPreview').hidden = true;
+    $('clanAwardIconFile').value = '';
+    $('clanAwardIconName').textContent = '';
+});
+on('clanAwardSave', 'click', async () => {
+    const msg = $('clanAwardEditMsg'); msg.textContent = '';
+    const clanId = $('clanAwardEditModal').dataset.clanId;
+    if (!clanId || !canEditClan(clanId)) { msg.textContent = 'Нет прав'; msg.style.color = '#ff7a7a'; return; }
+    const name = val('clanAwardName').trim();
+    if (!name) { msg.textContent = 'Введите название награды'; msg.style.color = '#ff7a7a'; return; }
+    const iconUrl = clanAwardIconData ||
+        (editingClanAwardId ? getClanAwardById(clanId, editingClanAwardId)?.icon_url : null);
+    const payload = {
+        clan_id: clanId,
+        name,
+        description: val('clanAwardDesc').trim() || null,
+        icon: val('clanAwardIcon').trim() || null,
+        icon_url: iconUrl || null,
+        color: val('clanAwardColor') || '#ffd479',
+        sort_order: parseInt(val('clanAwardSort')) || 0
+    };
+    const btn = $('clanAwardSave'); btn.disabled = true; btn.textContent = '⏳…';
+    let error;
+    if (editingClanAwardId) {
+        ({ error } = await supabase.from('clan_awards').update(payload).eq('id', editingClanAwardId));
+    } else {
+        ({ error } = await supabase.from('clan_awards').insert(payload));
+    }
+    btn.disabled = false; btn.textContent = '💾 Сохранить';
+    if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
+    await logAdminAction(editingClanAwardId ? 'Обновил награду гильдии' : 'Создал награду гильдии', name);
+    $('clanAwardEditModal').hidden = true;
+    editingClanAwardId = null;
+    clanAwardIconData = null;
+    await loadClanAwards(clanId);
+    renderAdminClanAwardsPanel();
+    if (currentClan) { renderBoard(); }
+});
+
+/* ============================================================
+   v3.0 — МОДАЛКА НАЗНАЧЕНИЯ ЧИНА
+============================================================ */
+function openMemberCardAssignModal(prefillNick = null) {
+    if (!canEditClan(currentClan)) { alert('Нет прав'); return; }
+    const memberSel = $('memberCardAssignMember');
+    const cardSel = $('memberCardAssignCard');
+    const allNicks = collectClanNicks(currentClan);
+    memberSel.innerHTML = '<option value="">— Выберите игрока —</option>' +
+        allNicks.map(n => `<option value="${escapeHtml(n)}" ${prefillNick === n ? 'selected' : ''}>${escapeHtml(n)}</option>`).join('');
+    const cards = getClanCards(currentClan);
+    cardSel.innerHTML = '<option value="">— Выберите чин —</option>' +
+        cards.map(c => `<option value="${escapeHtml(c.id)}">${escapeHtml(c.name)}</option>`).join('');
+    $('memberCardAssignNote').value = '';
+    $('memberCardAssignMsg').textContent = '';
+    $('memberCardAssignModal').hidden = false;
+}
+on('memberCardAssignCancel', 'click', () => { $('memberCardAssignModal').hidden = true; });
+on('memberCardAssignModal', 'click', e => { if (e.target.id === 'memberCardAssignModal') $('memberCardAssignModal').hidden = true; });
+on('memberCardAssignSave', 'click', async () => {
+    const msg = $('memberCardAssignMsg'); msg.textContent = '';
+    const nick = val('memberCardAssignMember');
+    const cardId = val('memberCardAssignCard');
+    const note = val('memberCardAssignNote').trim() || null;
+    if (!nick) { msg.textContent = 'Выберите игрока'; msg.style.color = '#ff7a7a'; return; }
+    if (!cardId) { msg.textContent = 'Выберите чин'; msg.style.color = '#ff7a7a'; return; }
+    const ok = await assignMemberCard(currentClan, nick, cardId, note);
+    if (!ok) { msg.textContent = 'Ошибка'; msg.style.color = '#ff7a7a'; return; }
+    $('memberCardAssignModal').hidden = true;
+    if (currentClan) renderBoard();
+});
+
+/* ============================================================
+   v3.0 — МОДАЛКА ВЫДАЧИ НАГРАДЫ
+============================================================ */
+function openMemberAwardGiveModal(prefillNick = null) {
+    if (!canEditClan(currentClan)) { alert('Нет прав'); return; }
+    const memberSel = $('memberAwardGiveMember');
+    const awardSel = $('memberAwardGiveAward');
+    const allNicks = collectClanNicks(currentClan);
+    memberSel.innerHTML = '<option value="">— Выберите игрока —</option>' +
+        allNicks.map(n => `<option value="${escapeHtml(n)}" ${prefillNick === n ? 'selected' : ''}>${escapeHtml(n)}</option>`).join('');
+    const awards = getClanAwards(currentClan);
+    awardSel.innerHTML = '<option value="">— Выберите награду —</option>' +
+        awards.map(a => `<option value="${escapeHtml(a.id)}">${escapeHtml(a.name)}</option>`).join('');
+    $('memberAwardGiveReason').value = '';
+    $('memberAwardGiveMsg').textContent = '';
+    $('memberAwardGiveModal').hidden = false;
+}
+on('memberAwardGiveCancel', 'click', () => { $('memberAwardGiveModal').hidden = true; });
+on('memberAwardGiveModal', 'click', e => { if (e.target.id === 'memberAwardGiveModal') $('memberAwardGiveModal').hidden = true; });
+on('memberAwardGiveSave', 'click', async () => {
+    const msg = $('memberAwardGiveMsg'); msg.textContent = '';
+    const nick = val('memberAwardGiveMember');
+    const awardId = val('memberAwardGiveAward');
+    const reason = val('memberAwardGiveReason').trim() || null;
+    if (!nick) { msg.textContent = 'Выберите игрока'; msg.style.color = '#ff7a7a'; return; }
+    if (!awardId) { msg.textContent = 'Выберите награду'; msg.style.color = '#ff7a7a'; return; }
+    const ok = await giveMemberAward(currentClan, nick, awardId, reason);
+    if (!ok) { msg.textContent = 'Ошибка'; msg.style.color = '#ff7a7a'; return; }
+    $('memberAwardGiveModal').hidden = true;
+    if (currentClan) renderBoard();
+});
+
+function collectClanNicks(clanId) {
+    const members = parseMembersList(clansCache[clanId]?.members_list || '');
+    const admins = parseMembersList(clansCache[clanId]?.admin_nicks || '');
+    const set = new Map();
+    members.forEach(m => { set.set(m.name.toLowerCase(), m.name); });
+    admins.forEach(m => { set.set(m.name.toLowerCase(), m.name); });
+    return Array.from(set.values()).sort((a, b) => a.localeCompare(b));
+}
+
+/* ============================================================
+   v3.0 — АДМИН-ПАНЕЛИ: КАРТОЧКИ И НАГРАДЫ ГИЛЬДИЙ
+============================================================ */
+function renderAdminClanCardsPanel() {
+    const sel = $('adminCardsClanSelect'); if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = '';
+    Object.values(clansCache).sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+        .forEach(c => {
+            const o = document.createElement('option');
+            o.value = c.id; o.textContent = c.name;
+            sel.appendChild(o);
+        });
+    if (cur && clansCache[cur]) sel.value = cur;
+    else if (Object.keys(clansCache).length) sel.value = Object.keys(clansCache)[0];
+    renderClanCardsAdminList(sel.value);
+}
+on('adminCardsClanSelect', 'change', e => renderClanCardsAdminList(e.target.value));
+on('clanCardAddBtn', 'click', () => {
+    const clanId = val('adminCardsClanSelect');
+    if (!clanId) { alert('Выберите гильдию'); return; }
+    openClanCardEdit(null, clanId);
+});
+
+async function renderClanCardsAdminList(clanId) {
+    const container = $('clanCardsAdminList'); if (!container) return;
+    if (!clanId) { container.innerHTML = '<div class="empty">Выберите гильдию</div>'; return; }
+    container.innerHTML = '<div class="empty">Загрузка…</div>';
+    await loadClanCards(clanId);
+    const list = getClanCards(clanId);
+    container.innerHTML = '';
+    if (!list.length) { container.innerHTML = '<div class="empty">Пока нет карточек для этой гильдии</div>'; return; }
+    list.forEach(card => {
+        const el = document.createElement('div');
+        el.className = 'partners-admin-item';
+        const iconHtml = card.icon_url
+            ? `<img src="${escapeHtml(card.icon_url)}" alt="" onerror="this.outerHTML='<span>${escapeHtml(card.icon || '🎖')}</span>'">`
+            : `<span>${escapeHtml(card.icon || '🎖')}</span>`;
+        const clanName = clansCache[clanId]?.name || clanId;
+        el.innerHTML = `
+            <div class="logo-mini">${iconHtml}</div>
+            <div class="txt">
+                <b style="color:${escapeHtml(card.color || 'var(--text)')}">${escapeHtml(card.name)}${card.is_default ? ' <span class="role-badge mod" style="font-size:9px;">по умолчанию</span>' : ''}</b>
+                <span style="color:var(--muted);font-size:11px;">🏰 ${escapeHtml(clanName)} · порядок ${card.sort_order ?? 0}${card.description ? ' · ' + escapeHtml(card.description) : ''}</span>
+            </div>
+            <div class="actions">
+                <button class="edit" title="Редактировать">✏️</button>
+                <button class="delete" title="Удалить">🗑</button>
+            </div>`;
+        el.querySelector('.edit').addEventListener('click', () => openClanCardEdit(card, clanId));
+        el.querySelector('.delete').addEventListener('click', async () => {
+            if (!confirm(`Удалить чин «${card.name}»? Игроки, которым он назначен, станут без чина.`)) return;
+            await supabase.from('member_cards').delete().eq('clan_id', clanId).eq('card_id', card.id);
+            await supabase.from('clan_cards').delete().eq('id', card.id);
+            await logAdminAction('Удалил чин гильдии', card.name);
+            await loadClanCards(clanId);
+            await loadMemberCards(clanId);
+            renderClanCardsAdminList(clanId);
+        });
+        container.appendChild(el);
+    });
+}
+
+function renderAdminClanAwardsPanel() {
+    const sel = $('adminAwardsClanSelect'); if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = '';
+    Object.values(clansCache).sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+        .forEach(c => {
+            const o = document.createElement('option');
+            o.value = c.id; o.textContent = c.name;
+            sel.appendChild(o);
+        });
+    if (cur && clansCache[cur]) sel.value = cur;
+    else if (Object.keys(clansCache).length) sel.value = Object.keys(clansCache)[0];
+    renderClanAwardsAdminList(sel.value);
+}
+on('adminAwardsClanSelect', 'change', e => renderClanAwardsAdminList(e.target.value));
+on('clanAwardAddBtn', 'click', () => {
+    const clanId = val('adminAwardsClanSelect');
+    if (!clanId) { alert('Выберите гильдию'); return; }
+    openClanAwardEdit(null, clanId);
+});
+
+async function renderClanAwardsAdminList(clanId) {
+    const container = $('clanAwardsAdminList'); if (!container) return;
+    if (!clanId) { container.innerHTML = '<div class="empty">Выберите гильдию</div>'; return; }
+    container.innerHTML = '<div class="empty">Загрузка…</div>';
+    await loadClanAwards(clanId);
+    const list = getClanAwards(clanId);
+    container.innerHTML = '';
+    if (!list.length) { container.innerHTML = '<div class="empty">Пока нет наград для этой гильдии</div>'; return; }
+    list.forEach(award => {
+        const el = document.createElement('div');
+        el.className = 'partners-admin-item';
+        const iconHtml = award.icon_url
+            ? `<img src="${escapeHtml(award.icon_url)}" alt="" onerror="this.outerHTML='<span>${escapeHtml(award.icon || '🏅')}</span>'">`
+            : `<span>${escapeHtml(award.icon || '🏅')}</span>`;
+        const clanName = clansCache[clanId]?.name || clanId;
+        el.innerHTML = `
+            <div class="logo-mini">${iconHtml}</div>
+            <div class="txt">
+                <b style="color:${escapeHtml(award.color || 'var(--gold)')}">${escapeHtml(award.name)}</b>
+                <span style="color:var(--muted);font-size:11px;">🏰 ${escapeHtml(clanName)} · порядок ${award.sort_order ?? 0}${award.description ? ' · ' + escapeHtml(award.description) : ''}</span>
+            </div>
+            <div class="actions">
+                <button class="edit" title="Редактировать">✏️</button>
+                <button class="delete" title="Удалить">🗑</button>
+            </div>`;
+        el.querySelector('.edit').addEventListener('click', () => openClanAwardEdit(award, clanId));
+        el.querySelector('.delete').addEventListener('click', async () => {
+            if (!confirm(`Удалить награду «${award.name}»? Она пропадёт у всех, кто её получил.`)) return;
+            await supabase.from('clan_awards').delete().eq('id', award.id);
+            await logAdminAction('Удалил награду гильдии', award.name);
+            await loadClanAwards(clanId);
+            await loadMemberAwards(clanId);
+            renderClanAwardsAdminList(clanId);
+        });
+        container.appendChild(card_award_placeholder(el));
+        function card_award_placeholder(node) { return node; }
+    });
+}
+
+/* ============================================================
+   v3.0 — ЛИЧНОЕ ДЕЛО МАТРОСА
+============================================================ */
+async function openPersonalCabinet(nickname) {
+    if (!nickname) return;
+    const cleanNick = String(nickname).trim();
+    if (!cleanNick) return;
+    personalCurrentNick = cleanNick;
+    personalIsMine = (cleanNick.toLowerCase() === (getViewerNick() || '').toLowerCase());
+    personalEditMode = false;
+    navigateHash('user/' + encodeURIComponent(cleanNick));
+    showScreen('personal');
+    document.querySelectorAll('.personal-section').forEach(s => s.classList.remove('psection-hidden'));
+    const hint = $('personalPrivacyHint'); if (hint) hint.hidden = true;
+    const hiddenNote = $('personalHiddenNote'); if (hiddenNote) hiddenNote.hidden = true;
+    const editBtn = $('personalEditModeBtn'); if (editBtn) editBtn.hidden = !personalIsMine;
+    setPersonalEditButtonState();
+    await loadPersonalData();
+}
+function closePersonalCabinet() {
+    personalCurrentNick = null;
+    personalIsMine = false;
+    personalEditMode = false;
+    const back = currentClan ? 'lists' : 'home';
+    showScreen(back);
+}
+on('personalBackBtn', 'click', closePersonalCabinet);
+['personalCabinetBtn', 'personalCabinetBtn2', 'personalCabinetBtn3'].forEach(id => {
+    on(id, 'click', () => {
+        const nick = getViewerNick();
+        if (!nick) { alert('Сначала войдите в гильдию или укажите ник.'); return; }
+        openPersonalCabinet(nick);
+    });
+});
+
+async function loadUserPrivacy(nickname) {
+    if (!nickname) return { ...PRIVACY_DEFAULT };
+    const key = nickname.toLowerCase();
+    if (userPrivacyCache[key]) return userPrivacyCache[key];
+    try {
+        const { data, error } = await supabase.from('user_privacy')
+            .select('visible_sections').eq('nickname', key).maybeSingle();
+        if (error || !data) { userPrivacyCache[key] = { ...PRIVACY_DEFAULT }; return userPrivacyCache[key]; }
+        const merged = { ...PRIVACY_DEFAULT, ...(data.visible_sections || {}) };
+        userPrivacyCache[key] = merged;
+        return merged;
+    } catch { userPrivacyCache[key] = { ...PRIVACY_DEFAULT }; return userPrivacyCache[key]; }
+}
+async function saveUserPrivacy(nickname, sections) {
+    if (!nickname) return;
+    const key = nickname.toLowerCase();
+    userPrivacyCache[key] = { ...sections };
+    await supabase.from('user_privacy').upsert({
+        nickname: key,
+        visible_sections: sections,
+        updated_at: new Date().toISOString()
+    }, { onConflict: 'nickname' });
+}
+
+function setPersonalEditButtonState() {
+    const btn = $('personalEditModeBtn'); if (!btn) return;
+    if (personalEditMode) {
+        btn.textContent = '👁';
+        btn.title = 'Выйти из режима настройки';
+        btn.style.background = 'linear-gradient(180deg, #f59e0b, #d97706)';
+        btn.style.color = '#fff';
+        btn.style.borderColor = 'var(--gold)';
+    } else {
+        btn.textContent = '👁';
+        btn.title = 'Настроить приватность';
+        btn.style.background = '';
+        btn.style.color = '';
+        btn.style.borderColor = '';
+    }
+}
+on('personalEditModeBtn', 'click', async () => {
+    if (!personalIsMine) return;
+    personalEditMode = !personalEditMode;
+    setPersonalEditButtonState();
+    const hint = $('personalPrivacyHint'); if (hint) hint.hidden = !personalEditMode;
+    document.querySelectorAll('.privacy-btn').forEach(btn => { btn.hidden = !personalEditMode; });
+    if (personalEditMode) {
+        await loadPersonalData();
+    } else {
+        document.querySelectorAll('.personal-section').forEach(s => s.classList.remove('psection-hidden'));
+        const hiddenNote = $('personalHiddenNote'); if (hiddenNote) hiddenNote.hidden = true;
+    }
+});
+
+async function loadPersonalData() {
+    const nick = personalCurrentNick;
+    if (!nick) return;
+    const heroEl = $('personalHero');
+    if (heroEl) heroEl.innerHTML = '<div class="empty">Загрузка…</div>';
+
+    // Находим гильдию игрока: сначала пробуем по clansCache
+    let clanId = null, clanObj = null;
+    for (const c of Object.values(clansCache)) {
+        const list = normalizeNickList(c.members_list || '');
+        const admins = normalizeNickList(c.admin_nicks || '');
+        if (list.includes(nick.toLowerCase()) || admins.includes(nick.toLowerCase())) {
+            clanId = c.id; clanObj = c; break;
+        }
+    }
+
+    // Параллельно грузим данные
+    const [clanCardsP, clanAwardsP, memberCardsP, memberAwardsP, achP, onlineP, privacyP] = await Promise.all([
+        clanId ? loadClanCards(clanId) : Promise.resolve([]),
+        clanId ? loadClanAwards(clanId) : Promise.resolve([]),
+        clanId ? loadMemberCards(clanId) : Promise.resolve(),
+        clanId ? loadMemberAwards(clanId) : Promise.resolve(),
+        supabase.from('user_achievements').select('*').eq('user_nickname', nick),
+        supabase.from('online_users').select('last_seen').eq('nickname', nick).maybeSingle(),
+        loadUserPrivacy(nick)
+    ]);
+    const privacy = privacyP;
+
+    renderPersonalHero(nick, clanObj, onlineP?.data, privacy);
+    renderPersonalClanCard(nick, clanId);
+    renderPersonalClanAwards(nick, clanId);
+    renderPersonalSiteAchievements(nick, achP?.data || []);
+    await renderPersonalStats(nick, clanId);
+    await renderPersonalTreasury(nick, clanId);
+    await renderPersonalTrades(nick);
+    await renderPersonalEvents(nick);
+    await renderPersonalBuilds(nick);
+
+    if (!personalIsMine) {
+        let anyHidden = false;
+        PRIVACY_SECTIONS.forEach(sec => {
+            const visible = privacy[sec] !== false;
+            const el = document.querySelector(`.personal-section[data-psection="${sec}"]`);
+            if (el) el.classList.toggle('psection-hidden', !visible);
+            if (!visible) anyHidden = true;
+        });
+        const hiddenNote = $('personalHiddenNote');
+        if (hiddenNote) hiddenNote.hidden = !anyHidden;
+    } else {
+        if (personalEditMode) {
+            PRIVACY_SECTIONS.forEach(sec => {
+                const el = document.querySelector(`.personal-section[data-psection="${sec}"]`);
+                if (!el) return;
+                const isHidden = privacy[sec] === false;
+                el.classList.toggle('psection-hidden', isHidden);
+                const btn = el.querySelector('.privacy-btn');
+                if (btn) {
+                    btn.textContent = isHidden ? '🚫' : '👁';
+                    btn.title = isHidden ? 'Раздел скрыт для других' : 'Раздел виден другим';
+                    btn.classList.toggle('is-hidden', isHidden);
+                    btn.hidden = false;
+                }
+            });
+        } else {
+            PRIVACY_SECTIONS.forEach(sec => {
+                const el = document.querySelector(`.personal-section[data-psection="${sec}"]`);
+                if (el) el.classList.remove('psection-hidden');
+                const btn = el?.querySelector('.privacy-btn');
+                if (btn) btn.hidden = true;
+            });
+            const hiddenNote = $('personalHiddenNote'); if (hiddenNote) hiddenNote.hidden = true;
+        }
+    }
+}
+
+document.querySelectorAll('.privacy-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+        if (!personalEditMode || !personalIsMine) return;
+        const sec = btn.dataset.psection;
+        if (!sec) return;
+        const privacy = userPrivacyCache[personalCurrentNick.toLowerCase()] || { ...PRIVACY_DEFAULT };
+        const currentlyVisible = privacy[sec] !== false;
+        privacy[sec] = !currentlyVisible;
+        await saveUserPrivacy(personalCurrentNick, privacy);
+        const isHidden = privacy[sec] === false;
+        btn.textContent = isHidden ? '🚫' : '👁';
+        btn.title = isHidden ? 'Раздел скрыт для других' : 'Раздел виден другим';
+        btn.classList.toggle('is-hidden', isHidden);
+        const el = document.querySelector(`.personal-section[data-psection="${sec}"]`);
+        if (el) el.classList.toggle('psection-hidden', isHidden);
+    });
+});
+
+function renderPersonalHero(nick, clanObj, onlineRow, privacy) {
+    const hero = $('personalHero'); if (!hero) return;
+    const avatarHtml = clanObj
+        ? `<img src="${escapeHtml(getClanImage(clanObj))}" alt="" onerror="this.style.display='none'">`
+        : `<span>🌊</span>`;
+
+    let onlineLabel = '⚫ Офлайн', onlineCls = 'muted';
+    if (onlineRow?.last_seen) {
+        const diff = Date.now() - new Date(onlineRow.last_seen).getTime();
+        if (diff < ONLINE_WINDOW_MS) { onlineLabel = '🟢 В сети'; onlineCls = 'green'; }
+        else if (diff < 3600000) { onlineLabel = `🔵 Был ${Math.floor(diff/60000)} мин назад`; onlineCls = 'blue'; }
+        else if (diff < 86400000) { onlineLabel = `🔵 Был ${Math.floor(diff/3600000)} ч назад`; onlineCls = 'blue'; }
+    }
+
+    const clanName = clanObj?.name || 'Вольный капитан';
+    const leader = clanObj?.leader_nick && clanObj.leader_nick.toLowerCase() === nick.toLowerCase();
+    const isAdmiral = clanObj && normalizeNickList(clanObj.admin_nicks || '').includes(nick.toLowerCase());
+    let rankLabel = '🌊 Вольный капитан', rankCls = 'muted';
+    if (leader) { rankLabel = '👑 Глава гильдии'; rankCls = 'gold'; }
+    else if (isAdmiral) { rankLabel = '⚓ Адмирал'; rankCls = 'gold'; }
+    else if (clanObj) { rankLabel = '⚓ Матрос'; rankCls = 'blue'; }
+
+    hero.innerHTML = `
+        <div class="personal-hero-top">
+            <div class="personal-hero-logo">${avatarHtml}</div>
+            <div class="personal-hero-main">
+                <h1 class="personal-hero-name">${escapeHtml(nick)}</h1>
+                <div class="personal-hero-tags">
+                    <span class="personal-hero-tag ${rankCls}">${rankLabel}</span>
+                    <span class="personal-hero-tag">🏰 ${escapeHtml(clanName)}</span>
+                    <span class="personal-hero-tag ${onlineCls}">${onlineLabel}</span>
+                </div>
+                <div class="personal-hero-sub">Личное дело матроса · ${new Date().toLocaleDateString('ru-RU')}</div>
+            </div>
+        </div>`;
+}
+
+function renderPersonalClanCard(nick, clanId) {
+    const wrap = $('personalClanCard'); if (!wrap) return;
+    if (!clanId) { wrap.innerHTML = '<div class="personal-empty">Игрок не состоит в гильдии</div>'; return; }
+    const m = getMemberCard(clanId, nick);
+    if (!m || !m.card) { wrap.innerHTML = '<div class="personal-empty">Чин пока не назначен</div>'; return; }
+    const card = m.card;
+    const iconHtml = card.icon_url
+        ? `<img src="${escapeHtml(card.icon_url)}" alt="">`
+        : `<span>${escapeHtml(card.icon || '🎖')}</span>`;
+    const awardedBy = m.row?.awarded_by ? `Назначил: ${escapeHtml(m.row.awarded_by)}` : '';
+    const awardedAt = m.row?.awarded_at ? new Date(m.row.awarded_at).toLocaleDateString('ru-RU') : '';
+    wrap.innerHTML = `
+        <div class="personal-clan-card-wrap" style="border-color:${escapeHtml(card.color || '#3b82f6')}55;">
+            <div class="personal-clan-card-icon" style="border-color:${escapeHtml(card.color || '#3b82f6')}77;">${iconHtml}</div>
+            <div class="personal-clan-card-info">
+                <div class="personal-clan-card-name" style="color:${escapeHtml(card.color || 'var(--text)')};">${escapeHtml(card.name)}</div>
+                ${card.description ? `<div class="personal-clan-card-desc">${escapeHtml(card.description)}</div>` : ''}
+                ${(awardedBy || awardedAt) ? `<div class="personal-clan-card-meta">${[awardedBy, awardedAt].filter(Boolean).join(' · ')}</div>` : ''}
+            </div>
+        </div>`;
+}
+
+function renderPersonalClanAwards(nick, clanId) {
+    const wrap = $('personalClanAwards'); if (!wrap) return;
+    if (!clanId) { wrap.innerHTML = '<div class="personal-empty">Наград нет</div>'; return; }
+    const list = getMemberAwards(clanId, nick);
+    if (!list.length) { wrap.innerHTML = '<div class="personal-empty">Пока нет наград гильдии</div>'; return; }
+    wrap.innerHTML = list.map(({ row, award }) => {
+        const iconHtml = award.icon_url
+            ? `<img src="${escapeHtml(award.icon_url)}" alt="">`
+            : `<span>${escapeHtml(award.icon || '🏅')}</span>`;
+        const meta = [
+            row.awarded_by ? `от ${escapeHtml(row.awarded_by)}` : '',
+            row.awarded_at ? new Date(row.awarded_at).toLocaleDateString('ru-RU') : ''
+        ].filter(Boolean).join(' · ');
+        return `
+            <div class="personal-award" title="${escapeHtml(award.description || '')}">
+                <div class="personal-award-icon" style="border-color:${escapeHtml(award.color || 'var(--gold)')}77;">${iconHtml}</div>
+                <div class="personal-award-name" style="color:${escapeHtml(award.color || 'var(--text)')};">${escapeHtml(award.name)}</div>
+                ${meta ? `<div class="personal-award-meta">${meta}</div>` : ''}
+            </div>`;
+    }).join('');
+}
+
+function renderPersonalSiteAchievements(nick, achData) {
+    const wrap = $('personalSiteAchievements'); if (!wrap) return;
+    const earned = new Map((achData || []).map(x => [x.achievement_key, x.earned_at]));
+    wrap.innerHTML = ACHIEVEMENTS.map(a => {
+        const isEarned = earned.has(a.key);
+        const dt = isEarned ? new Date(earned.get(a.key)).toLocaleDateString('ru-RU') : '';
+        return `
+            <div class="ach-badge ${isEarned ? 'earned' : 'locked'}" title="${escapeHtml(a.desc)}">
+                <div class="ach-icon">${a.icon}</div>
+                <div class="ach-name">${escapeHtml(a.name)}</div>
+                ${isEarned ? `<div class="ach-date">${dt}</div>` : ''}
+            </div>`;
+    }).join('');
+}
+
+async function renderPersonalStats(nick, clanId) {
+    const wrap = $('personalStats'); if (!wrap) return;
+    wrap.innerHTML = '<div class="empty">Загрузка…</div>';
+    const nick_lc = nick.toLowerCase();
+    const [bRes, tRes, trRes, evRes, pvRes, enRes, frRes] = await Promise.all([
+        supabase.from('builds').select('id', { count: 'exact', head: true }).eq('created_by', nick),
+        supabase.from('trades').select('id', { count: 'exact', head: true }).or(`nickname.eq.${nick},accepted_by.eq.${nick}`).eq('status', 'done'),
+        clanId ? supabase.from('treasury').select('amount').eq('clan', clanId).eq('type', 'in').eq('description', nick) : Promise.resolve({ data: [] }),
+        supabase.from('clan_events').select('id', { count: 'exact', head: true }).eq('accepted_by', nick),
+        supabase.from('poll_votes').select('id', { count: 'exact', head: true }).eq('user_nickname', nick),
+        supabase.from('enemies').select('id', { count: 'exact', head: true }).eq('nickname', nick),
+        supabase.from('friends').select('id', { count: 'exact', head: true }).eq('nickname', nick)
+    ]);
+    const treasurySum = (trRes.data || []).reduce((s, r) => s + (Number(r.amount) || 0), 0);
+
+    const tiles = [
+        { label: '⚔️ Билдов создано', value: bRes.count || 0, cls: 'blue' },
+        { label: '🤝 Сделок завершено', value: tRes.count || 0, cls: 'green' },
+        { label: '💰 Внесено в казну', value: treasurySum.toLocaleString('ru-RU') + ' 🪙', cls: 'gold' },
+        { label: '📅 Событий принято', value: evRes.count || 0, cls: 'purple' },
+        { label: '📊 Опросов пройдено', value: pvRes.count || 0, cls: '' },
+        { label: '🔴 В списках врагов', value: enRes.count || 0, cls: '' },
+        { label: '🟢 В списках друзей', value: frRes.count || 0, cls: 'green' }
+    ];
+    wrap.innerHTML = tiles.map(t => `
+        <div class="personal-stat-tile">
+            <div class="personal-stat-tile-label">${t.label}</div>
+            <div class="personal-stat-tile-value ${t.cls}">${t.value}</div>
+        </div>`).join('');
+}
+
+async function renderPersonalTreasury(nick, clanId) {
+    const wrap = $('personalTreasury'); if (!wrap) return;
+    if (!clanId) { wrap.innerHTML = '<div class="personal-empty">Игрок не в гильдии</div>'; return; }
+    wrap.innerHTML = '<div class="empty">Загрузка…</div>';
+    const { data } = await supabase.from('treasury').select('*').eq('clan', clanId).eq('type', 'in').order('created_at', { ascending: false });
+    const allIn = data || [];
+    const myIn = allIn.filter(r => (r.description || '').trim().toLowerCase() === nick.toLowerCase());
+    const mySum = myIn.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+
+    // Топ-5 вкладчиков
+    const byNick = {};
+    allIn.forEach(r => {
+        const who = (r.description || '—').trim();
+        byNick[who] = (byNick[who] || 0) + (Number(r.amount) || 0);
+    });
+    const top5 = Object.entries(byNick)
+        .sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+    let html = '';
+    if (top5.length) {
+        html += '<div class="personal-top5"><div class="personal-top5-title">🏆 Топ-5 вкладчиков</div>';
+        top5.forEach(([who, sum], i) => {
+            const isMe = who.toLowerCase() === nick.toLowerCase();
+            const rankIcon = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '#' + (i + 1);
+            html += `<div class="personal-top5-row ${isMe ? 'me' : ''}">
+                <span class="personal-top5-rank">${rankIcon}</span>
+                <span class="personal-top5-nick" data-nick="${escapeHtml(who)}">${escapeHtml(who)}</span>
+                <span class="personal-top5-amount">+${sum.toLocaleString('ru-RU')} 🪙</span>
+            </div>`;
+        });
+        html += '</div>';
+    }
+
+    html += `<div class="personal-row-list">`;
+    html += `<div class="personal-row"><span class="personal-row-icon">💰</span>
+        <span class="personal-row-main">Всего внесено <b>${nick}</b>:</span>
+        <span class="personal-row-amount in">+${mySum.toLocaleString('ru-RU')} 🪙</span></div>`;
+    if (myIn.length) {
+        myIn.slice(0, 5).forEach(r => {
+            const d = new Date(r.created_at);
+            html += `<div class="personal-row">
+                <span class="personal-row-icon">📥</span>
+                <span class="personal-row-main">${escapeHtml(r.description || '—')}</span>
+                <span class="personal-row-meta">${d.toLocaleDateString('ru-RU')}</span>
+                <span class="personal-row-amount in">+${Number(r.amount).toLocaleString('ru-RU')}</span>
+            </div>`;
+        });
+    } else {
+        html += '<div class="personal-empty">Пока нет операций по вкладам</div>';
+    }
+    html += '</div>';
+
+    wrap.innerHTML = html;
+    wrap.querySelectorAll('.personal-top5-nick').forEach(el => {
+        el.addEventListener('click', () => { const n = el.dataset.nick; if (n && n !== '—') openPersonalCabinet(n); });
+    });
+}
+
+async function renderPersonalTrades(nick) {
+    const wrap = $('personalTrades'); if (!wrap) return;
+    wrap.innerHTML = '<div class="empty">Загрузка…</div>';
+    const { data } = await supabase.from('trades').select('*')
+        .or(`nickname.eq.${nick},accepted_by.eq.${nick}`)
+        .order('created_at', { ascending: false });
+    const list = data || [];
+    const done = list.filter(t => t.status === 'done');
+    const asSeller = done.filter(t => (t.nickname || '').toLowerCase() === nick.toLowerCase()).length;
+    const asBuyer = done.length - asSeller;
+    wrap.innerHTML = `
+        <div class="personal-row-list">
+            <div class="personal-row"><span class="personal-row-icon">✅</span>
+                <span class="personal-row-main">Завершено сделок:</span>
+                <span class="personal-row-amount in">${done.length}</span></div>
+            <div class="personal-row"><span class="personal-row-icon">💰</span>
+                <span class="personal-row-main">Как продавец:</span>
+                <span class="personal-row-amount">${asSeller}</span></div>
+            <div class="personal-row"><span class="personal-row-icon">🛒</span>
+                <span class="personal-row-main">Как покупатель:</span>
+                <span class="personal-row-amount">${asBuyer}</span></div>
+        </div>`;
+    if (done.length) {
+        const html = ['<div class="personal-row-list" style="margin-top:10px;">'];
+        done.slice(0, 5).forEach(t => {
+            const partner = (t.nickname || '').toLowerCase() === nick.toLowerCase() ? (t.accepted_by || '—') : (t.nickname || '—');
+            const d = new Date(t.created_at);
+            html.push(`<div class="personal-row">
+                <span class="personal-row-icon">${t.type === 'buy' ? '🛒' : '💰'}</span>
+                <span class="personal-row-main"><b>${escapeHtml(t.name)}</b> · ${Number(t.price).toLocaleString('ru-RU')} 🪙 × ${t.qty} · с <b>${escapeHtml(partner)}</b></span>
+                <span class="personal-row-meta">${d.toLocaleDateString('ru-RU')}</span>
+            </div>`);
+        });
+        html.push('</div>');
+        wrap.innerHTML += html.join('');
+    }
+}
+
+async function renderPersonalEvents(nick) {
+    const wrap = $('personalEvents'); if (!wrap) return;
+    wrap.innerHTML = '<div class="empty">Загрузка…</div>';
+    const { data } = await supabase.from('clan_events').select('*').eq('accepted_by', nick).order('created_at', { ascending: false });
+    const list = data || [];
+    if (!list.length) { wrap.innerHTML = '<div class="personal-empty">Пока не принял участия ни в одном событии</div>'; return; }
+    const ids = list.map(x => x.event_id);
+    const { data: events } = await supabase.from('events').select('id, title, event_date, is_shared, clan').in('id', ids);
+    const evMap = {};
+    (events || []).forEach(e => { evMap[e.id] = e; });
+    wrap.innerHTML = '<div class="personal-row-list">' + list.map(x => {
+        const ev = evMap[x.event_id];
+        if (!ev) return '';
+        const d = new Date(ev.event_date);
+        const badge = ev.is_shared ? '🌐' : '🏰';
+        return `<div class="personal-row">
+            <span class="personal-row-icon">${badge}</span>
+            <span class="personal-row-main"><b>${escapeHtml(ev.title)}</b></span>
+            <span class="personal-row-meta">${d.toLocaleDateString('ru-RU')}</span>
+        </div>`;
+    }).join('') + '</div>';
+}
+
+async function renderPersonalBuilds(nick) {
+    const wrap = $('personalBuilds'); if (!wrap) return;
+    wrap.innerHTML = '<div class="empty">Загрузка…</div>';
+    const { data } = await supabase.from('builds').select('*').eq('created_by', nick).order('created_at', { ascending: false });
+    const list = data || [];
+    if (!list.length) { wrap.innerHTML = '<div class="personal-empty">Авторских билдов пока нет</div>'; return; }
+    wrap.innerHTML = '<div class="personal-row-list">' + list.map(b => {
+        const kind = b.type === 'pvp' ? '⚔️' : '🛡';
+        const rank = b.rank ? ` (ранг ${escapeHtml(b.rank)})` : '';
+        return `<div class="personal-row" data-build-id="${escapeHtml(b.id)}" style="cursor:pointer;">
+            <span class="personal-row-icon">${kind}</span>
+            <span class="personal-row-main"><b>${escapeHtml(b.ship_name)}</b>${rank}</span>
+            <span class="personal-row-meta">${new Date(b.created_at).toLocaleDateString('ru-RU')}</span>
+        </div>`;
+    }).join('') + '</div>';
+    wrap.querySelectorAll('.personal-row[data-build-id]').forEach(row => {
+        row.addEventListener('click', () => {
+            const id = row.dataset.buildId;
+            location.hash = `build=${id}`;
+        });
+    });
+}
+
+/* ============================================================
+   v3.0 — НАВЕШИВАЕМ ОБРАБОТЧИКИ ПРИВАТНОСТИ + ЗАКРЫТИЕ ESC
+============================================================ */
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+        const p = $('screen-personal');
+        if (p && !p.hidden) closePersonalCabinet();
+    }
+});
+/* ============================================================
+   v3.0 — ФИНАЛЬНЫЙ СТАРТ ПРИЛОЖЕНИЯ
+============================================================ */
 (async () => {
+    /* Версия в футере */
     const verEl = document.querySelector('.footer-right');
     if (verEl) verEl.textContent = 'v' + APP_VERSION;
+
+    /* Тема до всего остального */
     initTheme();
+
+    /* Сессия Supabase */
     const { data: { session } } = await supabase.auth.getSession();
     currentSession = session;
+
+    /* Пользователи / админы */
     await loadSiteAdmins();
+
+    /* Игры + союзы — база для всего остального */
     await loadGames();
     await loadAlliances();
+
+    /* Гильдии: внутри loadClans() уже подтягиваются v3.0-модули
+       (карточки, награды, member_cards, member_awards) для текущей гильдии */
     await loadClans();
+
+    /* Глобальные настройки и контент */
     await loadSettings();
     await loadPartners();
     renderApplyClanSelect();
     await loadFaq();
     await loadTactics();
+
+    /* Мир игры */
     await loadShips();
     await loadResourcePrices();
     await loadFactions();
@@ -6961,44 +8198,84 @@ function findBuildInCacheByShipAndType(shipName, type) {
     await loadRecipes();
     await loadDiscounts();
     await loadMapSettings();
+
+    /* Каталог билдов — после ships, чтобы datalist'ы были готовы */
     await loadBuildItems();
+
+    /* Селекты для стоимости постройки */
     fillScShipSelect();
     fillScFactionSelect();
     fillScCities();
+
+    /* Вид карты по умолчанию */
     currentMapView = (mapSettings?.default_view) || 'detailed';
+
+    /* Публичная статистика на главной */
     await loadStats();
+
+    /* Торговля — до рендера активных билдов */
     initTradeCategorySelect();
     initTradeCategoryFilters();
     updateTradeFormTotal();
     renderTradeClanSelect();
     renderTradeClanFilters();
     await renderTrades();
+
+    /* Уведомления текущего игрока */
     await loadNotifications();
+
+    /* Калькуляторы сборки (home + clan) */
     initShipBuilders();
+
+    /* Применяем права/видимость ко всему UI */
     applyAdminUI();
+
+    /* Превью флагов */
     updateFlagPreview('newClanFlag', 'newClanFlagPreview');
     updateFlagPreview('adminClanFlag', 'adminClanFlagPreview');
+
+    /* Условные поля формы скидок */
     onDiscountTypeChange();
+
+    /* Сворачивание секций и групп */
     initCollapsibleSections();
     initCollapsibleAdminCards();
     initNavGroups();
+
+    /* Пикеры специалистов в формах билдов */
     wireSpecPicker('pvpSpecsSelect', 'pvpSpecsAdd', 'pvpSpecsChips', 'pvpSpecs');
     wireSpecPicker('pbSpecsSelect',  'pbSpecsAdd',  'pbSpecsChips',  'pbSpecs');
     wireSpecPicker('buildEditSpecsSelect', 'buildEditSpecsAdd', 'buildEditSpecsChips', 'buildEditSpecs');
+
+    /* Открываем последнюю гильдию, если уже была сессия входа */
     const lastClan = localStorage.getItem(LAST_CLAN_KEY);
     if (lastClan && isUnlocked() && clansCache[lastClan]) {
         openClan(lastClan, localStorage.getItem(CLAN_ADMIN_PASS_KEY) === '1');
     } else {
         showScreen('home');
     }
+
+    /* Онлайн: heartbeat + подписка на уведомления (глобально) */
     startHeartbeat();
-    setTimeout(() => { applyHashRoute(); handleBuildHash(); }, 800);
+    initGlobalNotifications();
+
+    /* Хэш-роутинг и обработка #build=ID — с задержкой, чтобы всё отрисовалось */
+    setTimeout(() => {
+        applyHashRoute();
+        handleBuildHash();
+    }, 800);
+
+    /* Регулярное обновление открытых списков онлайна */
     setInterval(() => {
         const onlineSection = document.querySelector('.admin-section[data-apanel="online"]');
         if (onlineSection && onlineSection.classList.contains('active') && isAdmin) renderAdminOnlineList();
         const clanOnlineSection = $('section-online');
         if (clanOnlineSection && clanOnlineSection.classList.contains('active') && canEditClan(currentClan)) {
             renderClanOnlineList();
+        }
+        const boardSection = $('section-board');
+        if (boardSection && boardSection.classList.contains('active') && currentClan) {
+            renderBoard();
         }
     }, 15000);
 })();

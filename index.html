@@ -17,6 +17,7 @@
             <button id="openVoiceChatBtn" class="icon-btn" title="Голосовой чат">🎙</button>
             <button id="themeToggle" class="icon-btn" title="Сменить тему">🌓</button>
             <button id="notifBell" class="icon-btn" title="Уведомления">🔔<span id="notifBadge" class="notif-badge" hidden>0</span></button>
+            <button id="personalCabinetBtn" class="icon-btn" title="Личное дело матроса" hidden>📜</button>
             <button id="leaderPanelBtn" class="icon-btn" hidden title="Панель главы гильдии">🎖</button>
             <button id="admiralPanelBtn" class="icon-btn" hidden title="Адмиральская панель">⚓</button>
             <span id="adminInfo"></span>
@@ -309,6 +310,7 @@
     <div id="screen-clan" class="screen" hidden>
         <div class="top-right">
             <button id="themeToggle2" class="icon-btn" title="Сменить тему">🌓</button>
+            <button id="personalCabinetBtn2" class="icon-btn" title="Личное дело матроса" hidden>📜</button>
             <button id="leaderPanelBtn2" class="icon-btn" hidden title="Панель главы гильдии">🎖</button>
             <button id="admiralPanelBtn2" class="icon-btn" hidden title="Адмиральская панель">⚓</button>
             <span id="adminInfo2"></span>
@@ -352,6 +354,7 @@
                 <span id="adminInfo3"></span>
                 <button id="themeToggle3" class="icon-btn" title="Сменить тему">🌓</button>
                 <button id="notifBell2" class="icon-btn" title="Уведомления">🔔<span id="notifBadge2" class="notif-badge" hidden>0</span></button>
+                <button id="personalCabinetBtn3" class="icon-btn" title="Личное дело матроса" hidden>📜</button>
                 <button id="leaderPanelBtn3" class="icon-btn" hidden title="Панель главы гильдии">🎖</button>
                 <button id="admiralPanelBtn3" class="icon-btn" hidden title="Адмиральская панель">⚓</button>
                 <button id="adminPanelBtn3" hidden>⚙️</button>
@@ -404,6 +407,7 @@
                         <span class="nav-group-chevron">▾</span>
                     </button>
                     <div class="nav-group-body">
+                        <button class="side-item" data-section="board"><span class="side-ico">🎖</span><span>Доска</span></button>
                         <button class="side-item" data-section="members"><span class="side-ico">👥</span><span>Участники</span></button>
                         <button class="side-item" data-section="contacts"><span class="side-ico">💬</span><span>Контакты</span></button>
                         <button class="side-item clan-admin-only" data-section="applications" hidden><span class="side-ico">📝</span><span>Заявки</span></button>
@@ -660,6 +664,35 @@
                     </div>
                 </div>
 
+                <!-- ДОСКА -->
+                <div id="section-board" class="clan-section">
+                    <h2>🎖 Доска гильдии</h2>
+                    <p class="hint">Все моряки гильдии с их чинами и наградами. Клик по карточке — открыть личное дело.</p>
+                    <div class="board-controls">
+                        <input type="search" id="board-search" class="search-input" placeholder="🔍 Поиск по нику...">
+                        <select id="board-sort" class="board-sort-select">
+                            <option value="card">🎖 По чину</option>
+                            <option value="awards">🏅 По числу наград ↓</option>
+                            <option value="online">🟢 Сначала онлайн</option>
+                            <option value="name-asc">🔤 Ник А→Я</option>
+                            <option value="name-desc">🔤 Ник Я→А</option>
+                        </select>
+                        <div class="board-filter-row" id="board-filters">
+                            <span class="board-chip active" data-filter="all">Все</span>
+                            <span class="board-chip" data-filter="online">🟢 Только онлайн</span>
+                            <span class="board-chip" data-filter="awards">🏅 Только с наградами</span>
+                            <span class="board-chip" data-filter="noCard">❔ Без чина</span>
+                        </div>
+                    </div>
+                    <div class="clan-admin-only board-admin-actions" hidden>
+                        <button type="button" id="boardCreateCardBtn" class="big-btn primary">➕ Создать чин</button>
+                        <button type="button" id="boardCreateAwardBtn" class="big-btn primary">🏅 Создать награду</button>
+                        <button type="button" id="boardAssignCardBtn" class="big-btn secondary">🎖 Назначить чин</button>
+                        <button type="button" id="boardGiveAwardBtn" class="big-btn secondary">🏅 Выдать награду</button>
+                    </div>
+                    <div id="boardGrid" class="board-grid"></div>
+                </div>
+
                 <div id="section-contacts" class="clan-section">
                     <h2>💬 Контакты гильдий</h2>
                     <div id="contactsList" class="contacts-list"></div>
@@ -839,6 +872,91 @@
         </div>
     </div>
 
+    <!-- ЛИЧНОЕ ДЕЛО МАТРОСА -->
+    <div id="screen-personal" class="screen" hidden>
+        <div class="top-right">
+            <button id="themeToggle6" class="icon-btn" title="Сменить тему">🌓</button>
+            <button id="personalEditModeBtn" class="icon-btn" title="Настроить приватность" hidden>👁</button>
+        </div>
+        <button id="personalBackBtn" class="back-btn">← Назад</button>
+
+        <div class="home-wrap personal-wrap">
+            <div id="personalHero" class="personal-hero"></div>
+
+            <div id="personalPrivacyHint" class="personal-privacy-hint" hidden>
+                👁 Режим настройки приватности: нажми на глазик напротив раздела, чтобы скрыть его от других.
+            </div>
+
+            <section class="personal-section" data-psection="clanCard">
+                <h2 class="section-title personal-section-title">
+                    🎖 Чин в гильдии
+                    <button type="button" class="privacy-btn" data-psection="clanCard" hidden>👁</button>
+                </h2>
+                <div id="personalClanCard" class="personal-clan-card-wrap"></div>
+            </section>
+
+            <section class="personal-section" data-psection="clanAwards">
+                <h2 class="section-title personal-section-title">
+                    🏅 Награды гильдии
+                    <button type="button" class="privacy-btn" data-psection="clanAwards" hidden>👁</button>
+                </h2>
+                <div id="personalClanAwards" class="personal-awards-grid"></div>
+            </section>
+
+            <section class="personal-section" data-psection="siteAchievements">
+                <h2 class="section-title personal-section-title">
+                    ⭐ Награды сайта
+                    <button type="button" class="privacy-btn" data-psection="siteAchievements" hidden>👁</button>
+                </h2>
+                <div id="personalSiteAchievements" class="profile-achievements"></div>
+            </section>
+
+            <section class="personal-section" data-psection="stats">
+                <h2 class="section-title personal-section-title">
+                    📊 Статистика службы
+                    <button type="button" class="privacy-btn" data-psection="stats" hidden>👁</button>
+                </h2>
+                <div id="personalStats" class="personal-stat-grid"></div>
+            </section>
+
+            <section class="personal-section" data-psection="treasury">
+                <h2 class="section-title personal-section-title">
+                    💰 Вклады в казну
+                    <button type="button" class="privacy-btn" data-psection="treasury" hidden>👁</button>
+                </h2>
+                <div id="personalTreasury"></div>
+            </section>
+
+            <section class="personal-section" data-psection="trades">
+                <h2 class="section-title personal-section-title">
+                    🤝 Торговый послужной список
+                    <button type="button" class="privacy-btn" data-psection="trades" hidden>👁</button>
+                </h2>
+                <div id="personalTrades"></div>
+            </section>
+
+            <section class="personal-section" data-psection="events">
+                <h2 class="section-title personal-section-title">
+                    📅 Боевой журнал
+                    <button type="button" class="privacy-btn" data-psection="events" hidden>👁</button>
+                </h2>
+                <div id="personalEvents"></div>
+            </section>
+
+            <section class="personal-section" data-psection="builds">
+                <h2 class="section-title personal-section-title">
+                    ⚔️ Авторские билды
+                    <button type="button" class="privacy-btn" data-psection="builds" hidden>👁</button>
+                </h2>
+                <div id="personalBuilds"></div>
+            </section>
+
+            <div id="personalHiddenNote" class="personal-hidden-note" hidden>
+                🔒 Часть разделов скрыта владельцем личного дела.
+            </div>
+        </div>
+    </div>
+
     <div id="leaderAlliancePickerModal" class="modal" hidden>
         <div class="modal-content">
             <h2>🤝 Предложить союз</h2>
@@ -866,6 +984,8 @@
                     </button>
                     <div class="nav-group-body">
                         <button class="admin-nav-item active" data-apanel="clans"><span class="admin-nav-ico">🏰</span><span>Гильдии</span></button>
+                        <button class="admin-nav-item" data-apanel="clanCards"><span class="admin-nav-ico">🎖</span><span>Карточки гильдий</span></button>
+                        <button class="admin-nav-item" data-apanel="clanAwards"><span class="admin-nav-ico">🏅</span><span>Награды гильдий</span></button>
                         <button class="admin-nav-item" data-apanel="alliances"><span class="admin-nav-ico">🤝</span><span>Союзы</span></button>
                         <button class="admin-nav-item" data-apanel="games"><span class="admin-nav-ico">🎮</span><span>Игры</span></button>
                         <button class="admin-nav-item owner-only" data-apanel="clanRequests" hidden><span class="admin-nav-ico">📨</span><span>Заявки гильдий</span></button>
@@ -983,6 +1103,32 @@
                         <button id="deleteClanBtn" class="danger">🗑 Удалить гильдию</button>
                     </div>
                 </div>
+            </section>
+
+            <!-- КАРТОЧКИ ГИЛЬДИЙ -->
+            <section class="admin-section" data-apanel="clanCards">
+                <h2 class="admin-section-title">🎖 Карточки гильдий (чины/должности)</h2>
+                <p class="hint">Карточки создаются отдельно для каждой гильдии. Используются на «Доске» и в личном деле матроса.</p>
+                <div class="admin-card">
+                    <div class="admin-field"><label>Гильдия</label><select id="adminCardsClanSelect"></select></div>
+                    <div class="admin-field">
+                        <button id="clanCardAddBtn" class="big-btn primary">➕ Создать новую карточку</button>
+                    </div>
+                </div>
+                <div id="clanCardsAdminList" class="partners-admin-list"></div>
+            </section>
+
+            <!-- НАГРАДЫ ГИЛЬДИЙ -->
+            <section class="admin-section" data-apanel="clanAwards">
+                <h2 class="admin-section-title">🏅 Награды гильдий (кастомные медали)</h2>
+                <p class="hint">Награды создаются отдельно для каждой гильдии. С загруженной картинкой медали.</p>
+                <div class="admin-card">
+                    <div class="admin-field"><label>Гильдия</label><select id="adminAwardsClanSelect"></select></div>
+                    <div class="admin-field">
+                        <button id="clanAwardAddBtn" class="big-btn primary">➕ Создать новую награду</button>
+                    </div>
+                </div>
+                <div id="clanAwardsAdminList" class="partners-admin-list"></div>
             </section>
 
             <section class="admin-section" data-apanel="alliances">
@@ -1685,7 +1831,10 @@
             <p id="profileNickname" class="auth-clan-name"></p>
             <div id="profileStats" class="profile-stats"></div>
             <div id="profileAchievements" class="profile-achievements"></div>
-            <div class="modal-actions"><button id="closeProfile" class="secondary">Закрыть</button></div>
+            <div class="modal-actions">
+                <button id="profileOpenFullBtn" class="primary">📋 Полное личное дело</button>
+                <button id="closeProfile" class="secondary">Закрыть</button>
+            </div>
         </div>
     </div>
 
@@ -1793,6 +1942,109 @@
         </div>
     </div>
 
+    <!-- МОДАЛКА РЕДАКТИРОВАНИЯ КАРТОЧКИ ГИЛЬДИИ -->
+    <div id="clanCardEditModal" class="modal" hidden>
+        <div class="modal-content admin-panel-wide">
+            <h2 id="clanCardEditTitle">🎖 Новая карточка</h2>
+            <input type="hidden" id="clanCardEditId">
+            <div class="admin-field"><label>Название чина *</label><input type="text" id="clanCardName" maxlength="60" placeholder="Матрос"></div>
+            <div class="admin-field"><label>Описание</label><textarea id="clanCardDesc" rows="2" maxlength="300"></textarea></div>
+            <div class="admin-field"><label>Эмодзи (если нет картинки)</label><input type="text" id="clanCardIcon" maxlength="4" placeholder="⚓"></div>
+            <div class="admin-field">
+                <label>Картинка чина</label>
+                <div class="logo-upload">
+                    <input type="file" id="clanCardIconFile" accept="image/*" hidden>
+                    <button type="button" id="clanCardIconPick" class="logo-pick-btn">📷 Загрузить</button>
+                    <div id="clanCardIconPreview" class="logo-preview" hidden><img id="clanCardIconPreviewImg" src="" alt=""><button type="button" id="clanCardIconClear" class="logo-clear">✕</button></div>
+                    <span id="clanCardIconName" class="logo-name"></span>
+                </div>
+            </div>
+            <div class="admin-field"><label>Цвет</label><input type="color" id="clanCardColor" value="#3b82f6"></div>
+            <div class="admin-field"><label>Порядок (меньше — выше)</label><input type="number" id="clanCardSort" min="0" step="10" value="0"></div>
+            <div class="admin-field"><label class="disc-check"><input type="checkbox" id="clanCardDefault"> Выдавать новым участникам по умолчанию</label></div>
+            <p id="clanCardEditMsg" class="error"></p>
+            <div class="modal-actions">
+                <button id="clanCardSave">💾 Сохранить</button>
+                <button id="clanCardCancel" class="secondary">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- МОДАЛКА РЕДАКТИРОВАНИЯ НАГРАДЫ ГИЛЬДИИ -->
+    <div id="clanAwardEditModal" class="modal" hidden>
+        <div class="modal-content admin-panel-wide">
+            <h2 id="clanAwardEditTitle">🏅 Новая награда</h2>
+            <input type="hidden" id="clanAwardEditId">
+            <div class="admin-field"><label>Название награды *</label><input type="text" id="clanAwardName" maxlength="80" placeholder="За взятие форта"></div>
+            <div class="admin-field"><label>Описание</label><textarea id="clanAwardDesc" rows="2" maxlength="300"></textarea></div>
+            <div class="admin-field"><label>Эмодзи (если нет картинки)</label><input type="text" id="clanAwardIcon" maxlength="4" placeholder="🏅"></div>
+            <div class="admin-field">
+                <label>Картинка медали</label>
+                <div class="logo-upload">
+                    <input type="file" id="clanAwardIconFile" accept="image/*" hidden>
+                    <button type="button" id="clanAwardIconPick" class="logo-pick-btn">📷 Загрузить</button>
+                    <div id="clanAwardIconPreview" class="logo-preview" hidden><img id="clanAwardIconPreviewImg" src="" alt=""><button type="button" id="clanAwardIconClear" class="logo-clear">✕</button></div>
+                    <span id="clanAwardIconName" class="logo-name"></span>
+                </div>
+            </div>
+            <div class="admin-field"><label>Цвет</label><input type="color" id="clanAwardColor" value="#ffd479"></div>
+            <div class="admin-field"><label>Порядок</label><input type="number" id="clanAwardSort" min="0" step="10" value="0"></div>
+            <p id="clanAwardEditMsg" class="error"></p>
+            <div class="modal-actions">
+                <button id="clanAwardSave">💾 Сохранить</button>
+                <button id="clanAwardCancel" class="secondary">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- МОДАЛКА НАЗНАЧЕНИЯ ЧИНА -->
+    <div id="memberCardAssignModal" class="modal" hidden>
+        <div class="modal-content">
+            <h2>🎖 Назначить чин</h2>
+            <div class="admin-field">
+                <label>Игрок</label>
+                <select id="memberCardAssignMember"></select>
+            </div>
+            <div class="admin-field">
+                <label>Карточка (чин)</label>
+                <select id="memberCardAssignCard"></select>
+            </div>
+            <div class="admin-field">
+                <label>Примечание (необязательно)</label>
+                <input type="text" id="memberCardAssignNote" maxlength="200">
+            </div>
+            <p id="memberCardAssignMsg" class="error"></p>
+            <div class="modal-actions">
+                <button id="memberCardAssignSave">💾 Назначить</button>
+                <button id="memberCardAssignCancel" class="secondary">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- МОДАЛКА ВЫДАЧИ НАГРАДЫ -->
+    <div id="memberAwardGiveModal" class="modal" hidden>
+        <div class="modal-content">
+            <h2>🏅 Выдать награду</h2>
+            <div class="admin-field">
+                <label>Игрок</label>
+                <select id="memberAwardGiveMember"></select>
+            </div>
+            <div class="admin-field">
+                <label>Награда</label>
+                <select id="memberAwardGiveAward"></select>
+            </div>
+            <div class="admin-field">
+                <label>За что (необязательно)</label>
+                <textarea id="memberAwardGiveReason" rows="2" maxlength="300"></textarea>
+            </div>
+            <p id="memberAwardGiveMsg" class="error"></p>
+            <div class="modal-actions">
+                <button id="memberAwardGiveSave">💾 Выдать</button>
+                <button id="memberAwardGiveCancel" class="secondary">Отмена</button>
+            </div>
+        </div>
+    </div>
+
     <!-- ПАНЕЛЬ СРАВНЕНИЯ -->
     <div id="comparePanel" class="compare-panel" hidden>
         <div class="compare-panel-head">
@@ -1873,7 +2125,7 @@
 
     <footer class="site-footer">
         <span class="footer-left">Mist Time — Сергеев С.В</span>
-        <span class="footer-right">v2.3.3</span>
+        <span class="footer-right">v3.0.0</span>
     </footer>
 
     <script type="module" src="app.js"></script>

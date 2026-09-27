@@ -379,6 +379,7 @@
                         <button class="side-item active" data-section="lists"><span class="side-ico">📋</span><span>Списки</span></button>
                         <button class="side-item" data-section="events"><span class="side-ico">📅</span><span>События</span></button>
                         <button class="side-item" data-section="treasury"><span class="side-ico">💰</span><span>Казна</span></button>
+                        <button class="side-item" data-section="polls"><span class="side-ico">📊</span><span>Опросы</span></button>
                     </div>
                 </div>
 
@@ -500,6 +501,15 @@
                     <div id="treasuryList" class="treasury-list"></div>
                 </div>
 
+                <div id="section-polls" class="clan-section">
+                    <h2>📊 Опросы и голосования</h2>
+                    <p class="hint">Решения гильдии — открытые голосования.</p>
+                    <section class="add-form clan-admin-only" id="pollCreateBtnWrap" hidden>
+                        <button type="button" id="openCreatePollBtn" class="big-btn primary">➕ Создать опрос</button>
+                    </section>
+                    <div id="pollsList" class="polls-list"></div>
+                </div>
+
                 <div id="section-pvp" class="clan-section">
                     <h2>⚔️ Билды для ПВП</h2>
                     <section class="add-form clan-admin-only" hidden>
@@ -575,7 +585,7 @@
 
                 <div id="section-ships" class="clan-section">
                     <h2>🚢 Справочник кораблей</h2>
-                    <p class="hint">Все корабли World of Sea Battle с характеристиками</p>
+                    <p class="hint">Все корабли World of Sea Battle с характеристиками. Поставь галочки «сравнить» у 2–3 кораблей → откроется таблица сравнения.</p>
                     <div class="ships-filters">
                         <input type="search" id="ships-search" class="search-input" placeholder="🔍 Поиск по названию...">
                         <select id="ships-sort" class="ships-sort-select">
@@ -1674,6 +1684,7 @@
             <h2>👤 Профиль игрока</h2>
             <p id="profileNickname" class="auth-clan-name"></p>
             <div id="profileStats" class="profile-stats"></div>
+            <div id="profileAchievements" class="profile-achievements"></div>
             <div class="modal-actions"><button id="closeProfile" class="secondary">Закрыть</button></div>
         </div>
     </div>
@@ -1761,6 +1772,43 @@
                 <button id="fe-save">💾 Сохранить</button>
                 <button id="fe-cancel" class="secondary">Отмена</button>
             </div>
+        </div>
+    </div>
+
+    <!-- МОДАЛКА СОЗДАНИЯ ОПРОСА -->
+    <div id="createPollModal" class="modal" hidden>
+        <div class="modal-content admin-panel-wide">
+            <h2>➕ Новый опрос</h2>
+            <div class="admin-field"><label>Вопрос *</label><input type="text" id="pollTitle" maxlength="200" placeholder="Куда идём в рейд в субботу?"></div>
+            <div class="admin-field"><label>Описание</label><textarea id="pollDesc" rows="2" maxlength="500"></textarea></div>
+            <div class="admin-field"><label>Варианты ответа (по одному в строке, от 2 до 10)</label><textarea id="pollOptions" rows="5" placeholder="Вариант 1&#10;Вариант 2&#10;Вариант 3"></textarea></div>
+            <div class="admin-field"><label class="disc-check"><input type="checkbox" id="pollMultiple"> Разрешить несколько ответов</label></div>
+            <div class="admin-field"><label class="disc-check"><input type="checkbox" id="pollAnonymous"> Анонимное голосование</label></div>
+            <div class="admin-field"><label>Завершить (необязательно)</label><input type="datetime-local" id="pollClosesAt"></div>
+            <p id="pollCreateMsg" class="error"></p>
+            <div class="modal-actions">
+                <button id="savePollBtn">📊 Создать</button>
+                <button id="cancelCreatePollBtn" class="secondary">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ПАНЕЛЬ СРАВНЕНИЯ -->
+    <div id="comparePanel" class="compare-panel" hidden>
+        <div class="compare-panel-head">
+            <span>📊 Сравнение</span>
+            <button id="comparePanelClear" class="compare-panel-clear">✕ Очистить</button>
+        </div>
+        <div id="comparePanelChips" class="compare-panel-chips"></div>
+        <button id="comparePanelOpen" class="compare-panel-open">🔍 Сравнить</button>
+    </div>
+
+    <!-- МОДАЛКА СРАВНЕНИЯ -->
+    <div id="compareModal" class="modal" hidden>
+        <div class="modal-content admin-panel-wide" style="max-width:900px;">
+            <h2 id="compareModalTitle">🔍 Сравнение</h2>
+            <div id="compareModalBody" class="compare-body"></div>
+            <div class="modal-actions"><button id="closeCompareModal" class="secondary">Закрыть</button></div>
         </div>
     </div>
 

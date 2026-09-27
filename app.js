@@ -137,6 +137,13 @@ let evMapData = null;
 let evMapMarkers = [];
 let evMapNextId = 1;
 
+/* --- новые --- */
+let pollsCache = [];
+let pollVotesCache = { options: {}, votes: {} };
+let compareShips = [];
+let compareBuilds = [];
+let _lastBuildsByType = { pvp: [], pb: [] };
+
 const $ = id => document.getElementById(id);
 function on(id, event, handler, opts) {
     const el = $(id);
@@ -798,6 +805,7 @@ document.querySelectorAll('.side-item').forEach(btn => {
         if (section === 'lists') TABS.forEach(loadList);
         else if (section === 'events') renderEvents();
         else if (section === 'treasury') renderTreasury();
+        else if (section === 'polls') loadPolls();
         else if (section === 'pvp') renderBuilds('pvp');
         else if (section === 'pb') renderBuilds('pb');
         else if (section === 'ships') loadShips();
@@ -896,6 +904,7 @@ function renderShipsGrid() {
             </div>`;
         grid.appendChild(card);
     });
+    attachShipCompareChecks();
 }
 on('ships-search', 'input', renderShipsGrid);
 on('ships-level-filters', 'click', e => {
@@ -1876,6 +1885,7 @@ function openClan(id, isClanAdminLogin = false) {
     renderAll(); renderBuilds('pvp'); renderBuilds('pb'); renderContacts();
     renderEvents(); renderTreasury(); renderApplications();
     renderMembers(); renderAdmins();
+    loadPolls();
     sendHeartbeat(); initRealtime();
 }
 on('backBtn', 'click', () => {
@@ -1971,7 +1981,7 @@ async function renderBuilds(type) {
         .eq('type', type).or(`is_shared.eq.true,clan.eq.${currentClan}`)
         .order('created_at', { ascending: false });
     if (error) { container.innerHTML = `<div class="empty">Ошибка: ${error.message}</div>`; return; }
-    if (!data?.length) { container.innerHTML = '<div class="empty">Билды пока не добавлены</div>'; return; }
+    if (!data?.length) { container.innerHTML = '<div class="empty">Билды пока не добавлены</div>'; _lastBuildsByType[type] = []; return; }
     container.innerHTML = '';
     if (type === 'pb') {
         const groups = {};
@@ -1995,6 +2005,8 @@ async function renderBuilds(type) {
     } else {
         data.forEach(item => container.appendChild(createBuildCard(item)));
     }
+    _lastBuildsByType[type] = data || [];
+    attachBuildCompareChecks();
 }
 function createBuildCard(item) {
     const card = document.createElement('div');
@@ -2068,7 +2080,8 @@ async function addBuild(type) {
         consumable2: val(`${type}Cons2`).trim() || null,
         consumable3: val(`${type}Cons3`).trim() || null,
         cargo: val(`${type}Cargo`) || null,
-        specialists: val(`${type}Specs`) || null
+        specialists: val(`${type}Specs`) || null,
+        created_by: getViewerNick() || null
     };
     if (isAdmin) {
         const { error } = await supabase.from('builds').insert({ clan: clanValue, is_shared: isShared, ...data });
@@ -2089,6 +2102,7 @@ async function addBuild(type) {
     const preview = $(`${type}ShipPreview`); if (preview) preview.hidden = true;
     flashStatusEl(statusEl, '✔ Добавлено', '#6ee7a7');
     renderBuilds(type);
+    checkAchievements(getViewerNick()).catch(() => {});
 }
 on('pvpAddBtn', 'click', () => addBuild('pvp'));
 on('pbAddBtn', 'click', () => addBuild('pb'));
@@ -2539,6 +2553,7 @@ on('trAddBtn', 'click', async () => {
     $('trAmount').value = ''; $('trDesc').value = '';
     flashStatusEl(statusEl, '✔ Добавлено', '#6ee7a7');
     renderTreasury();
+    checkAchievements(getViewerNick()).catch(() => {});
 });
 
 /* ============ УЧАСТНИКИ / АДМИНЫ ГИЛЬДИИ ============ */
@@ -3012,7 +3027,9 @@ on('tm-listings', 'click', async e => {
         const { error } = await supabase.from('trades').update({ status: 'done' }).eq('id', id);
         if (error) return alert(error.message);
         await createNotification(t.accepted_by, 'trade', '✅ Сделка завершена', `Сделка «${t.name}» подтверждена. Спасибо!`, null);
-        renderTrades(); return;
+        renderTrades();
+        checkAchievements(getViewerNick()).catch(() => {});
+        return;
     }
     const cancelBtn = e.target.closest('.tm-cancel');
     if (cancelBtn) {
@@ -5587,6 +5604,7 @@ async function openProfile(nickname) {
         }
         stats.unshift({ label: '📡 Статус', value: onlineLabel });
         statsEl.innerHTML = stats.map(s => `<div class="profile-stat-row"><span class="profile-stat-label">${s.label}</span><span class="profile-stat-value">${s.value}</span></div>`).join('');
+        renderProfileAchievements(nickname);
     } catch (err) { statsEl.innerHTML = `<div class="empty">Ошибка: ${err.message}</div>`; }
 }
 on('closeProfile', 'click', () => { $('profileModal').hidden = true; });
@@ -6159,6 +6177,7 @@ async function renderLeaderEvents(clanId) {
         card.querySelector('[data-action]').addEventListener('click', async () => {
             if (isAccepted) await supabase.from('clan_events').delete().eq('clan_id', clanId).eq('event_id', ev.id);
             else await supabase.from('clan_events').insert({ clan_id: clanId, event_id: ev.id, accepted_by: getViewerNick() || null });
+            checkAchievements(getViewerNick()).catch(() => {});
             renderLeaderEvents(clanId);
         });
         container.appendChild(card);
@@ -6430,6 +6449,493 @@ on('admiralLogRefresh', 'click', () => { logAdmiralAction('Обновил жур
 on('admiralWriteLeadersBtn', 'click', () => openChat('leaders'));
 on('admiralWriteAdmiralsBtn', 'click', () => openChat('admirals'));
 on('admiralVoiceBtn', 'click', () => openChat('voice', { room: 'wosb_admirals_' + String(currentClan || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase() }));
+/* ============================================================
+   СРАВНЕНИЕ КОРАБЛЕЙ И БИЛДОВ
+============================================================ */
+function getCompareChips() {
+    const arr = [];
+    compareShips.forEach(name => arr.push({ kind: 'ship', key: 'ship:' + name, label: '🚢 ' + name }));
+    compareBuilds.forEach(b => arr.push({ kind: 'build', key: 'build:' + b.type + ':' + b.id, label: '⚔️ ' + b.name }));
+    return arr;
+}
+function renderComparePanel() {
+    const panel = $('comparePanel');
+    const chips = $('comparePanelChips');
+    if (!panel || !chips) return;
+    const all = getCompareChips();
+    if (!all.length) { panel.hidden = true; return; }
+    panel.hidden = false;
+    chips.innerHTML = '';
+    all.forEach(c => {
+        const el = document.createElement('span');
+        el.className = 'compare-chip';
+        el.innerHTML = `${escapeHtml(c.label)} <button title="Убрать">✕</button>`;
+        el.querySelector('button').addEventListener('click', () => {
+            if (c.kind === 'ship') compareShips = compareShips.filter(n => 'ship:' + n !== c.key);
+            else compareBuilds = compareBuilds.filter(b => 'build:' + b.type + ':' + b.id !== c.key);
+            renderComparePanel();
+            refreshCompareChecks();
+        });
+        chips.appendChild(el);
+    });
+}
+function refreshCompareChecks() {
+    document.querySelectorAll('.ship-compare-check input').forEach(inp => {
+        inp.checked = compareShips.includes(inp.dataset.ship);
+    });
+    document.querySelectorAll('.build-compare-check input').forEach(inp => {
+        const key = inp.dataset.buildtype + ':' + inp.dataset.buildid;
+        inp.checked = compareBuilds.some(b => b.type + ':' + b.id === key);
+    });
+}
+on('comparePanelClear', 'click', () => { compareShips = []; compareBuilds = []; renderComparePanel(); refreshCompareChecks(); });
+on('comparePanelOpen', 'click', () => openCompareModal());
+on('closeCompareModal', 'click', () => { $('compareModal').hidden = true; });
+on('compareModal', 'click', e => { if (e.target.id === 'compareModal') $('compareModal').hidden = true; });
+
+function toggleShipCompare(name, checked) {
+    if (checked) {
+        if (compareShips.length >= 3) { alert('Максимум 3 корабля для сравнения'); return false; }
+        if (!compareShips.includes(name)) compareShips.push(name);
+    } else {
+        compareShips = compareShips.filter(n => n !== name);
+    }
+    renderComparePanel();
+    return true;
+}
+function toggleBuildCompare(type, id, name, checked) {
+    const key = type + ':' + id;
+    if (checked) {
+        if (compareBuilds.length >= 3) { alert('Максимум 3 билда'); return false; }
+        if (!compareBuilds.some(b => b.type + ':' + b.id === key)) compareBuilds.push({ type, id, name });
+    } else {
+        compareBuilds = compareBuilds.filter(b => b.type + ':' + b.id !== key);
+    }
+    renderComparePanel();
+    return true;
+}
+
+async function openCompareModal() {
+    const modal = $('compareModal');
+    const body = $('compareModalBody');
+    const title = $('compareModalTitle');
+    if (!modal || !body) return;
+
+    const hasShips = compareShips.length >= 2;
+    const hasBuilds = compareBuilds.length >= 2;
+
+    if (hasShips && !compareBuilds.length) {
+        title.textContent = '🔍 Сравнение кораблей';
+        body.innerHTML = renderShipCompareTable();
+    } else if (hasBuilds && !compareShips.length) {
+        title.textContent = '🔍 Сравнение билдов';
+        body.innerHTML = await renderBuildCompareTable();
+    } else if (hasShips && compareBuilds.length) {
+        title.textContent = '🔍 Сравнение';
+        body.innerHTML = renderShipCompareTable() + '<hr style="border-color:var(--border);margin:16px 0;">' + await renderBuildCompareTable();
+    } else {
+        body.innerHTML = '<div class="empty">Выберите минимум 2 объекта для сравнения.</div>';
+    }
+    modal.hidden = false;
+}
+
+function renderShipCompareTable() {
+    const ships = compareShips.map(n => shipsCache.find(s => s.name === n)).filter(Boolean);
+    if (ships.length < 2) return '<div class="empty">Нужно минимум 2 корабля.</div>';
+    const stats = [
+        { key: 'level',           label: 'Уровень',       roman: true, higher: true },
+        { key: 'type',            label: 'Тип',           text: true },
+        { key: 'durability',      label: '💪 Прочность',  higher: true },
+        { key: 'speed',           label: '⚡ Скорость',    higher: true, num: true },
+        { key: 'maneuverability', label: '🔄 Манёвр.',    higher: true },
+        { key: 'armor',           label: '🛡 Броня',      higher: true, num: true },
+        { key: 'cargo_hold',      label: '📦 Трюм',       higher: true },
+        { key: 'crew',            label: '👥 Экипаж',     higher: true },
+        { key: 'guns',            label: '🔫 Орудия',     higher: true }
+    ];
+    let html = '<table class="compare-table"><thead><tr><th>Параметр</th>';
+    ships.forEach(s => { html += `<th>🚢 ${escapeHtml(s.name)}</th>`; });
+    html += '</tr></thead><tbody>';
+    stats.forEach(st => {
+        html += `<tr><td>${st.label}</td>`;
+        const values = ships.map(s => st.num ? Number(s[st.key]) || 0 : s[st.key]);
+        const numericValues = values.map(v => Number(v) || 0);
+        const max = Math.max(...numericValues), min = Math.min(...numericValues);
+        ships.forEach((s, i) => {
+            let cls = '';
+            if (st.higher && numericValues[i] === max && max !== min) cls = 'best';
+            else if (st.higher && numericValues[i] === min && max !== min) cls = 'worst';
+            let display;
+            if (st.roman) display = ROMAN[s.level] || s.level;
+            else if (st.text) display = escapeHtml(s[st.key] || '—');
+            else display = s[st.key] || '—';
+            html += `<td class="${cls}">${display}</td>`;
+        });
+        html += '</tr>';
+    });
+    html += '</tbody></table>';
+    return html;
+}
+
+async function renderBuildCompareTable() {
+    if (compareBuilds.length < 2) return '<div class="empty">Нужно минимум 2 билда.</div>';
+    const ids = compareBuilds.map(b => b.id);
+    const { data } = await supabase.from('builds').select('*').in('id', ids);
+    if (!data?.length) return '<div class="empty">Не удалось загрузить билды.</div>';
+    const builds = compareBuilds.map(b => data.find(d => d.id === b.id)).filter(Boolean);
+
+    const parseLinesInner = txt => txt ? String(txt).split('\n').map(s => s.trim()).filter(Boolean) : [];
+    const sections = [
+        { key: 'rank',           label: 'Ранг',              get: b => b.rank || '—' },
+        { key: 'upgrades',       label: '🔧 Апгрейды',        get: b => parseLinesInner(b.upgrades).join(', ') || '—' },
+        { key: 'weapons_small',  label: '🟢 Малые пушки',     get: b => parseLinesInner(b.weapons_small).join(', ') || '—' },
+        { key: 'weapons_medium', label: '🟡 Средние пушки',   get: b => parseLinesInner(b.weapons_medium).join(', ') || '—' },
+        { key: 'weapons_large',  label: '🔴 Большие пушки',   get: b => parseLinesInner(b.weapons_large).join(', ') || '—' },
+        { key: 'weapons_mortar', label: '💣 Мортиры',         get: b => parseLinesInner(b.weapons_mortar).join(', ') || '—' },
+        { key: 'shells',         label: '💥 Снаряды',         get: b => parseLinesInner(b.shells).join(', ') || '—' },
+        { key: 'consum',         label: '⚗️ Расходники',      get: b => [b.consumable1, b.consumable2, b.consumable3].filter(Boolean).join(', ') || '—' },
+        { key: 'cargo',          label: '📦 Трюм',            get: b => parseLinesInner(b.cargo).join(', ') || '—' },
+        { key: 'specialists',    label: '👤 Специалисты',     get: b => parseLinesInner(b.specialists).map(s => s.split('|')[0].trim()).join(', ') || '—' }
+    ];
+
+    let html = '<div class="compare-section-title">⚔️ Билды</div>';
+    html += '<table class="compare-table"><thead><tr><th>Параметр</th>';
+    builds.forEach(b => { html += `<th>${escapeHtml(b.ship_name)}${b.rank ? ` <span style="font-size:11px;color:var(--muted)">(ранг ${escapeHtml(b.rank)})</span>` : ''}</th>`; });
+    html += '</tr></thead><tbody>';
+    sections.forEach(s => {
+        const values = builds.map(b => s.get(b));
+        const allSame = values.every(v => v === values[0]);
+        html += `<tr><td>${s.label}</td>`;
+        values.forEach(v => {
+            const cls = allSame ? '' : 'best';
+            html += `<td class="${cls}" style="text-align:left;">${escapeHtml(v)}</td>`;
+        });
+        html += '</tr>';
+    });
+    html += '</tbody></table>';
+    return html;
+}
+
+/* ============================================================
+   ХЭШ-РОУТИНГ
+============================================================ */
+function navigateHash(hash) {
+    if (!hash) return;
+    history.replaceState(null, '', '#' + hash);
+}
+function applyHashRoute() {
+    const raw = location.hash.slice(1);
+    if (!raw) return;
+
+    if (raw.startsWith('build=')) { handleBuildHash(); return; }
+
+    const parts = raw.split('/');
+    const scope = parts[0];
+    const target = parts[1];
+
+    if (scope === 'clan' && currentClan && target) {
+        const btn = document.querySelector(`.side-item[data-section="${target}"]`);
+        if (btn && !btn.classList.contains('active')) btn.click();
+    } else if (scope === 'clan' && !currentClan) {
+        const lastClan = localStorage.getItem(LAST_CLAN_KEY);
+        if (lastClan && clansCache[lastClan]) setTimeout(() => openClan(lastClan, false), 300);
+    } else if (scope === 'admin' && target && isAdmin && !isMod) {
+        openAdminPage();
+        setTimeout(() => {
+            const btn = document.querySelector(`.admin-nav-item[data-apanel="${target}"]`);
+            if (btn) btn.click();
+        }, 200);
+    }
+}
+window.addEventListener('hashchange', applyHashRoute);
+
+document.querySelectorAll('.side-item[data-section]').forEach(btn => {
+    btn.addEventListener('click', () => {
+        if (currentClan) navigateHash('clan/' + btn.dataset.section);
+    });
+});
+document.querySelectorAll('.admin-nav-item[data-apanel]').forEach(btn => {
+    btn.addEventListener('click', () => {
+        if (isAdmin) navigateHash('admin/' + btn.dataset.apanel);
+    });
+});
+const _origOpenClan = openClan;
+window.openClan = function(id, admin) { _origOpenClan(id, admin); navigateHash('clan/lists'); };
+
+/* ============================================================
+   ОПРОСЫ И ГОЛОСОВАНИЯ
+============================================================ */
+async function loadPolls() {
+    if (!currentClan) return;
+    const { data: polls } = await supabase.from('polls').select('*').eq('clan_id', currentClan).order('created_at', { ascending: false });
+    pollsCache = polls || [];
+    if (pollsCache.length) {
+        const ids = pollsCache.map(p => p.id);
+        const { data: opts } = await supabase.from('poll_options').select('*').in('poll_id', ids).order('sort_order');
+        const { data: votes } = await supabase.from('poll_votes').select('*').in('poll_id', ids);
+        pollVotesCache = { options: {}, votes: {} };
+        (opts || []).forEach(o => { (pollVotesCache.options[o.poll_id] ||= []).push(o); });
+        (votes || []).forEach(v => { (pollVotesCache.votes[v.poll_id] ||= []).push(v); });
+    } else {
+        pollVotesCache = { options: {}, votes: {} };
+    }
+    renderPolls();
+}
+function renderPolls() {
+    const container = $('pollsList'); if (!container) return;
+    const createWrap = $('pollCreateBtnWrap');
+    if (createWrap) createWrap.hidden = !canEditClan(currentClan);
+    container.innerHTML = '';
+    if (!pollsCache.length) { container.innerHTML = '<div class="empty">Опросов пока нет</div>'; return; }
+    const myNick = (getViewerNick() || '').toLowerCase();
+    pollsCache.forEach(p => {
+        const opts = pollVotesCache.options[p.id] || [];
+        const votes = pollVotesCache.votes[p.id] || [];
+        const totalVotes = votes.length;
+        const isClosed = p.is_closed || (p.closes_at && new Date(p.closes_at) < new Date());
+        const myVotes = votes.filter(v => (v.user_nickname || '').toLowerCase() === myNick).map(v => v.option_id);
+        const hasVoted = myVotes.length > 0;
+        const canVote = !isClosed && !!myNick && (p.is_multiple || !hasVoted);
+
+        const card = document.createElement('div');
+        card.className = 'poll-card' + (isClosed ? ' closed' : '');
+        const badges = [];
+        if (p.is_multiple) badges.push('<span class="badge multi">Мультивыбор</span>');
+        if (p.is_anonymous) badges.push('<span class="badge anon">Анонимно</span>');
+        if (isClosed) badges.push('<span class="badge closed">Завершён</span>');
+        const closesLabel = p.closes_at ? ` · до ${new Date(p.closes_at).toLocaleString('ru-RU')}` : '';
+
+        card.innerHTML = `
+            <div class="poll-head">
+                <div>
+                    <div class="poll-title">${escapeHtml(p.title)}</div>
+                    ${p.description ? `<div class="poll-desc">${escapeHtml(p.description)}</div>` : ''}
+                    <div class="poll-meta">
+                        ${badges.join(' ')}
+                        <span>👤 ${escapeHtml(p.created_by || '—')}</span>
+                        <span>📅 ${new Date(p.created_at).toLocaleDateString('ru-RU')}${closesLabel}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="poll-options"></div>
+            <div class="poll-foot">
+                <span class="poll-total">Всего голосов: <b>${totalVotes}</b></span>
+                ${canEditClan(currentClan) ? `<div class="poll-actions">
+                    ${!isClosed ? `<button class="approve" data-act="close">🔒 Завершить</button>` : ''}
+                    <button class="danger" data-act="delete">🗑 Удалить</button>
+                </div>` : ''}
+            </div>`;
+
+        const optsWrap = card.querySelector('.poll-options');
+        opts.forEach(o => {
+            const cnt = votes.filter(v => v.option_id === o.id).length;
+            const pct = totalVotes ? Math.round(cnt / totalVotes * 100) : 0;
+            const voted = myVotes.includes(o.id);
+            const optEl = document.createElement('div');
+            optEl.className = 'poll-option' + (voted ? ' voted' : '') + (canVote ? '' : ' disabled');
+            optEl.innerHTML = `
+                <div class="poll-bar" style="width:${hasVoted || isClosed ? pct : 0}%;"></div>
+                <div class="poll-option-content">
+                    ${canVote ? `<input type="checkbox" class="poll-opt-check" ${voted ? 'checked' : ''} data-opt="${o.id}">` : (voted ? '<span>✅</span>' : '<span style="width:16px;display:inline-block;"></span>')}
+                    <span class="poll-opt-text">${escapeHtml(o.text)}</span>
+                    ${hasVoted || isClosed ? `<span class="poll-opt-count">${cnt} г.</span><span class="poll-opt-pct">${pct}%</span>` : ''}
+                </div>`;
+            if (canVote) {
+                optEl.addEventListener('click', async (e) => {
+                    if (e.target.matches('input')) return;
+                    const inp = optEl.querySelector('input');
+                    if (inp) { inp.checked = !inp.checked; }
+                    await voteOnPoll(p.id, o.id, inp ? inp.checked : false);
+                });
+                const inp = optEl.querySelector('input');
+                if (inp) inp.addEventListener('change', () => voteOnPoll(p.id, o.id, inp.checked));
+            }
+            if (hasVoted || isClosed) {
+                const votersForOpt = votes.filter(v => v.option_id === o.id).map(v => v.user_nickname);
+                if (votersForOpt.length && !p.is_anonymous) {
+                    const votersEl = document.createElement('details');
+                    votersEl.className = 'poll-voters';
+                    votersEl.innerHTML = `<summary>Кто голосовал (${votersForOpt.length})</summary>${votersForOpt.map(v => escapeHtml(v)).join(', ')}`;
+                    optEl.appendChild(votersEl);
+                }
+            }
+            optsWrap.appendChild(optEl);
+        });
+
+        card.querySelector('[data-act="close"]')?.addEventListener('click', async () => {
+            if (!confirm('Завершить опрос? Голосовать больше нельзя.')) return;
+            await supabase.from('polls').update({ is_closed: true }).eq('id', p.id);
+            loadPolls();
+        });
+        card.querySelector('[data-act="delete"]')?.addEventListener('click', async () => {
+            if (!confirm('Удалить опрос?')) return;
+            await supabase.from('polls').delete().eq('id', p.id);
+            loadPolls();
+        });
+        container.appendChild(card);
+    });
+}
+async function voteOnPoll(pollId, optionId, checked) {
+    const nick = getViewerNick();
+    if (!nick) { alert('Зайдите в гильдию под своим ником'); return; }
+    const poll = pollsCache.find(p => p.id === pollId);
+    if (!poll) return;
+    if (checked) {
+        const { error } = await supabase.from('poll_votes').insert({ poll_id: pollId, option_id: optionId, user_nickname: nick });
+        if (error && !error.message.includes('duplicate')) alert('Ошибка: ' + error.message);
+    } else {
+        await supabase.from('poll_votes').delete().eq('poll_id', pollId).eq('option_id', optionId).eq('user_nickname', nick);
+    }
+    await loadPolls();
+    checkAchievements(nick).catch(() => {});
+}
+on('openCreatePollBtn', 'click', () => {
+    ['pollTitle','pollDesc','pollOptions','pollClosesAt'].forEach(id => { const el = $(id); if (el) el.value = ''; });
+    $('pollMultiple').checked = false;
+    $('pollAnonymous').checked = false;
+    $('pollCreateMsg').textContent = '';
+    $('createPollModal').hidden = false;
+    $('pollTitle').focus();
+});
+on('cancelCreatePollBtn', 'click', () => { $('createPollModal').hidden = true; });
+on('createPollModal', 'click', e => { if (e.target.id === 'createPollModal') $('createPollModal').hidden = true; });
+on('savePollBtn', 'click', async () => {
+    const msg = $('pollCreateMsg'); msg.textContent = '';
+    const title = val('pollTitle').trim();
+    const desc = val('pollDesc').trim();
+    const options = val('pollOptions').split('\n').map(s => s.trim()).filter(Boolean);
+    const multiple = $('pollMultiple').checked;
+    const anonymous = $('pollAnonymous').checked;
+    const closesAt = val('pollClosesAt');
+    if (!title) { msg.textContent = 'Введите вопрос'; msg.style.color = '#ff7a7a'; return; }
+    if (options.length < 2) { msg.textContent = 'Минимум 2 варианта'; msg.style.color = '#ff7a7a'; return; }
+    if (options.length > 10) { msg.textContent = 'Максимум 10 вариантов'; msg.style.color = '#ff7a7a'; return; }
+    const { data: poll, error } = await supabase.from('polls').insert({
+        clan_id: currentClan,
+        title, description: desc || null,
+        is_multiple: multiple, is_anonymous: anonymous,
+        closes_at: closesAt ? new Date(closesAt).toISOString() : null,
+        created_by: getViewerNick() || null
+    }).select().single();
+    if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
+    const optsPayload = options.map((text, i) => ({ poll_id: poll.id, text, sort_order: i * 10 }));
+    const { error: e2 } = await supabase.from('poll_options').insert(optsPayload);
+    if (e2) { msg.textContent = 'Ошибка вариантов: ' + e2.message; msg.style.color = '#ff7a7a'; return; }
+    $('createPollModal').hidden = true;
+    await logAdminAction('Создал опрос', title);
+    await loadPolls();
+});
+
+/* ============================================================
+   ДОСТИЖЕНИЯ / БЕЙДЖИ
+============================================================ */
+const ACHIEVEMENTS = [
+    { key: 'first_build',    icon: '🎖', name: 'Первый билд',     desc: 'Добавить билд в гильдию' },
+    { key: 'builds_5',       icon: '🏅', name: 'Мастер билдов',   desc: 'Добавить 5 билдов' },
+    { key: 'first_trade',    icon: '🤝', name: 'Первая сделка',   desc: 'Завершить торговую сделку' },
+    { key: 'trades_5',       icon: '💰', name: 'Торговец',        desc: 'Завершить 5 сделок' },
+    { key: 'treasury_in',    icon: '💎', name: 'Меценат',         desc: 'Внести вклад в казну гильдии' },
+    { key: 'event_join',     icon: '📅', name: 'Активист',        desc: 'Присоединиться к общему событию' },
+    { key: 'poll_vote',      icon: '📊', name: 'Голосующий',      desc: 'Проголосовать в опросе' },
+    { key: 'profile_full',   icon: '⭐', name: 'Легенда',         desc: 'Собрать 7 достижений' },
+];
+async function checkAchievements(nickname) {
+    if (!nickname) return;
+    const { data: existing } = await supabase.from('user_achievements').select('achievement_key').eq('user_nickname', nickname);
+    const have = new Set((existing || []).map(x => x.achievement_key));
+    const toUnlock = [];
+
+    const [bRes, tRes, trRes, evRes, pvRes] = await Promise.all([
+        supabase.from('builds').select('id', { count: 'exact', head: true }).eq('created_by', nickname),
+        supabase.from('trades').select('id', { count: 'exact', head: true }).or(`nickname.eq.${nickname},accepted_by.eq.${nickname}`).eq('status', 'done'),
+        supabase.from('treasury').select('id', { count: 'exact', head: true }).eq('description', nickname).eq('type', 'in'),
+        supabase.from('clan_events').select('id', { count: 'exact', head: true }).eq('accepted_by', nickname),
+        supabase.from('poll_votes').select('id', { count: 'exact', head: true }).eq('user_nickname', nickname)
+    ]);
+    const buildCount = bRes.count || 0;
+    const tradeCount = tRes.count || 0;
+    const treasuryCount = trRes.count || 0;
+    const eventCount = evRes.count || 0;
+    const pollCount = pvRes.count || 0;
+
+    if (buildCount >= 1 && !have.has('first_build')) toUnlock.push('first_build');
+    if (buildCount >= 5 && !have.has('builds_5')) toUnlock.push('builds_5');
+    if (tradeCount >= 1 && !have.has('first_trade')) toUnlock.push('first_trade');
+    if (tradeCount >= 5 && !have.has('trades_5')) toUnlock.push('trades_5');
+    if (treasuryCount >= 1 && !have.has('treasury_in')) toUnlock.push('treasury_in');
+    if (eventCount >= 1 && !have.has('event_join')) toUnlock.push('event_join');
+    if (pollCount >= 1 && !have.has('poll_vote')) toUnlock.push('poll_vote');
+
+    const totalAfter = have.size + toUnlock.length;
+    if (totalAfter >= 7 && !have.has('profile_full') && !toUnlock.includes('profile_full')) toUnlock.push('profile_full');
+
+    if (toUnlock.length) {
+        const payload = toUnlock.map(k => ({ user_nickname: nickname, achievement_key: k }));
+        await supabase.from('user_achievements').insert(payload);
+    }
+    return toUnlock;
+}
+async function renderProfileAchievements(nickname) {
+    const wrap = $('profileAchievements'); if (!wrap) return;
+    wrap.innerHTML = '<div class="empty" style="grid-column:1/-1;padding:8px;">Загрузка достижений…</div>';
+    const { data } = await supabase.from('user_achievements').select('*').eq('user_nickname', nickname);
+    const earned = new Map((data || []).map(x => [x.achievement_key, x.earned_at]));
+    wrap.innerHTML = ACHIEVEMENTS.map(a => {
+        const isEarned = earned.has(a.key);
+        const dt = isEarned ? new Date(earned.get(a.key)).toLocaleDateString('ru-RU') : '';
+        return `
+            <div class="ach-badge ${isEarned ? 'earned' : 'locked'}" title="${escapeHtml(a.desc)}">
+                <div class="ach-icon">${a.icon}</div>
+                <div class="ach-name">${escapeHtml(a.name)}</div>
+                ${isEarned ? `<div class="ach-date">${dt}</div>` : ''}
+            </div>`;
+    }).join('');
+}
+
+/* ============ ИНТЕГРАЦИЯ: навешиваем чекбоксы ============ */
+function attachShipCompareChecks() {
+    document.querySelectorAll('#shipsGrid .ship-card-view').forEach(card => {
+        if (card.querySelector('.ship-compare-check')) return;
+        const name = card.querySelector('.ship-card-view__name')?.textContent?.trim();
+        if (!name) return;
+        const lbl = document.createElement('label');
+        lbl.className = 'ship-compare-check';
+        lbl.innerHTML = `<input type="checkbox" data-ship="${escapeHtml(name)}" ${compareShips.includes(name) ? 'checked' : ''}> сравнить`;
+        const inp = lbl.querySelector('input');
+        inp.addEventListener('click', e => e.stopPropagation());
+        inp.addEventListener('change', () => {
+            const ok = toggleShipCompare(name, inp.checked);
+            if (!ok) inp.checked = false;
+        });
+        card.appendChild(lbl);
+    });
+}
+function attachBuildCompareChecks() {
+    document.querySelectorAll('.build-card').forEach(card => {
+        if (card.querySelector('.build-compare-check')) return;
+        const shipName = card.querySelector('.build-ship')?.textContent?.trim();
+        const actions = card.querySelector('.build-actions');
+        if (!actions || !shipName) return;
+        const container = card.closest('#pvpList') ? 'pvp' : (card.closest('#pbList') ? 'pb' : null);
+        if (!container) return;
+        const item = findBuildInCacheByShipAndType(shipName, container);
+        if (!item) return;
+        const lbl = document.createElement('label');
+        lbl.className = 'ship-compare-check build-compare-check';
+        lbl.innerHTML = `<input type="checkbox" data-buildtype="${container}" data-buildid="${escapeHtml(item.id)}" ${compareBuilds.some(b => b.type === container && b.id === item.id) ? 'checked' : ''}> сравнить`;
+        const inp = lbl.querySelector('input');
+        inp.addEventListener('click', e => e.stopPropagation());
+        inp.addEventListener('change', () => {
+            const ok = toggleBuildCompare(container, item.id, shipName, inp.checked);
+            if (!ok) inp.checked = false;
+        });
+        card.style.position = 'relative';
+        card.appendChild(lbl);
+    });
+}
+function findBuildInCacheByShipAndType(shipName, type) {
+    return (_lastBuildsByType[type] || []).find(b => b.ship_name === shipName);
+}
 
 /* ============ СТАРТ ============ */
 (async () => {
@@ -6486,7 +6992,7 @@ on('admiralVoiceBtn', 'click', () => openChat('voice', { room: 'wosb_admirals_' 
         showScreen('home');
     }
     startHeartbeat();
-    setTimeout(handleBuildHash, 800);
+    setTimeout(() => { applyHashRoute(); handleBuildHash(); }, 800);
     setInterval(() => {
         const onlineSection = document.querySelector('.admin-section[data-apanel="online"]');
         if (onlineSection && onlineSection.classList.contains('active') && isAdmin) renderAdminOnlineList();

@@ -1,5 +1,5 @@
 /* ============================================================
-   WosbGame v2.3.3 — style.css
+   WosbGame v3.0.0 — style.css (part 1)
 ============================================================ */
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1351,7 +1351,6 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
 .spec-picker-add:disabled { opacity: .45; cursor: not-allowed; }
 .modal-content .spec-picker { padding: 10px 12px; }
 .modal-content .spec-picker-chips { max-height: 220px; overflow-y: auto; }
-
 /* ============ СВОРАЧИВАНИЕ КАРТОЧЕК В АДМИНКЕ И МОДАЛКАХ ============ */
 .collapsible-card-title { cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; transition: color .15s; margin-bottom: 6px; }
 .collapsible-card-title:hover { color: var(--accent); }
@@ -1399,6 +1398,8 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
     .admin-sidebar-footer { width: 100%; }
     #screen-leader .home-wrap { padding: 90px 12px 30px; }
     #screen-admiral .home-wrap { padding: 90px 12px 30px; }
+    #screen-personal .personal-wrap { padding: 90px 12px 30px; }
+    .board-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)) !important; }
 }
 @media (max-width: 700px) {
     body { padding: 12px 12px 50px; }
@@ -1485,6 +1486,19 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
     .bonuses-header, .bonuses-row { grid-template-columns: 2fr 1fr 1fr 1fr; font-size: 12px; padding: 5px 6px; }
     .modal-group-header { padding: 8px 12px; font-size: 11px; }
     .modal-group-body { padding: 10px 12px; }
+
+    /* v3.0 адаптив */
+    .personal-wrap { padding: 80px 8px 40px; gap: 22px; }
+    .personal-hero { padding: 20px 18px; }
+    .personal-hero-top { flex-direction: column; text-align: center; align-items: center; }
+    .personal-hero-name { font-size: 20px; }
+    .personal-stat-grid { grid-template-columns: 1fr; }
+    .personal-awards-grid { grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); }
+    .personal-section { padding: 16px 14px; }
+    .personal-section-title { font-size: 16px; }
+    .board-grid { grid-template-columns: 1fr !important; }
+    .board-controls { flex-direction: column; gap: 8px; }
+    .board-sort-select { width: 100%; }
 }
 @media (max-width: 520px) {
     .hero-text h1 { font-size: 18px; }
@@ -1497,6 +1511,11 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
     .chat-panel { border-radius: 0; }
     .chat-tab { padding: 6px 10px; font-size: 11px; }
     .ships-grid-view { grid-template-columns: 1fr; }
+
+    /* v3.0 адаптив */
+    .personal-hero-name { font-size: 18px; }
+    .personal-section-title { font-size: 15px; }
+    .personal-ribbon { height: 24px; }
 }
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
@@ -1604,3 +1623,601 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
 .ach-name { font-size: 10.5px; font-weight: 700; color: var(--text); line-height: 1.2; }
 .ach-badge.earned .ach-name { color: var(--gold); }
 .ach-date { font-size: 9.5px; color: var(--muted); }
+
+/* ============================================================
+   v3.0 — ЛИЧНОЕ ДЕЛО МАТРОСА
+============================================================ */
+#screen-personal { min-height: 100vh; padding-bottom: 60px; background: radial-gradient(circle at 15% 0%, rgba(255, 212, 121, .08) 0%, transparent 40%), radial-gradient(circle at 85% 100%, rgba(59, 130, 246, .08) 0%, transparent 40%); }
+#screen-personal .personal-wrap { max-width: 900px; margin: 0 auto; padding: 100px 20px 40px; gap: 22px; align-items: stretch; display: flex; flex-direction: column; }
+
+/* Hero-карточка */
+.personal-hero {
+    position: relative;
+    background: linear-gradient(180deg, var(--panel-3) 0%, var(--panel) 100%);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 28px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    box-shadow: 0 8px 0 rgba(0, 0, 0, .2), 0 14px 40px var(--shadow);
+    overflow: hidden;
+}
+.personal-hero::after {
+    content: '';
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 4px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    opacity: .65;
+}
+.personal-hero-top { display: flex; align-items: center; gap: 20px; }
+.personal-hero-logo {
+    width: 90px; height: 90px;
+    flex-shrink: 0;
+    background: var(--panel-2);
+    border: 2px solid var(--border);
+    border-radius: 16px;
+    padding: 6px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.05), 0 4px 14px rgba(0,0,0,.4);
+}
+.personal-hero-logo img, .personal-hero-logo video { width: 100%; height: 100%; object-fit: contain; border-radius: 10px; }
+.personal-hero-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.personal-hero-name {
+    font-size: 26px;
+    font-weight: 800;
+    color: var(--text);
+    margin: 0;
+    word-break: break-word;
+    letter-spacing: .3px;
+}
+.personal-hero-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+.personal-hero-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-dim);
+}
+.personal-hero-tag.gold { color: var(--gold); background: rgba(255,212,121,.1); border-color: rgba(255,212,121,.4); }
+.personal-hero-tag.green { color: var(--green); background: rgba(110,231,167,.1); border-color: rgba(110,231,167,.4); }
+.personal-hero-tag.blue { color: var(--blue); background: rgba(125,185,255,.1); border-color: rgba(125,185,255,.4); }
+.personal-hero-tag.muted { color: var(--muted); }
+.personal-hero-sub { font-size: 13px; color: var(--muted); line-height: 1.5; }
+
+/* Секции личного дела */
+.personal-section {
+    background: linear-gradient(180deg, var(--panel-3) 0%, var(--panel) 100%);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    box-shadow: 0 6px 0 rgba(0, 0, 0, .2), 0 10px 28px var(--shadow);
+}
+.personal-section-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text);
+    text-align: left;
+    padding: 0 0 12px 0;
+    margin: 0;
+    border-bottom: 1px solid var(--border);
+    text-shadow: none;
+}
+.personal-section-title::after { display: none; }
+
+/* Кнопка приватности (глазик / перечёркнутый глазик) */
+.privacy-btn {
+    flex-shrink: 0;
+    width: 36px; height: 36px;
+    background: linear-gradient(180deg, var(--panel-3), var(--panel));
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    border-radius: 9px;
+    cursor: pointer;
+    font-size: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all .15s;
+    box-shadow: 0 2px 0 rgba(0,0,0,.25);
+}
+.privacy-btn:hover {
+    transform: translateY(-2px);
+    color: var(--accent);
+    border-color: var(--accent);
+}
+.privacy-btn.is-hidden {
+    color: var(--red);
+    border-color: rgba(255,122,122,.5);
+    background: rgba(255,122,122,.08);
+}
+.privacy-btn.is-hidden:hover {
+    color: #fff;
+    background: linear-gradient(180deg, #f87171, #dc2626);
+    border-color: var(--red);
+}
+
+/* Плашка-подсказка в режиме настройки приватности */
+.personal-privacy-hint {
+    padding: 12px 18px;
+    background: linear-gradient(180deg, rgba(255,212,121,.1), rgba(255,212,121,.03));
+    border: 1px solid rgba(255,212,121,.4);
+    border-radius: 12px;
+    color: var(--gold);
+    font-size: 13px;
+    font-weight: 600;
+    text-align: center;
+    animation: personalHintIn .3s ease;
+}
+@keyframes personalHintIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Скрытая секция (для чужого просмотра) */
+.personal-section.psection-hidden {
+    display: none;
+}
+
+/* Заметка «часть разделов скрыта» */
+.personal-hidden-note {
+    padding: 14px 18px;
+    background: var(--panel-2);
+    border: 1px dashed var(--border);
+    border-radius: 12px;
+    color: var(--muted);
+    font-size: 13px;
+    font-style: italic;
+    text-align: center;
+}
+
+/* Карточка чина в личном деле */
+.personal-clan-card-wrap {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    padding: 16px 20px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: inset 0 1px 0 var(--inset-light);
+}
+.personal-clan-card-icon {
+    width: 72px; height: 72px;
+    flex-shrink: 0;
+    background: var(--panel);
+    border: 2px solid var(--border);
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 36px;
+    padding: 6px;
+    overflow: hidden;
+    box-shadow: 0 0 20px rgba(0,0,0,.4);
+}
+.personal-clan-card-icon img { width: 100%; height: 100%; object-fit: contain; border-radius: 8px; }
+.personal-clan-card-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.personal-clan-card-name {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: .3px;
+    word-break: break-word;
+}
+.personal-clan-card-desc { font-size: 13px; color: var(--muted); line-height: 1.5; }
+.personal-clan-card-meta { font-size: 11px; color: var(--muted); font-style: italic; }
+
+/* Сетка наград гильдии */
+.personal-awards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 12px;
+}
+.personal-award {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 10px;
+    background: linear-gradient(180deg, var(--panel-2), var(--panel));
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    text-align: center;
+    transition: all .2s;
+    position: relative;
+    overflow: hidden;
+}
+.personal-award:hover { transform: translateY(-3px); border-color: var(--gold); box-shadow: 0 6px 20px rgba(0,0,0,.4), 0 0 20px rgba(255,212,121,.2); }
+.personal-award-icon {
+    width: 64px; height: 64px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 30px;
+    padding: 4px;
+    overflow: hidden;
+    box-shadow: 0 0 16px rgba(0,0,0,.35);
+}
+.personal-award-icon img { width: 100%; height: 100%; object-fit: contain; border-radius: 50%; }
+.personal-award-name {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.3;
+    word-break: break-word;
+}
+.personal-award-meta {
+    font-size: 10px;
+    color: var(--muted);
+    line-height: 1.3;
+    font-style: italic;
+}
+
+/* Плитки статистики */
+.personal-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+}
+.personal-stat-tile {
+    padding: 16px 18px;
+    background: linear-gradient(180deg, var(--panel-2), var(--panel));
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    transition: all .2s;
+}
+.personal-stat-tile:hover { transform: translateY(-3px); border-color: var(--accent); box-shadow: 0 6px 20px rgba(0,0,0,.3), 0 0 16px var(--accent-glow); }
+.personal-stat-tile-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; font-weight: 700; }
+.personal-stat-tile-value { font-size: 22px; font-weight: 800; color: var(--text); font-family: ui-monospace, monospace; line-height: 1; }
+.personal-stat-tile-value.gold { color: var(--gold); text-shadow: 0 0 10px rgba(255,212,121,.3); }
+.personal-stat-tile-value.green { color: var(--green); text-shadow: 0 0 10px rgba(110,231,167,.3); }
+.personal-stat-tile-value.blue { color: var(--blue); }
+.personal-stat-tile-value.purple { color: var(--purple); }
+
+/* Вклады, трейды, события, билды — таблицы/списки */
+.personal-row-list { display: flex; flex-direction: column; gap: 8px; }
+.personal-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 13px;
+}
+.personal-row:hover { border-color: var(--accent); }
+.personal-row-icon { flex-shrink: 0; font-size: 18px; width: 26px; text-align: center; }
+.personal-row-main { flex: 1; min-width: 0; color: var(--text-dim); }
+.personal-row-main b { color: var(--text); }
+.personal-row-meta { flex-shrink: 0; font-size: 11px; color: var(--muted); font-family: ui-monospace, monospace; }
+.personal-row-amount { flex-shrink: 0; font-family: ui-monospace, monospace; font-weight: 800; }
+.personal-row-amount.in { color: var(--green); }
+.personal-row-amount.out { color: var(--red); }
+
+.personal-empty {
+    padding: 14px 12px;
+    text-align: center;
+    color: var(--muted);
+    font-style: italic;
+    background: var(--panel-2);
+    border-radius: 10px;
+    font-size: 13px;
+}
+
+/* Мини-топ вкладчиков */
+.personal-top5 {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 12px 14px;
+    background: linear-gradient(180deg, rgba(255,212,121,.06), transparent);
+    border: 1px solid rgba(255,212,121,.25);
+    border-radius: 12px;
+    margin-bottom: 8px;
+}
+.personal-top5-title { font-size: 11px; font-weight: 800; color: var(--gold); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
+.personal-top5-row { display: flex; align-items: center; gap: 10px; padding: 6px 10px; background: var(--panel); border-radius: 8px; font-size: 13px; }
+.personal-top5-rank { flex-shrink: 0; font-weight: 800; color: var(--gold); font-family: ui-monospace, monospace; min-width: 26px; }
+.personal-top5-nick { flex: 1; color: var(--text); font-weight: 600; cursor: pointer; }
+.personal-top5-nick:hover { color: var(--accent); text-decoration: underline; }
+.personal-top5-amount { font-family: ui-monospace, monospace; color: var(--green); font-weight: 800; }
+.personal-top5-row.me { background: rgba(255,212,121,.1); border: 1px solid rgba(255,212,121,.35); }
+
+/* ============================================================
+   v3.0 — ДОСКА ГИЛЬДИИ
+============================================================ */
+.board-controls {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 18px;
+    padding: 14px 16px;
+    background: linear-gradient(180deg, var(--panel-3), var(--panel));
+    border: 1px solid var(--border);
+    border-radius: 14px;
+}
+.board-controls .search-input { flex: 1 1 200px; margin-bottom: 0; min-width: 180px; }
+.board-sort-select {
+    padding: 10px 14px;
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 14px;
+    cursor: pointer;
+    min-width: 200px;
+}
+.board-sort-select:focus { outline: none; border-color: var(--accent); }
+.board-filter-row { display: flex; gap: 6px; flex-wrap: wrap; width: 100%; }
+.board-chip {
+    padding: 6px 14px;
+    border-radius: 20px;
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 13px;
+    cursor: pointer;
+    user-select: none;
+    transition: all .15s;
+    font-weight: 600;
+}
+.board-chip:hover { border-color: var(--accent); color: var(--text); }
+.board-chip.active { background: var(--accent); color: #fff; border-color: var(--accent); box-shadow: 0 3px 0 rgba(0,0,0,.25); }
+
+.board-admin-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+    padding: 14px 16px;
+    background: linear-gradient(180deg, rgba(59,130,246,.06), transparent);
+    border: 1px dashed rgba(59,130,246,.35);
+    border-radius: 14px;
+}
+.board-admin-actions .big-btn { padding: 10px 18px; font-size: 13px; flex: 1 1 auto; min-width: 150px; }
+
+.board-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 16px;
+}
+.board-card {
+    position: relative;
+    background: linear-gradient(180deg, var(--panel-3), var(--panel));
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 18px 18px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    cursor: pointer;
+    transition: all .25s cubic-bezier(.4, 0, .2, 1);
+    overflow: hidden;
+    box-shadow: 0 4px 0 rgba(0,0,0,.2), 0 6px 16px rgba(0,0,0,.25);
+}
+.board-card:hover {
+    transform: translateY(-5px);
+    border-color: var(--accent);
+    box-shadow: 0 10px 0 rgba(0,0,0,.1), 0 14px 30px rgba(0,0,0,.35), 0 0 26px var(--accent-glow);
+}
+.board-card.online { border-left: 4px solid var(--green); }
+.board-card.online::after {
+    content: '';
+    position: absolute;
+    top: 14px; right: 14px;
+    width: 10px; height: 10px;
+    background: var(--green);
+    border-radius: 50%;
+    box-shadow: 0 0 10px rgba(110,231,167,.8);
+    animation: boardOnlinePulse 2s ease-in-out infinite;
+}
+@keyframes boardOnlinePulse {
+    0%, 100% { box-shadow: 0 0 10px rgba(110,231,167,.8); }
+    50% { box-shadow: 0 0 18px rgba(110,231,167,1); }
+}
+.board-card-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.board-card-avatar {
+    width: 48px; height: 48px;
+    flex-shrink: 0;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    padding: 3px;
+    overflow: hidden;
+}
+.board-card-avatar img { width: 100%; height: 100%; object-fit: contain; border-radius: 9px; }
+.board-card-nick {
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--text);
+    word-break: break-word;
+    line-height: 1.2;
+}
+.board-card-nick:hover { color: var(--accent); }
+
+.board-card-rank {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 700;
+    align-self: flex-start;
+    max-width: 100%;
+}
+.board-card-rank-icon {
+    width: 22px; height: 22px;
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    border-radius: 5px;
+    overflow: hidden;
+}
+.board-card-rank-icon img { width: 100%; height: 100%; object-fit: contain; }
+.board-card-rank-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.board-card-awards {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    padding-top: 8px;
+    border-top: 1px dashed var(--border);
+    min-height: 34px;
+}
+.board-card-award {
+    width: 30px; height: 30px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px;
+    overflow: hidden;
+    padding: 2px;
+    flex-shrink: 0;
+    transition: transform .15s;
+}
+.board-card-award:hover { transform: scale(1.12); }
+.board-card-award img { width: 100%; height: 100%; object-fit: contain; border-radius: 50%; }
+.board-card-award-more {
+    padding: 4px 9px;
+    background: rgba(255,212,121,.12);
+    color: var(--gold);
+    border: 1px solid rgba(255,212,121,.4);
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 800;
+    font-family: ui-monospace, monospace;
+}
+.board-card-empty-awards {
+    font-size: 11px;
+    color: var(--muted);
+    font-style: italic;
+}
+
+.board-card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    color: var(--muted);
+    padding-top: 6px;
+}
+.board-card-footer .board-card-online-label { color: var(--green); font-weight: 700; }
+.board-card-footer .board-card-offline-label { font-style: italic; }
+
+/* ============================================================
+   v3.0 — ПРЕВЬЮ ЧИНА И НАГРАДЫ В АДМИНКЕ
+============================================================ */
+.clan-card-preview {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 16px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin-bottom: 6px;
+}
+.clan-card-preview .preview-icon {
+    width: 52px; height: 52px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px;
+    padding: 4px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+.clan-card-preview .preview-icon img { width: 100%; height: 100%; object-fit: contain; border-radius: 7px; }
+.clan-card-preview .preview-name {
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--text);
+    word-break: break-word;
+}
+.clan-card-preview .preview-desc {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.4;
+    margin-top: 3px;
+}
+
+/* ============================================================
+   v3.0 — ТЕГИ И ИНДИКАТОРЫ НА ДОСКЕ/ПРИ НАЗНАЧЕНИИ
+============================================================ */
+.member-card-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 800;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    white-space: nowrap;
+}
+.member-card-tag-icon {
+    width: 16px; height: 16px;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 11px;
+    overflow: hidden;
+    border-radius: 3px;
+}
+.member-card-tag-icon img { width: 100%; height: 100%; object-fit: contain; }
+
+/* Список участников в модалке выдачи — компактный */
+.member-assign-list { display: flex; flex-direction: column; gap: 6px; max-height: 320px; overflow-y: auto; padding: 4px; }
+.member-assign-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 14px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all .15s;
+}
+.member-assign-row:hover { border-color: var(--accent); transform: translateX(3px); }
+.member-assign-row.selected { background: rgba(59,130,246,.12); border-color: var(--accent); }
+.member-assign-row .assign-nick { font-weight: 700; color: var(--text); word-break: break-word; }
+.member-assign-row .assign-tag { flex-shrink: 0; }
+
+/* ============================================================
+   v3.0 — КНОПКИ-ПРИЗРАКИ В ЛИЧНОМ ДЕЛЕ
+============================================================ */
+.personal-back-footer {
+    display: flex;
+    justify-content: center;
+    padding: 10px 0 0;
+}
+.personal-back-footer .big-btn { min-width: 220px; }

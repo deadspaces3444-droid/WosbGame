@@ -2221,3 +2221,110 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
     padding: 10px 0 0;
 }
 .personal-back-footer .big-btn { min-width: 220px; }
+/* ============================================================
+   v3.1 — ПИКЕР ИЗ КАТАЛОГА (апгрейды, расходники)
+============================================================ */
+.field-with-picker {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
+    flex: 1 1 100%;
+}
+.field-with-picker textarea { width: 100%; }
+.field-with-picker-cons {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: stretch;
+}
+.field-with-picker-cons input {
+    flex: 1 1 140px;
+    min-width: 120px;
+}
+.catalog-pick-btn {
+    padding: 8px 14px;
+    background: linear-gradient(180deg, var(--panel-3), var(--panel));
+    color: var(--text-dim);
+    border: 1px dashed var(--accent);
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    transition: all .15s;
+    align-self: flex-start;
+    white-space: nowrap;
+}
+.catalog-pick-btn:hover {
+    color: var(--accent);
+    border-style: solid;
+    transform: translateY(-2px);
+    background: rgba(59, 130, 246, .08);
+}
+.field-with-picker-cons .catalog-pick-btn {
+    align-self: stretch;
+}
+
+/* Список в модалке выбора */
+.catalog-picker-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 380px;
+    overflow-y: auto;
+    padding: 8px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+}
+.catalog-picker-empty {
+    padding: 20px;
+    text-align: center;
+    color: var(--muted);
+    font-style: italic;
+    font-size: 13px;
+}
+.catalog-picker-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all .15s;
+    user-select: none;
+}
+.catalog-picker-item:hover {
+    border-color: var(--accent);
+    transform: translateX(3px);
+}
+.catalog-picker-item.selected {
+    background: rgba(59, 130, 246, .12);
+    border-color: var(--accent);
+}
+.catalog-picker-item input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent);
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.catalog-picker-item-name {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    word-break: break-word;
+}
+.catalog-picker-item-badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 6px;
+    background: var(--panel-2);
+    color: var(--muted);
+    border: 1px solid var(--border);
+    font-weight: 600;
+    flex-shrink: 0;
+}

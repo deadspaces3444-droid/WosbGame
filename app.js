@@ -8279,3 +8279,170 @@ document.addEventListener('keydown', e => {
         }
     }, 15000);
 })();
+/* ============================================================
+   v3.1 — ПИКЕР ИЗ КАТАЛОГА (АПГРЕЙДЫ, РАСХОДНИКИ)
+   Открывает модалку со списком из build_items,
+   выбранное вставляет в целевое поле/поля.
+============================================================ */
+let _catalogPickerCtx = null; // { type, target, mode, selected:Set }
+
+function openCatalogPicker(type, target, mode) {
+    const items = buildItemsCache.filter(x =>
+        x.type === type && x.is_active !== false
+    ).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+    if (!items.length) {
+        alert(`В каталоге нет элементов типа «${type === 'upgrade' ? 'апгрейды' : type === 'consumable' ? 'расходники' : type}».\n\n` +
+              `Загляните в админку → «⚙️ Каталог» и добавьте их.`);
+        return;
+    }
+
+    _catalogPickerCtx = { type, target, mode, selected: new Set() };
+    const titleEl = $('catalogPickerTitle');
+    const titles = {
+        upgrade:    '📋 Выбрать апгрейды из каталога',
+        consumable: '📋 Выбрать расходники из каталога'
+    };
+    if (titleEl) titleEl.textContent = titles[type] || '📋 Выбрать из каталога';
+
+    const searchEl = $('catalogPickerSearch');
+    if (searchEl) searchEl.value = '';
+
+    renderCatalogPickerList(items);
+    $('catalogPickerModal').hidden = false;
+    setTimeout(() => searchEl?.focus(), 100);
+}
+
+function renderCatalogPickerList(itemsOverride) {
+    if (!_catalogPickerCtx) return;
+    const listEl = $('catalogPickerList');
+    if (!listEl) return;
+
+    const type = _catalogPickerCtx.type;
+    const items = itemsOverride || buildItemsCache.filter(x =>
+        x.type === type && x.is_active !== false
+    ).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+    const q = ($('catalogPickerSearch')?.value || '').trim().toLowerCase();
+    const filtered = q
+        ? items.filter(x => (x.name || '').toLowerCase().includes(q))
+        : items;
+
+    if (!filtered.length) {
+        listEl.innerHTML = `<div class="catalog-picker-empty">${q ? 'Ничего не найдено' : 'Каталог пуст'}</div>`;
+        return;
+    }
+
+    // Группируем по subgroup (для апгрейдов — раздел, для расходников — обычно нет subgroup)
+    const groups = {};
+    filtered.forEach(it => {
+        const sg = it.subgroup || '—';
+        (groups[sg] ||= []).push(it);
+    });
+
+    listEl.innerHTML = '';
+    Object.keys(groups).sort().forEach(sg => {
+        if (sg !== '—') {
+            const head = document.createElement('div');
+            head.style.cssText = 'font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:800;padding:6px 4px 2px;';
+            head.textContent = sg;
+            listEl.appendChild(head);
+        }
+        groups[sg].forEach(it => {
+            const label = document.createElement('label');
+            const isSelected = _catalogPickerCtx.selected.has(it.name);
+            label.className = 'catalog-picker-item' + (isSelected ? ' selected' : '');
+            label.innerHTML = `
+                <input type="checkbox" ${isSelected ? 'checked' : ''}>
+                <span class="catalog-picker-item-name">${escapeHtml(it.name)}</span>
+                ${it.price ? `<span class="catalog-picker-item-badge">${Number(it.price).toLocaleString('ru-RU')} 🪙</span>` : ''}`;
+            const inp = label.querySelector('input');
+            inp.addEventListener('change', () => {
+                if (inp.checked) _catalogPickerCtx.selected.add(it.name);
+                else _catalogPickerCtx.selected.delete(it.name);
+                label.classList.toggle('selected', inp.checked);
+            });
+            // Клик по строке = переключить чекбокс
+            label.addEventListener('click', (e) => {
+                if (e.target.tagName === 'INPUT') return;
+                e.preventDefault();
+                inp.checked = !inp.checked;
+                inp.dispatchEvent(new Event('change'));
+            });
+            listEl.appendChild(label);
+        });
+    });
+}
+
+function closeCatalogPicker() {
+    $('catalogPickerModal').hidden = true;
+    _catalogPickerCtx = null;
+}
+
+function applyCatalogPickerSelection() {
+    if (!_catalogPickerCtx) return;
+    const { target, mode, selected } = _catalogPickerCtx;
+    const picked = Array.from(selected);
+    if (!picked.length) {
+        $('catalogPickerError').textContent = 'Ничего не выбрано';
+        $('catalogPickerError').style.color = '#ff7a7a';
+        return;
+    }
+
+    if (mode === 'multi') {
+        // Апгрейды: пишем построчно в textarea, добавляя к существующему
+        const ta = $(target);
+        if (!ta) return;
+        const existing = String(ta.value || '').split('\n').map(s => s.trim()).filter(Boolean);
+        picked.forEach(name => {
+            if (!existing.some(x => x.toLowerCase() === name.toLowerCase())) {
+                existing.push(name);
+            }
+        });
+        ta.value = existing.join('\n');
+    } else if (mode === 'cons') {
+        // Расходники: 3 поля, вставляем в первое свободное, потом следующее...
+        const fields = [target + '1', target + '2', target + '3']
+            .map(id => $(id)).filter(Boolean);
+        // Собираем уже заполненные значения, чтобы дедуплицировать
+        const existing = fields.map(f => (f.value || '').trim()).filter(Boolean);
+        const toAdd = picked.filter(name =>
+            !existing.some(x => x.toLowerCase() === name.toLowerCase())
+        );
+        let idx = 0;
+        // сначала в пустые, потом (если влезет) в конец
+        const emptyIdx = fields.findIndex(f => !String(f.value || '').trim());
+        let startAt = emptyIdx >= 0 ? emptyIdx : 0;
+        for (let i = 0; i < toAdd.length; i++) {
+            const fi = startAt + i;
+            if (fi >= fields.length) break;
+            fields[fi].value = toAdd[i];
+        }
+    }
+
+    closeCatalogPicker();
+}
+
+// Делегируем клики по кнопкам-пикерам
+document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.catalog-pick-btn');
+    if (!btn) return;
+    const type = btn.dataset.pickerType;
+    const target = btn.dataset.pickerTarget;
+    const mode = btn.dataset.pickerMode;
+    if (!type || !target || !mode) return;
+    openCatalogPicker(type, target, mode);
+});
+
+on('catalogPickerCancel', 'click', closeCatalogPicker);
+on('catalogPickerModal', 'click', e => {
+    if (e.target.id === 'catalogPickerModal') closeCatalogPicker();
+});
+on('catalogPickerSave', 'click', applyCatalogPickerSelection);
+on('catalogPickerSearch', 'input', () => renderCatalogPickerList());
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+        const m = $('catalogPickerModal');
+        if (m && !m.hidden) closeCatalogPicker();
+    }
+});

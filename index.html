@@ -72,6 +72,77 @@
                 </div>
             </section>
 
+            <!-- БОНУСЫ ФРАКЦИЙ — АНОНС -->
+            <section id="factionsPreviewSection" class="home-trade-section" data-collapsible="factions">
+                <h2 class="section-title">⚔️ Бонусы фракций — скоро</h2>
+                <div class="factions-preview-panel">
+                    <p class="factions-preview-lead">
+                        В версии 3.1 у каждой фракции появятся свои <b>бонусы</b> и <b>дебаффы</b>.
+                        Они будут учитываться при постройке корабля и сборке — скидки, штрафы, доступ в порты.
+                    </p>
+                    <div class="factions-preview-grid">
+
+                        <article class="faction-card" data-type="military" data-faction="antilia">
+                            <div class="faction-card-icon">🛡</div>
+                            <div class="faction-card-body">
+                                <div class="faction-card-name">Антилия</div>
+                                <div class="faction-card-type">Военная фракция</div>
+                                <div class="faction-card-hint">Строгая дисциплина, крепкие корабли, слабая торговля</div>
+                            </div>
+                        </article>
+
+                        <article class="faction-card" data-type="military" data-faction="kaisiveria">
+                            <div class="faction-card-icon">⚔️</div>
+                            <div class="faction-card-body">
+                                <div class="faction-card-name">Кай Сиверия</div>
+                                <div class="faction-card-type">Военная фракция</div>
+                                <div class="faction-card-hint">Быстрые суда, дешёвые расходники, дорогие пушки</div>
+                            </div>
+                        </article>
+
+                        <article class="faction-card" data-type="military" data-faction="espanol">
+                            <div class="faction-card-icon">🏰</div>
+                            <div class="faction-card-body">
+                                <div class="faction-card-name">Эспаньол</div>
+                                <div class="faction-card-type">Военная фракция</div>
+                                <div class="faction-card-hint">Колониальные ресурсы, дешёвое дерево, слабые паруса</div>
+                            </div>
+                        </article>
+
+                        <article class="faction-card" data-type="pirate" data-faction="pirates">
+                            <div class="faction-card-icon">☠️</div>
+                            <div class="faction-card-body">
+                                <div class="faction-card-name">Пиратская</div>
+                                <div class="faction-card-type">Пиратская фракция</div>
+                                <div class="faction-card-hint">Дешёвый ремонт и расходники, но закрыты нейтральные порты</div>
+                            </div>
+                        </article>
+
+                        <article class="faction-card" data-type="trade" data-faction="trade">
+                            <div class="faction-card-icon">💰</div>
+                            <div class="faction-card-body">
+                                <div class="faction-card-name">Торговая</div>
+                                <div class="faction-card-type">Торговая фракция</div>
+                                <div class="faction-card-hint">Скидки на постройку и сборку, но дебафф в портах и бою</div>
+                            </div>
+                        </article>
+
+                        <article class="faction-card" data-type="neutral" data-faction="flotilla">
+                            <div class="faction-card-icon">🕊</div>
+                            <div class="faction-card-body">
+                                <div class="faction-card-name">Флотилия</div>
+                                <div class="faction-card-type">Нейтральная фракция</div>
+                                <div class="faction-card-hint">Открыты все порты, но нет специализированных бонусов</div>
+                            </div>
+                        </article>
+
+                    </div>
+                    <p class="factions-preview-note">
+                        💡 Финальный состав бонусов и цифры — в разработке.
+                    </p>
+                </div>
+            </section>
+
             <!-- СТОИМОСТЬ ПОСТРОЙКИ -->
             <section id="shipCostSection" class="home-trade-section" data-collapsible="shipcost">
                 <h2 class="section-title">🔨 Стоимость постройки корабля</h2>
@@ -519,15 +590,21 @@
                     <section class="add-form clan-admin-only" hidden>
                         <select id="pvpShip" class="build-ship-select"><option value="">— Выберите корабль —</option></select>
                         <img id="pvpShipPreview" class="build-ship-preview" src="" alt="" hidden>
-                        <textarea id="pvpUpgrades" placeholder="Апгрейды — каждый с новой строки" rows="3" list="upgradesList"></textarea>
+                        <div class="field-with-picker">
+                            <textarea id="pvpUpgrades" placeholder="Апгрейды — каждый с новой строки" rows="3" list="upgradesList"></textarea>
+                            <button type="button" class="catalog-pick-btn" data-picker-type="upgrade" data-picker-target="pvpUpgrades" data-picker-mode="multi">📋 Из каталога</button>
+                        </div>
                         <input type="text" id="pvpWeapS" list="weaponsSmallList" placeholder="Малые пушки (до 12ф)" maxlength="60">
                         <input type="text" id="pvpWeapM" list="weaponsMediumList" placeholder="Средние пушки (до 24ф)" maxlength="60">
                         <input type="text" id="pvpWeapL" list="weaponsLargeList" placeholder="Большие пушки (до 48ф)" maxlength="60">
                         <input type="text" id="pvpWeapMortar" list="weaponsMortarList" placeholder="Мортиры" maxlength="60">
                         <input type="text" id="pvpShells" list="shellsList" placeholder="Снаряды" maxlength="200">
-                        <input type="text" id="pvpCons1" list="consumablesList" placeholder="Расходник 1" maxlength="40">
-                        <input type="text" id="pvpCons2" list="consumablesList" placeholder="Расходник 2" maxlength="40">
-                        <input type="text" id="pvpCons3" list="consumablesList" placeholder="Расходник 3" maxlength="40">
+                        <div class="field-with-picker field-with-picker-cons">
+                            <input type="text" id="pvpCons1" list="consumablesList" placeholder="Расходник 1" maxlength="40">
+                            <input type="text" id="pvpCons2" list="consumablesList" placeholder="Расходник 2" maxlength="40">
+                            <input type="text" id="pvpCons3" list="consumablesList" placeholder="Расходник 3" maxlength="40">
+                            <button type="button" class="catalog-pick-btn" data-picker-type="consumable" data-picker-target="pvpCons" data-picker-mode="cons">📋 Из каталога</button>
+                        </div>
                         <input type="text" id="pvpCargo" list="cargoList" placeholder="Наполнение трюма" maxlength="200">
                         <div class="spec-picker">
                             <div class="spec-picker-head">
@@ -556,15 +633,21 @@
                         <textarea id="pbRank" placeholder="Ранг (1-6)" rows="1" maxlength="10"></textarea>
                         <select id="pbShip" class="build-ship-select"><option value="">— Выберите корабль —</option></select>
                         <img id="pbShipPreview" class="build-ship-preview" src="" alt="" hidden>
-                        <textarea id="pbUpgrades" placeholder="Апгрейды — каждый с новой строки" rows="3" list="upgradesList"></textarea>
+                        <div class="field-with-picker">
+                            <textarea id="pbUpgrades" placeholder="Апгрейды — каждый с новой строки" rows="3" list="upgradesList"></textarea>
+                            <button type="button" class="catalog-pick-btn" data-picker-type="upgrade" data-picker-target="pbUpgrades" data-picker-mode="multi">📋 Из каталога</button>
+                        </div>
                         <input type="text" id="pbWeapS" list="weaponsSmallList" placeholder="Малые пушки (до 12ф)" maxlength="60">
                         <input type="text" id="pbWeapM" list="weaponsMediumList" placeholder="Средние пушки (до 24ф)" maxlength="60">
                         <input type="text" id="pbWeapL" list="weaponsLargeList" placeholder="Большие пушки (до 48ф)" maxlength="60">
                         <input type="text" id="pbWeapMortar" list="weaponsMortarList" placeholder="Мортиры" maxlength="60">
                         <input type="text" id="pbShells" list="shellsList" placeholder="Снаряды" maxlength="200">
-                        <input type="text" id="pbCons1" list="consumablesList" placeholder="Расходник 1" maxlength="40">
-                        <input type="text" id="pbCons2" list="consumablesList" placeholder="Расходник 2" maxlength="40">
-                        <input type="text" id="pbCons3" list="consumablesList" placeholder="Расходник 3" maxlength="40">
+                        <div class="field-with-picker field-with-picker-cons">
+                            <input type="text" id="pbCons1" list="consumablesList" placeholder="Расходник 1" maxlength="40">
+                            <input type="text" id="pbCons2" list="consumablesList" placeholder="Расходник 2" maxlength="40">
+                            <input type="text" id="pbCons3" list="consumablesList" placeholder="Расходник 3" maxlength="40">
+                            <button type="button" class="catalog-pick-btn" data-picker-type="consumable" data-picker-target="pbCons" data-picker-mode="cons">📋 Из каталога</button>
+                        </div>
                         <input type="text" id="pbCargo" list="cargoList" placeholder="Наполнение трюма" maxlength="200">
                         <div class="spec-picker">
                             <div class="spec-picker-head">
@@ -1327,6 +1410,18 @@
                             </div>
                             <span id="biImportShellsStatus" class="import-status"></span>
                         </div>
+
+                        <div class="import-block">
+                            <b>🧪 Расходники</b>
+                            <code>Название</code>
+                            <span class="import-hint">По одной позиции на строку</span>
+                            <input type="file" id="biImportConsumFile" accept=".txt,.csv,text/plain" hidden>
+                            <div class="import-actions">
+                                <button type="button" id="biImportConsumBtn" class="logo-pick-btn">📂 Загрузить</button>
+                                <button type="button" id="biClearConsumBtn" class="logo-pick-btn danger">🗑 Очистить</button>
+                            </div>
+                            <span id="biImportConsumStatus" class="import-status"></span>
+                        </div>
                     </div>
                 </div>
 
@@ -1767,15 +1862,27 @@
             <h2 id="buildEditTitle">✏️ Редактировать билд</h2>
             <div class="admin-field" id="buildEditRankField" hidden><label>Ранг</label><input type="text" id="buildEditRank" maxlength="10"></div>
             <div class="admin-field"><label>Название корабля</label><input type="text" id="buildEditShip" maxlength="60"></div>
-            <div class="admin-field"><label>Апгрейды</label><textarea id="buildEditUpgrades" rows="3"></textarea></div>
+            <div class="admin-field">
+                <label>Апгрейды</label>
+                <div class="field-with-picker">
+                    <textarea id="buildEditUpgrades" rows="3"></textarea>
+                    <button type="button" class="catalog-pick-btn" data-picker-type="upgrade" data-picker-target="buildEditUpgrades" data-picker-mode="multi">📋 Из каталога</button>
+                </div>
+            </div>
             <div class="admin-field"><label>Малые пушки</label><textarea id="buildEditWeapS" rows="2"></textarea></div>
             <div class="admin-field"><label>Средние пушки</label><textarea id="buildEditWeapM" rows="2"></textarea></div>
             <div class="admin-field"><label>Большие пушки</label><textarea id="buildEditWeapL" rows="2"></textarea></div>
             <div class="admin-field"><label>Мортиры</label><textarea id="buildEditWeapMortar" rows="2"></textarea></div>
             <div class="admin-field"><label>Снаряды</label><textarea id="buildEditShells" rows="2"></textarea></div>
-            <div class="admin-field"><label>Расходник 1</label><input type="text" id="buildEditCons1" maxlength="40"></div>
-            <div class="admin-field"><label>Расходник 2</label><input type="text" id="buildEditCons2" maxlength="40"></div>
-            <div class="admin-field"><label>Расходник 3</label><input type="text" id="buildEditCons3" maxlength="40"></div>
+            <div class="admin-field">
+                <label>Расходники</label>
+                <div class="field-with-picker field-with-picker-cons">
+                    <input type="text" id="buildEditCons1" maxlength="40" placeholder="Расходник 1">
+                    <input type="text" id="buildEditCons2" maxlength="40" placeholder="Расходник 2">
+                    <input type="text" id="buildEditCons3" maxlength="40" placeholder="Расходник 3">
+                    <button type="button" class="catalog-pick-btn" data-picker-type="consumable" data-picker-target="buildEditCons" data-picker-mode="cons">📋 Из каталога</button>
+                </div>
+            </div>
             <div class="admin-field"><label>Трюм</label><textarea id="buildEditCargo" rows="2"></textarea></div>
             <div class="admin-field">
                 <label>Специалисты</label>
@@ -2045,6 +2152,20 @@
         </div>
     </div>
 
+    <!-- МОДАЛКА ВЫБОРА ИЗ КАТАЛОГА -->
+    <div id="catalogPickerModal" class="modal" hidden>
+        <div class="modal-content admin-panel-wide">
+            <h2 id="catalogPickerTitle">📋 Выбрать из каталога</h2>
+            <input type="search" id="catalogPickerSearch" placeholder="🔍 Поиск..." style="margin-bottom:8px;">
+            <div id="catalogPickerList" class="catalog-picker-list"></div>
+            <p id="catalogPickerError" class="error"></p>
+            <div class="modal-actions">
+                <button id="catalogPickerSave">💾 Вставить выбранное</button>
+                <button id="catalogPickerCancel" class="secondary">Отмена</button>
+            </div>
+        </div>
+    </div>
+
     <!-- ПАНЕЛЬ СРАВНЕНИЯ -->
     <div id="comparePanel" class="compare-panel" hidden>
         <div class="compare-panel-head">
@@ -2125,7 +2246,7 @@
 
     <footer class="site-footer">
         <span class="footer-left">Mist Time — Сергеев С.В</span>
-        <span class="footer-right">v3.0.0</span>
+        <span class="footer-right">v3.1.0</span>
     </footer>
 
     <script type="module" src="app.js"></script>

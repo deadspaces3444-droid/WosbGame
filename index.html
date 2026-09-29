@@ -468,6 +468,7 @@
                         <button class="side-item" data-section="pb"><span class="side-ico">🛡</span><span>Билды ПБ</span></button>
                         <button class="side-item" data-section="ships"><span class="side-ico">🚢</span><span>Корабли</span></button>
                         <button class="side-item" data-section="builder"><span class="side-ico">🔧</span><span>Сборка корабля</span></button>
+                        <button class="side-item" data-section="pvpsim"><span class="side-ico">🎯</span><span>Симулятор ПВП</span></button>
                     </div>
                 </div>
 
@@ -744,6 +745,118 @@
                                 <button id="builderCopy2" class="builder-btn secondary">📋 Скопировать результат</button>
                             </div>
                         </footer>
+                    </div>
+                </div>
+
+                <!-- СИМУЛЯТОР ПВП-ВЫСТРЕЛА -->
+                <div id="section-pvpsim" class="clan-section">
+                    <h2>🎯 Симулятор ПВП-выстрела</h2>
+                    <p class="hint">Крути корабль, кликни по точке попадания, задай урон и расходники — получишь итоговый урон залпа.</p>
+
+                    <div class="pvpsim-layout">
+                        <div class="pvpsim-stage-wrap">
+                            <svg viewBox="-200 -80 400 160" class="pvpsim-svg" id="pvpsimSvg">
+                                <defs>
+                                    <pattern id="pvpsimGrid" width="20" height="20" patternUnits="userSpaceOnUse">
+                                        <path d="M 20 0 L 0 0 0 20" fill="none" stroke="rgba(59,130,246,0.18)" stroke-width="1"/>
+                                    </pattern>
+                                </defs>
+                                <rect x="-200" y="-80" width="400" height="160" fill="url(#pvpsimGrid)"/>
+
+                                <g class="pvpsim-incoming">
+                                    <line x1="195" y1="0" x2="240" y2="0" stroke="#ef4444" stroke-width="2" stroke-dasharray="4,3"/>
+                                    <polygon points="240,-6 250,0 240,6" fill="#ef4444"/>
+                                    <text x="248" y="-12" fill="#ef4444" font-size="11" font-weight="bold" text-anchor="middle">ЗАЛП</text>
+                                </g>
+
+                                <g id="pvpsimShipGroup" class="pvpsim-ship-group">
+                                    <path d="M -140,-50 L 100,-50 Q 180,0 100,50 L -140,50 Q -180,0 -140,-50 Z"
+                                          fill="#0f1419" stroke="#3a4150" stroke-width="2"/>
+
+                                    <path data-zone="bow" d="M 60,-48 L 100,-48 Q 180,0 100,48 L 60,48 Z"
+                                          fill="rgba(14,165,233,0.35)" stroke="#0ea5e9" stroke-width="1.5" class="pvpsim-zone"/>
+                                    <path data-zone="stern" d="M -60,-48 L -140,-48 Q -180,0 -140,48 L -60,48 Z"
+                                          fill="rgba(14,165,233,0.35)" stroke="#0ea5e9" stroke-width="1.5" class="pvpsim-zone"/>
+                                    <rect data-zone="port" x="-60" y="-48" width="120" height="33"
+                                          fill="rgba(139,92,246,0.35)" stroke="#8b5cf6" stroke-width="1.5" class="pvpsim-zone"/>
+                                    <rect data-zone="starboard" x="-60" y="15" width="120" height="33"
+                                          fill="rgba(139,92,246,0.35)" stroke="#8b5cf6" stroke-width="1.5" class="pvpsim-zone"/>
+                                    <rect data-zone="superstructure" x="-40" y="-15" width="80" height="30"
+                                          fill="rgba(245,158,11,0.4)" stroke="#f59e0b" stroke-width="1.5" class="pvpsim-zone" rx="3"/>
+                                    <rect data-zone="core" x="-18" y="-7" width="36" height="14"
+                                          fill="rgba(220,38,38,0.6)" stroke="#dc2626" stroke-width="1.5" class="pvpsim-zone" rx="2"/>
+
+                                    <g id="pvpsimHitMark" class="pvpsim-hit-mark" hidden>
+                                        <circle r="14" fill="none" stroke="#fbbf24" stroke-width="2"/>
+                                        <circle r="5" fill="#ef4444"/>
+                                        <line x1="-20" y1="0" x2="-10" y2="0" stroke="#fbbf24" stroke-width="2"/>
+                                        <line x1="10" y1="0" x2="20" y2="0" stroke="#fbbf24" stroke-width="2"/>
+                                        <line x1="0" y1="-20" x2="0" y2="-10" stroke="#fbbf24" stroke-width="2"/>
+                                        <line x1="0" y1="10" x2="0" y2="20" stroke="#fbbf24" stroke-width="2"/>
+                                    </g>
+                                </g>
+                            </svg>
+
+                            <div class="pvpsim-zone-legend">
+                                <span><span class="pvpsim-legend-dot" style="background:#0ea5e9"></span>Нос / Корма</span>
+                                <span><span class="pvpsim-legend-dot" style="background:#8b5cf6"></span>Борт</span>
+                                <span><span class="pvpsim-legend-dot" style="background:#f59e0b"></span>Надстройка</span>
+                                <span><span class="pvpsim-legend-dot" style="background:#dc2626"></span>Ядро</span>
+                            </div>
+
+                            <div class="pvpsim-rotation">
+                                <label>Угол корабля к залпу:</label>
+                                <input type="range" id="pvpsimRotation" min="0" max="359" value="0">
+                                <span id="pvpsimRotationLabel">0°</span>
+                            </div>
+
+                            <details class="pvpsim-info">
+                                <summary>ℹ️ Как это работает</summary>
+                                <div class="pvpsim-info-body">
+                                    <p><b>🎯 Точка попадания</b> — кликни по любой зоне корабля. От неё зависит базовый множитель: нос и корма — снаряд часто рикошетит (<b>×0.6</b> / <b>×0.7</b>), борт — полноценное пробитие (<b>×1.0</b>), надстройка — мало урона (<b>×0.4</b>), ядро — критическая зона, крюйт-камера (<b>×2.0</b>).</p>
+                                    <p><b>🔄 Угол корабля</b> — залп всегда летит горизонтально справа. Если корабль стоит носом к залпу — броня работает как наклонная плита (эффективная броня 100%, урон ×0.5). Если борт — броня «плашмя» (урон ×1.0, эффективная броня 50%).</p>
+                                    <p><b>🧪 Расходники</b> — каждый отмеченный даёт <b>+10%</b> к урону залпа и складывается множителем.</p>
+                                    <p><b>🛡 Броня</b> — берётся из выбранного корабля-цели. Поглощение бронёй считается по формуле <code>броня / (броня + 100)</code> — то есть броня 100 забирает около 50% урона, броня 200 — около 67%.</p>
+                                </div>
+                            </details>
+                        </div>
+
+                        <div class="pvpsim-controls">
+                            <div class="admin-field">
+                                <label>Корабль-цель</label>
+                                <select id="pvpsimTargetShip"></select>
+                            </div>
+                            <div class="admin-field">
+                                <label>Снаряд</label>
+                                <select id="pvpsimAmmo"></select>
+                            </div>
+                            <div class="admin-field">
+                                <label>Базовый урон залпа</label>
+                                <input type="number" id="pvpsimBaseDamage" value="500" min="1" step="10">
+                            </div>
+                            <div class="admin-field">
+                                <label>Расходники (+10% к урону каждый)</label>
+                                <div id="pvpsimConsumables" class="pvpsim-consumables"></div>
+                            </div>
+                            <button id="pvpsimFire" class="big-btn primary pvpsim-fire-btn">🎯 ВЫСТРЕЛ</button>
+                        </div>
+                    </div>
+
+                    <div id="pvpsimResult" class="pvpsim-result" hidden>
+                        <div class="pvpsim-result-header">📊 Результат залпа</div>
+                        <div class="pvpsim-result-grid">
+                            <div class="pvpsim-result-row"><span>Зона попадания:</span><b id="pvpsimResZone">—</b></div>
+                            <div class="pvpsim-result-row"><span>Угол атаки:</span><b id="pvpsimResAngle">—</b></div>
+                            <div class="pvpsim-result-row"><span>Модификатор зоны:</span><b id="pvpsimResZoneMod">—</b></div>
+                            <div class="pvpsim-result-row"><span>Модификатор угла:</span><b id="pvpsimResAngleMod">—</b></div>
+                            <div class="pvpsim-result-row"><span>Модификатор снаряда:</span><b id="pvpsimResAmmoMod">—</b></div>
+                            <div class="pvpsim-result-row"><span>Модификатор расходников:</span><b id="pvpsimResConsMod">—</b></div>
+                            <div class="pvpsim-result-row"><span>Сырой урон (до брони):</span><b id="pvpsimResRaw">—</b></div>
+                            <div class="pvpsim-result-row"><span>Броня цели:</span><b id="pvpsimResArmor">—</b></div>
+                            <div class="pvpsim-result-row"><span>Эффективная броня:</span><b id="pvpsimResEffArmor">—</b></div>
+                            <div class="pvpsim-result-row"><span>Поглощение бронёй:</span><b id="pvpsimResArmorAbs">—</b></div>
+                            <div class="pvpsim-result-row final"><span>💰 ИТОГО УРОН:</span><b id="pvpsimResFinal">—</b></div>
+                        </div>
                     </div>
                 </div>
 

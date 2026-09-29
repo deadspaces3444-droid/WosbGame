@@ -1,5 +1,5 @@
 /* ============================================================
-   WosbGame v3.0.0 — style.css (part 1)
+   WosbGame v3.1.0 — style.css (part 1)
 ============================================================ */
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1351,6 +1351,7 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
 .spec-picker-add:disabled { opacity: .45; cursor: not-allowed; }
 .modal-content .spec-picker { padding: 10px 12px; }
 .modal-content .spec-picker-chips { max-height: 220px; overflow-y: auto; }
+
 /* ============ СВОРАЧИВАНИЕ КАРТОЧЕК В АДМИНКЕ И МОДАЛКАХ ============ */
 .collapsible-card-title { cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; transition: color .15s; margin-bottom: 6px; }
 .collapsible-card-title:hover { color: var(--accent); }
@@ -1487,7 +1488,7 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
     .modal-group-header { padding: 8px 12px; font-size: 11px; }
     .modal-group-body { padding: 10px 12px; }
 
-    /* v3.0 адаптив */
+    /* v3.0/v3.1 адаптив */
     .personal-wrap { padding: 80px 8px 40px; gap: 22px; }
     .personal-hero { padding: 20px 18px; }
     .personal-hero-top { flex-direction: column; text-align: center; align-items: center; }
@@ -1499,6 +1500,21 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
     .board-grid { grid-template-columns: 1fr !important; }
     .board-controls { flex-direction: column; gap: 8px; }
     .board-sort-select { width: 100%; }
+
+    .factions-preview-grid { grid-template-columns: 1fr; }
+    .faction-card { padding: 14px; }
+    .faction-card-icon { width: 40px; height: 40px; font-size: 24px; }
+
+    .field-with-picker-cons { flex-direction: column; }
+    .field-with-picker-cons input { width: 100%; }
+    .catalog-pick-btn { width: 100%; text-align: center; }
+
+    .pvpsim-layout { grid-template-columns: 1fr; }
+    .pvpsim-stage-wrap { padding: 12px; }
+    .pvpsim-rotation { flex-direction: column; align-items: stretch; gap: 6px; }
+    .pvpsim-rotation input[type="range"] { width: 100%; }
+    .pvpsim-result-row { font-size: 12.5px; }
+    .pvpsim-result-row.final > b { font-size: 20px; }
 }
 @media (max-width: 520px) {
     .hero-text h1 { font-size: 18px; }
@@ -1512,11 +1528,15 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
     .chat-tab { padding: 6px 10px; font-size: 11px; }
     .ships-grid-view { grid-template-columns: 1fr; }
 
-    /* v3.0 адаптив */
+    /* v3.0/v3.1 адаптив */
     .personal-hero-name { font-size: 18px; }
     .personal-section-title { font-size: 15px; }
     .personal-ribbon { height: 24px; }
+    .factions-preview-lead { font-size: 13px; }
+    .faction-card-icon { width: 36px; height: 36px; font-size: 20px; }
+    .pvpsim-controls { padding: 14px; }
 }
+/* ============ ПРЕДПОЧТЕНИЯ ПОЛЬЗОВАТЕЛЯ ============ */
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
         animation-duration: .01ms !important;
@@ -1524,6 +1544,7 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
         transition-duration: .01ms !important;
     }
 }
+
 /* ============================================================
    СРАВНЕНИЕ КОРАБЛЕЙ И БИЛДОВ
 ============================================================ */
@@ -1630,7 +1651,6 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
 #screen-personal { min-height: 100vh; padding-bottom: 60px; background: radial-gradient(circle at 15% 0%, rgba(255, 212, 121, .08) 0%, transparent 40%), radial-gradient(circle at 85% 100%, rgba(59, 130, 246, .08) 0%, transparent 40%); }
 #screen-personal .personal-wrap { max-width: 900px; margin: 0 auto; padding: 100px 20px 40px; gap: 22px; align-items: stretch; display: flex; flex-direction: column; }
 
-/* Hero-карточка */
 .personal-hero {
     position: relative;
     background: linear-gradient(180deg, var(--panel-3) 0%, var(--panel) 100%);
@@ -1691,7 +1711,6 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
 .personal-hero-tag.muted { color: var(--muted); }
 .personal-hero-sub { font-size: 13px; color: var(--muted); line-height: 1.5; }
 
-/* Секции личного дела */
 .personal-section {
     background: linear-gradient(180deg, var(--panel-3) 0%, var(--panel) 100%);
     border: 1px solid var(--border);
@@ -1718,7 +1737,6 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
 }
 .personal-section-title::after { display: none; }
 
-/* Кнопка приватности (глазик / перечёркнутый глазик) */
 .privacy-btn {
     flex-shrink: 0;
     width: 36px; height: 36px;
@@ -1750,7 +1768,6 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
     border-color: var(--red);
 }
 
-/* Плашка-подсказка в режиме настройки приватности */
 .personal-privacy-hint {
     padding: 12px 18px;
     background: linear-gradient(180deg, rgba(255,212,121,.1), rgba(255,212,121,.03));
@@ -1764,12 +1781,8 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
 }
 @keyframes personalHintIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
 
-/* Скрытая секция (для чужого просмотра) */
-.personal-section.psection-hidden {
-    display: none;
-}
+.personal-section.psection-hidden { display: none; }
 
-/* Заметка «часть разделов скрыта» */
 .personal-hidden-note {
     padding: 14px 18px;
     background: var(--panel-2);
@@ -1781,7 +1794,6 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
     text-align: center;
 }
 
-/* Карточка чина в личном деле */
 .personal-clan-card-wrap {
     display: flex;
     align-items: center;
@@ -1815,7 +1827,6 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
 .personal-clan-card-desc { font-size: 13px; color: var(--muted); line-height: 1.5; }
 .personal-clan-card-meta { font-size: 11px; color: var(--muted); font-style: italic; }
 
-/* Сетка наград гильдии */
 .personal-awards-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
@@ -1862,7 +1873,6 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
     font-style: italic;
 }
 
-/* Плитки статистики */
 .personal-stat-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -1886,7 +1896,6 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
 .personal-stat-tile-value.blue { color: var(--blue); }
 .personal-stat-tile-value.purple { color: var(--purple); }
 
-/* Вклады, трейды, события, билды — таблицы/списки */
 .personal-row-list { display: flex; flex-direction: column; gap: 8px; }
 .personal-row {
     display: flex;
@@ -1917,7 +1926,6 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
     font-size: 13px;
 }
 
-/* Мини-топ вкладчиков */
 .personal-top5 {
     display: flex;
     flex-direction: column;
@@ -2193,7 +2201,6 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
 }
 .member-card-tag-icon img { width: 100%; height: 100%; object-fit: contain; }
 
-/* Список участников в модалке выдачи — компактный */
 .member-assign-list { display: flex; flex-direction: column; gap: 6px; max-height: 320px; overflow-y: auto; padding: 4px; }
 .member-assign-row {
     display: flex;
@@ -2221,6 +2228,88 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
     padding: 10px 0 0;
 }
 .personal-back-footer .big-btn { min-width: 220px; }
+
+/* ============================================================
+   v3.1 — БОНУСЫ ФРАКЦИЙ (АНОНС)
+============================================================ */
+.factions-preview-panel {
+    background: linear-gradient(180deg, var(--panel-3), var(--panel));
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 22px;
+    box-shadow: 0 6px 0 rgba(0,0,0,.2), 0 10px 28px var(--shadow);
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+.factions-preview-lead {
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text-dim);
+    text-align: center;
+    max-width: 720px;
+    margin: 0 auto;
+}
+.factions-preview-lead b { color: var(--gold); }
+
+.factions-preview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 14px;
+}
+
+.faction-card {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    padding: 16px 18px;
+    background: linear-gradient(180deg, var(--panel-2), var(--panel));
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--muted);
+    border-radius: 14px;
+    transition: all .25s cubic-bezier(.4, 0, .2, 1);
+    box-shadow: 0 3px 0 rgba(0,0,0,.2);
+}
+.faction-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 0 rgba(0,0,0,.1), 0 14px 30px rgba(0,0,0,.35);
+}
+.faction-card[data-type="military"] { border-left-color: #ff7a7a; }
+.faction-card[data-type="military"]:hover { box-shadow: 0 8px 0 rgba(0,0,0,.1), 0 14px 30px rgba(0,0,0,.35), 0 0 24px rgba(255,122,122,.35); }
+.faction-card[data-type="pirate"]   { border-left-color: #b48aff; }
+.faction-card[data-type="pirate"]:hover { box-shadow: 0 8px 0 rgba(0,0,0,.1), 0 14px 30px rgba(0,0,0,.35), 0 0 24px rgba(180,138,255,.4); }
+.faction-card[data-type="trade"]    { border-left-color: #6ee7a7; }
+.faction-card[data-type="trade"]:hover { box-shadow: 0 8px 0 rgba(0,0,0,.1), 0 14px 30px rgba(0,0,0,.35), 0 0 24px rgba(110,231,167,.35); }
+.faction-card[data-type="neutral"]  { border-left-color: #7db9ff; }
+.faction-card[data-type="neutral"]:hover { box-shadow: 0 8px 0 rgba(0,0,0,.1), 0 14px 30px rgba(0,0,0,.35), 0 0 24px rgba(125,185,255,.35); }
+
+.faction-card-icon {
+    font-size: 30px;
+    line-height: 1;
+    flex-shrink: 0;
+    width: 46px;
+    height: 46px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--panel-3);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+}
+.faction-card-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.faction-card-name { font-size: 16px; font-weight: 800; color: var(--text); }
+.faction-card-type { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; font-weight: 700; }
+.faction-card-hint { font-size: 12.5px; line-height: 1.5; color: var(--text-dim); margin-top: 4px; }
+
+.factions-preview-note {
+    text-align: center;
+    font-size: 12px;
+    color: var(--muted);
+    font-style: italic;
+    padding-top: 8px;
+    border-top: 1px dashed var(--border);
+}
+
 /* ============================================================
    v3.1 — ПИКЕР ИЗ КАТАЛОГА (апгрейды, расходники)
 ============================================================ */
@@ -2265,7 +2354,6 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
     align-self: stretch;
 }
 
-/* Список в модалке выбора */
 .catalog-picker-list {
     display: flex;
     flex-direction: column;
@@ -2327,4 +2415,262 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
     border: 1px solid var(--border);
     font-weight: 600;
     flex-shrink: 0;
+}
+
+/* ============================================================
+   v3.1 — СИМУЛЯТОР ПВП-ВЫСТРЕЛА
+============================================================ */
+.pvpsim-layout {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+@media (max-width: 900px) {
+    .pvpsim-layout { grid-template-columns: 1fr; }
+}
+
+.pvpsim-stage-wrap {
+    background: linear-gradient(180deg, var(--panel-3), var(--panel));
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 18px;
+    box-shadow: 0 6px 0 rgba(0,0,0,.2), 0 10px 28px var(--shadow);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.pvpsim-svg {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 5 / 2;
+    background: #050810;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    cursor: crosshair;
+    display: block;
+}
+
+.pvpsim-zone {
+    cursor: pointer;
+    transition: opacity .15s, filter .15s;
+}
+.pvpsim-zone:hover {
+    filter: brightness(1.4) drop-shadow(0 0 8px currentColor);
+}
+
+.pvpsim-hit-mark {
+    pointer-events: none;
+    animation: pvpsimHitIn .3s ease-out;
+    filter: drop-shadow(0 0 10px rgba(251,191,36,.9));
+}
+@keyframes pvpsimHitIn {
+    from { opacity: 0; transform: scale(.3); }
+    to   { opacity: 1; transform: scale(1); }
+}
+.pvpsim-hit-mark.pvpsim-flash {
+    animation: pvpsimFlash .55s ease-out;
+}
+@keyframes pvpsimFlash {
+    0%   { filter: drop-shadow(0 0 20px rgba(251,191,36,1)) brightness(2.5); }
+    100% { filter: drop-shadow(0 0 10px rgba(251,191,36,.9)) brightness(1); }
+}
+
+.pvpsim-zone-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 12px;
+    color: var(--muted);
+    padding: 8px 4px;
+}
+.pvpsim-zone-legend > span { display: inline-flex; align-items: center; gap: 6px; }
+.pvpsim-legend-dot {
+    width: 12px; height: 12px;
+    border-radius: 3px;
+    display: inline-block;
+    box-shadow: 0 0 6px currentColor;
+}
+
+.pvpsim-rotation {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+}
+.pvpsim-rotation label {
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    white-space: nowrap;
+}
+.pvpsim-rotation input[type="range"] {
+    flex: 1;
+    min-width: 0;
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+.pvpsim-rotation span {
+    font-family: ui-monospace, monospace;
+    font-weight: 800;
+    color: var(--gold);
+    min-width: 50px;
+    text-align: right;
+    font-size: 14px;
+}
+
+.pvpsim-info {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+}
+.pvpsim-info summary {
+    padding: 10px 14px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--accent);
+    list-style: none;
+    user-select: none;
+}
+.pvpsim-info summary::-webkit-details-marker { display: none; }
+.pvpsim-info summary::before { content: '▸ '; }
+.pvpsim-info[open] summary::before { content: '▾ '; }
+.pvpsim-info-body {
+    padding: 0 14px 12px;
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: var(--muted);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.pvpsim-info-body b { color: var(--text); }
+.pvpsim-info-body code {
+    font-family: ui-monospace, monospace;
+    background: var(--panel);
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: var(--gold);
+    font-size: 12px;
+}
+
+.pvpsim-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 18px;
+    background: linear-gradient(180deg, var(--panel-3), var(--panel));
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: 0 6px 0 rgba(0,0,0,.2), 0 10px 28px var(--shadow);
+}
+
+.pvpsim-consumables {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 220px;
+    overflow-y: auto;
+    padding: 8px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+.pvpsim-cons-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all .15s;
+}
+.pvpsim-cons-item:hover { border-color: var(--accent); }
+.pvpsim-cons-item input { accent-color: var(--accent); cursor: pointer; }
+.pvpsim-cons-item > span:nth-child(2) { flex: 1; color: var(--text-dim); }
+.pvpsim-cons-mult {
+    font-family: ui-monospace, monospace;
+    color: var(--green);
+    font-weight: 700;
+    font-size: 11px;
+}
+
+.pvpsim-fire-btn {
+    font-size: 16px !important;
+    padding: 16px !important;
+    letter-spacing: 1px;
+    box-shadow: 0 4px 0 rgba(0,0,0,.4), 0 0 24px var(--accent-glow) !important;
+}
+.pvpsim-fire-btn:hover { filter: brightness(1.2); }
+
+.pvpsim-result {
+    background: linear-gradient(180deg, var(--panel-3), var(--panel));
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 6px 0 rgba(0,0,0,.2), 0 10px 28px var(--shadow);
+    animation: pvpsimResultIn .4s ease-out;
+}
+@keyframes pvpsimResultIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.pvpsim-result-header {
+    padding: 14px 20px;
+    background: linear-gradient(90deg, rgba(59,130,246,.15), transparent);
+    border-bottom: 1px solid var(--border);
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: .8px;
+}
+.pvpsim-result-grid {
+    display: flex;
+    flex-direction: column;
+    padding: 12px 20px 16px;
+    gap: 4px;
+}
+.pvpsim-result-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 13.5px;
+}
+.pvpsim-result-row:hover { background: rgba(59,130,246,.05); }
+.pvpsim-result-row > span { color: var(--muted); }
+.pvpsim-result-row > b { font-family: ui-monospace, monospace; color: var(--text); }
+.pvpsim-result-row.final {
+    margin-top: 8px;
+    padding: 14px 18px;
+    background: linear-gradient(135deg, rgba(255,212,121,.12), rgba(255,212,121,.02));
+    border: 1px solid rgba(255,212,121,.4);
+    border-radius: 12px;
+}
+.pvpsim-result-row.final > span {
+    color: var(--gold);
+    font-weight: 800;
+    font-size: 15px;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+}
+.pvpsim-result-row.final > b {
+    font-size: 26px;
+    color: var(--gold);
+    text-shadow: 0 0 16px rgba(255,212,121,.5);
+    font-weight: 900;
 }

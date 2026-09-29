@@ -1,9 +1,9 @@
 import { supabase } from './supabase.js';
 
-console.log('🚀 app.js v3.0.0 (part 1)');
+console.log('🚀 app.js v3.1.0 (part 1)');
 
 const ADMIN_EMAILS_FALLBACK = ['dead_antihrist@mail.ru'];
-const APP_VERSION = '3.0.0';
+const APP_VERSION = '3.1.0';
 const BINDING_OWNERS = ['kolibri@wosb.ru', 'dead_antihrist@mail.ru'];
 
 const CLAN_FLAGS = {
@@ -118,7 +118,7 @@ const PRIVACY_LABELS = {
     builds:            { icon: '⚔️', name: 'Авторские билды' }
 };
 
-/* --- новые кэши --- */
+/* --- глобальные кэши --- */
 let gamesCache = {}, clansCache = {}, alliancesCache = {};
 let settingsCache = null, faqCache = [], partnersCache = [], tacticsCache = [], tradesCache = [];
 let shipsCache = [];
@@ -171,11 +171,11 @@ let compareBuilds = [];
 let _lastBuildsByType = { pvp: [], pb: [] };
 
 /* --- v3.0: карточки, награды, приватность --- */
-let clanCardsCache = {};      // { clanId: [cards] }
-let clanAwardsCache = {};     // { clanId: [awards] }
-let memberCardsCache = {};    // { clanId: { nickname: cardRow } }
-let memberAwardsCache = {};   // { clanId: { nickname: [awardsRows] } }
-let userPrivacyCache = {};    // { nickname: {section: bool} }
+let clanCardsCache = {};
+let clanAwardsCache = {};
+let memberCardsCache = {};
+let memberAwardsCache = {};
+let userPrivacyCache = {};
 let personalCurrentNick = null;
 let personalIsMine = false;
 let personalEditMode = false;
@@ -597,7 +597,6 @@ async function sendHeartbeat() {
         }
     } catch (e) { }
     updateOnlineCount();
-    /* v3.0 — переподписываемся на уведомления, если ник только что появился */
     if (nickname && !nickname.startsWith('guest_')) initGlobalNotifications();
 }
 async function updateOnlineCount() {
@@ -664,7 +663,6 @@ function compressLogo(file, maxSize = 128, quality = 0.85) {
         reader.onerror = reject; reader.readAsDataURL(file);
     });
 }
-/* v3.0 — сохранение иконки карточки/награды с сохранением прозрачности */
 function compressIcon(file, maxSize = 256, quality = 0.92) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -878,6 +876,7 @@ document.querySelectorAll('.side-item').forEach(btn => {
         else if (section === 'pb') renderBuilds('pb');
         else if (section === 'ships') loadShips();
         else if (section === 'builder') { if (builderClanCtrl) builderClanCtrl.refresh(); }
+        else if (section === 'pvpsim') initPvpSimulator();
         else if (section === 'board') renderBoard();
         else if (section === 'contacts') renderContacts();
         else if (section === 'members') { renderMembers(); renderAdmins(); }
@@ -1625,7 +1624,6 @@ function applyAdminUI() {
     });
     document.querySelectorAll('.owner-only').forEach(el => { el.hidden = !isOwner; });
     const clearBtn = $('chatClear'); if (clearBtn) clearBtn.hidden = !isAdmin;
-    /* v3.0 — кнопки личного дела */
     const hasNick = !!getViewerNick();
     ['personalCabinetBtn', 'personalCabinetBtn2', 'personalCabinetBtn3'].forEach(id => {
         const el = $(id); if (el) el.hidden = !hasNick;
@@ -1734,7 +1732,6 @@ async function loadClans() {
     renderApplyClanSelect(); renderAlliancesAdmin();
     renderSiteAdminsAdmin();
     if (currentClan) updateAllianceBar();
-    /* v3.0 — подгружаем карточки/награды текущей гильдии */
     if (currentClan) {
         loadClanCards(currentClan).catch(() => {});
         loadClanAwards(currentClan).catch(() => {});
@@ -3668,6 +3665,15 @@ function parseShellsFile(text) {
     });
     return { items, errors };
 }
+function parseConsumablesFile(text) {
+    const items = [], errors = [];
+    text.split(/\r?\n/).forEach((raw, idx) => {
+        const line = raw.trim();
+        if (!line || line.startsWith('#')) return;
+        items.push({ type: 'consumable', name: line });
+    });
+    return { items, errors };
+}
 function bonusesToText(bonuses) {
     return (bonuses || []).map(b => b.value === null ? b.stat : `${b.stat} ${b.value > 0 ? '+' : ''}${b.value}`).join(', ');
 }
@@ -3723,6 +3729,16 @@ async function importShells(items) {
     for (const it of items) {
         const { error } = await supabase.from('build_items').insert({
             type: 'shell', subgroup: it.type, name: it.name, is_active: true, sort_order: 0
+        });
+        if (error) fail++; else ok++;
+    }
+    return { ok, fail };
+}
+async function importConsumables(items) {
+    let ok = 0, fail = 0;
+    for (const it of items) {
+        const { error } = await supabase.from('build_items').insert({
+            type: 'consumable', subgroup: null, name: it.name, is_active: true, sort_order: 0
         });
         if (error) fail++; else ok++;
     }
@@ -4148,12 +4164,14 @@ setupImportHandler('biImportSpecsBtn', 'biImportSpecsFile', 'biImportSpecsStatus
 setupImportHandler('biImportWeaponsBtn', 'biImportWeaponsFile', 'biImportWeaponsStatus', parseWeaponsFile, importWeapons);
 setupImportHandler('biImportUpgradesBtn', 'biImportUpgradesFile', 'biImportUpgradesStatus', parseUpgradesFile, importUpgrades);
 setupImportHandler('biImportShellsBtn', 'biImportShellsFile', 'biImportShellsStatus', parseShellsFile, importShells);
+setupImportHandler('biImportConsumBtn', 'biImportConsumFile', 'biImportConsumStatus', parseConsumablesFile, importConsumables);
 
 on('biClearSpecsBtn',    'click', () => clearBuildItemsByTypes(['specialist'], 'специалисты'));
 on('biClearWeaponsBtn',  'click', () => clearBuildItemsByTypes(
     ['weapon_small', 'weapon_medium', 'weapon_large', 'weapon_mortar'], 'пушки'));
 on('biClearUpgradesBtn', 'click', () => clearBuildItemsByTypes(['upgrade'], 'апгрейды'));
 on('biClearShellsBtn',   'click', () => clearBuildItemsByTypes(['shell'], 'снаряды'));
+on('biClearConsumBtn',   'click', () => clearBuildItemsByTypes(['consumable'], 'расходники'));
 
 /* ============================================================
    РЕСУРСЫ — ТАБЛИЦА
@@ -4419,8 +4437,8 @@ on('pricingPresetBtn', 'click', async () => {
     alert(`✔ Загружено ${count} из ${RESOURCE_PRESET.length}`);
 });
 on('pricingAuto', 'change', async (e) => {
-    const on = e.target.checked; const msg = $('pricingAutoMsg');
-    if (!on) { if (msg) msg.textContent = ''; return; }
+    const on_ = e.target.checked; const msg = $('pricingAutoMsg');
+    if (!on_) { if (msg) msg.textContent = ''; return; }
     if (msg) { msg.textContent = '⏳ считаю…'; msg.style.color = '#7db9ff'; }
     const active = tradesCache.filter(t => t.status !== 'done' && t.type === 'sell' && t.category === 'resource');
     if (!active.length) { if (msg) { msg.textContent = 'Нет активных заявок'; msg.style.color = '#ff7a7a'; } e.target.checked = false; return; }
@@ -5463,7 +5481,6 @@ on('deleteClanBtn', 'click', async () => {
         await supabase.from('treasury').delete().eq('clan', cid);
         await supabase.from('trades').delete().eq('clan', cid);
         await supabase.from('builds').delete().eq('clan', cid).eq('is_shared', false);
-        /* v3.0 — чистим карточки, награды, привязки */
         await supabase.from('member_cards').delete().eq('clan_id', cid);
         await supabase.from('member_awards').delete().eq('clan_id', cid);
         await supabase.from('clan_cards').delete().eq('clan_id', cid);
@@ -5753,7 +5770,6 @@ function renderNotifications() {
                 await supabase.from('notifications').update({ is_read: true }).eq('id', id);
                 n.is_read = true; renderNotifications();
             }
-            /* v3.0 — если это уведомление о личном сообщении, открываем переписку */
             if (n.type === 'chat' && n.link && n.link.startsWith('private:')) {
                 const from = n.link.slice('private:'.length);
                 if (from) openPrivateChat(from);
@@ -5928,7 +5944,6 @@ async function sendChatMessage() {
     $('chatSend').disabled = false;
     if (error) { alert('Ошибка: ' + error.message); return; }
     input.value = '';
-    /* v3.0 — уведомление получателю при личном сообщении */
     if (chatMode === 'private' && chatPrivateWith) {
         const short = text.length > 120 ? text.slice(0, 120) + '…' : text;
         createNotification(chatPrivateWith, 'chat', `✉️ Личное сообщение от ${nick}`, short, `private:${nick}`).catch(() => {});
@@ -6027,7 +6042,6 @@ function initRealtime() {
 }
 function closeRealtime() {
     if (onlineChannel) { supabase.removeChannel(onlineChannel); onlineChannel = null; }
-    /* v3.0 — notifChannel НЕ трогаем здесь, он глобальный */
 }
 
 /* ============ v3.0 — ГЛОБАЛЬНЫЕ УВЕДОМЛЕНИЯ ============ */
@@ -7691,8 +7705,7 @@ async function renderClanAwardsAdminList(clanId) {
             await loadMemberAwards(clanId);
             renderClanAwardsAdminList(clanId);
         });
-        container.appendChild(card_award_placeholder(el));
-        function card_award_placeholder(node) { return node; }
+        container.appendChild(el);
     });
 }
 
@@ -7791,7 +7804,6 @@ async function loadPersonalData() {
     const heroEl = $('personalHero');
     if (heroEl) heroEl.innerHTML = '<div class="empty">Загрузка…</div>';
 
-    // Находим гильдию игрока: сначала пробуем по clansCache
     let clanId = null, clanObj = null;
     for (const c of Object.values(clansCache)) {
         const list = normalizeNickList(c.members_list || '');
@@ -7801,7 +7813,6 @@ async function loadPersonalData() {
         }
     }
 
-    // Параллельно грузим данные
     const [clanCardsP, clanAwardsP, memberCardsP, memberAwardsP, achP, onlineP, privacyP] = await Promise.all([
         clanId ? loadClanCards(clanId) : Promise.resolve([]),
         clanId ? loadClanAwards(clanId) : Promise.resolve([]),
@@ -7977,7 +7988,6 @@ function renderPersonalSiteAchievements(nick, achData) {
 async function renderPersonalStats(nick, clanId) {
     const wrap = $('personalStats'); if (!wrap) return;
     wrap.innerHTML = '<div class="empty">Загрузка…</div>';
-    const nick_lc = nick.toLowerCase();
     const [bRes, tRes, trRes, evRes, pvRes, enRes, frRes] = await Promise.all([
         supabase.from('builds').select('id', { count: 'exact', head: true }).eq('created_by', nick),
         supabase.from('trades').select('id', { count: 'exact', head: true }).or(`nickname.eq.${nick},accepted_by.eq.${nick}`).eq('status', 'done'),
@@ -8014,7 +8024,6 @@ async function renderPersonalTreasury(nick, clanId) {
     const myIn = allIn.filter(r => (r.description || '').trim().toLowerCase() === nick.toLowerCase());
     const mySum = myIn.reduce((s, r) => s + (Number(r.amount) || 0), 0);
 
-    // Топ-5 вкладчиков
     const byNick = {};
     allIn.forEach(r => {
         const who = (r.description || '—').trim();
@@ -8148,7 +8157,7 @@ async function renderPersonalBuilds(nick) {
 }
 
 /* ============================================================
-   v3.0 — НАВЕШИВАЕМ ОБРАБОТЧИКИ ПРИВАТНОСТИ + ЗАКРЫТИЕ ESC
+   v3.0/v3.1 — ОБРАБОТЧИК ESC ДЛЯ ЛИЧНОГО ДЕЛА
 ============================================================ */
 document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
@@ -8156,8 +8165,346 @@ document.addEventListener('keydown', e => {
         if (p && !p.hidden) closePersonalCabinet();
     }
 });
+
 /* ============================================================
-   v3.0 — ФИНАЛЬНЫЙ СТАРТ ПРИЛОЖЕНИЯ
+   v3.1 — ПИКЕР ИЗ КАТАЛОГА (АПГРЕЙДЫ, РАСХОДНИКИ)
+============================================================ */
+let _catalogPickerCtx = null;
+
+function openCatalogPicker(type, target, mode) {
+    const items = buildItemsCache.filter(x =>
+        x.type === type && x.is_active !== false
+    ).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+    if (!items.length) {
+        const typeLabel = type === 'upgrade' ? 'апгрейды' : type === 'consumable' ? 'расходники' : type;
+        alert(`В каталоге нет элементов типа «${typeLabel}».\n\nЗагляните в админку → «⚙️ Каталог» и добавьте их.`);
+        return;
+    }
+
+    _catalogPickerCtx = { type, target, mode, selected: new Set() };
+    const titleEl = $('catalogPickerTitle');
+    const titles = {
+        upgrade:    '📋 Выбрать апгрейды из каталога',
+        consumable: '📋 Выбрать расходники из каталога'
+    };
+    if (titleEl) titleEl.textContent = titles[type] || '📋 Выбрать из каталога';
+
+    const searchEl = $('catalogPickerSearch');
+    if (searchEl) searchEl.value = '';
+
+    renderCatalogPickerList(items);
+    $('catalogPickerModal').hidden = false;
+    setTimeout(() => searchEl?.focus(), 100);
+}
+
+function renderCatalogPickerList(itemsOverride) {
+    if (!_catalogPickerCtx) return;
+    const listEl = $('catalogPickerList');
+    if (!listEl) return;
+
+    const type = _catalogPickerCtx.type;
+    const items = itemsOverride || buildItemsCache.filter(x =>
+        x.type === type && x.is_active !== false
+    ).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+    const q = ($('catalogPickerSearch')?.value || '').trim().toLowerCase();
+    const filtered = q
+        ? items.filter(x => (x.name || '').toLowerCase().includes(q))
+        : items;
+
+    if (!filtered.length) {
+        listEl.innerHTML = `<div class="catalog-picker-empty">${q ? 'Ничего не найдено' : 'Каталог пуст'}</div>`;
+        return;
+    }
+
+    const groups = {};
+    filtered.forEach(it => {
+        const sg = it.subgroup || '—';
+        (groups[sg] ||= []).push(it);
+    });
+
+    listEl.innerHTML = '';
+    Object.keys(groups).sort().forEach(sg => {
+        if (sg !== '—') {
+            const head = document.createElement('div');
+            head.style.cssText = 'font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:800;padding:6px 4px 2px;';
+            head.textContent = subgroupLabel(type, sg);
+            listEl.appendChild(head);
+        }
+        groups[sg].forEach(it => {
+            const label = document.createElement('label');
+            const isSelected = _catalogPickerCtx.selected.has(it.name);
+            label.className = 'catalog-picker-item' + (isSelected ? ' selected' : '');
+            label.innerHTML = `
+                <input type="checkbox" ${isSelected ? 'checked' : ''}>
+                <span class="catalog-picker-item-name">${escapeHtml(it.name)}</span>
+                ${it.price ? `<span class="catalog-picker-item-badge">${Number(it.price).toLocaleString('ru-RU')} 🪙</span>` : ''}`;
+            const inp = label.querySelector('input');
+            inp.addEventListener('change', () => {
+                if (inp.checked) _catalogPickerCtx.selected.add(it.name);
+                else _catalogPickerCtx.selected.delete(it.name);
+                label.classList.toggle('selected', inp.checked);
+            });
+            label.addEventListener('click', (e) => {
+                if (e.target.tagName === 'INPUT') return;
+                e.preventDefault();
+                inp.checked = !inp.checked;
+                inp.dispatchEvent(new Event('change'));
+            });
+            listEl.appendChild(label);
+        });
+    });
+}
+
+function closeCatalogPicker() {
+    $('catalogPickerModal').hidden = true;
+    _catalogPickerCtx = null;
+}
+
+function applyCatalogPickerSelection() {
+    if (!_catalogPickerCtx) return;
+    const { target, mode, selected } = _catalogPickerCtx;
+    const picked = Array.from(selected);
+    if (!picked.length) {
+        $('catalogPickerError').textContent = 'Ничего не выбрано';
+        $('catalogPickerError').style.color = '#ff7a7a';
+        return;
+    }
+
+    if (mode === 'multi') {
+        const ta = $(target);
+        if (!ta) return;
+        const existing = String(ta.value || '').split('\n').map(s => s.trim()).filter(Boolean);
+        picked.forEach(name => {
+            if (!existing.some(x => x.toLowerCase() === name.toLowerCase())) {
+                existing.push(name);
+            }
+        });
+        ta.value = existing.join('\n');
+    } else if (mode === 'cons') {
+        const fields = [target + '1', target + '2', target + '3']
+            .map(id => $(id)).filter(Boolean);
+        const existing = fields.map(f => (f.value || '').trim()).filter(Boolean);
+        const toAdd = picked.filter(name =>
+            !existing.some(x => x.toLowerCase() === name.toLowerCase())
+        );
+        const emptyIdx = fields.findIndex(f => !String(f.value || '').trim());
+        let startAt = emptyIdx >= 0 ? emptyIdx : 0;
+        for (let i = 0; i < toAdd.length; i++) {
+            const fi = startAt + i;
+            if (fi >= fields.length) break;
+            fields[fi].value = toAdd[i];
+        }
+    }
+
+    closeCatalogPicker();
+}
+
+document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.catalog-pick-btn');
+    if (!btn) return;
+    const type = btn.dataset.pickerType;
+    const target = btn.dataset.pickerTarget;
+    const mode = btn.dataset.pickerMode;
+    if (!type || !target || !mode) return;
+    openCatalogPicker(type, target, mode);
+});
+
+on('catalogPickerCancel', 'click', closeCatalogPicker);
+on('catalogPickerModal', 'click', e => {
+    if (e.target.id === 'catalogPickerModal') closeCatalogPicker();
+});
+on('catalogPickerSave', 'click', applyCatalogPickerSelection);
+on('catalogPickerSearch', 'input', () => renderCatalogPickerList());
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+        const m = $('catalogPickerModal');
+        if (m && !m.hidden) closeCatalogPicker();
+    }
+});
+/* ============================================================
+   v3.1 — СИМУЛЯТОР ПВП-ВЫСТРЕЛА
+============================================================ */
+const PVP_ZONES = {
+    bow:            { label: 'Нос',         icon: '⬆️', color: '#0ea5e9', mult: 0.60, hint: 'снаряд часто рикошетит' },
+    stern:          { label: 'Корма',       icon: '⬇️', color: '#0ea5e9', mult: 0.70, hint: 'ракинг — слабое место' },
+    port:           { label: 'Левый борт',  icon: '◀️', color: '#8b5cf6', mult: 1.00, hint: 'полноценное пробитие' },
+    starboard:      { label: 'Правый борт', icon: '▶️', color: '#8b5cf6', mult: 1.00, hint: 'полноценное пробитие' },
+    superstructure: { label: 'Надстройка',  icon: '🏛', color: '#f59e0b', mult: 0.40, hint: 'не критично' },
+    core:           { label: 'Ядро',        icon: '💥', color: '#dc2626', mult: 2.00, hint: 'критическая зона' }
+};
+let pvpsimLastHit = null;
+
+function initPvpSimulator() {
+    const svg = $('pvpsimSvg');
+    if (!svg || svg.dataset.ready === '1') return;
+    svg.dataset.ready = '1';
+
+    // Список кораблей-целей
+    const shipSel = $('pvpsimTargetShip');
+    if (shipSel) {
+        shipSel.innerHTML = '<option value="">— Без корабля —</option>';
+        shipsCache.slice().sort((a, b) => a.name.localeCompare(b.name)).forEach(s => {
+            const o = document.createElement('option');
+            o.value = s.name;
+            o.textContent = `${ROMAN[s.level] || s.level} · ${s.name}`;
+            o.dataset.armor = s.armor || 0;
+            o.dataset.durability = s.durability || 0;
+            shipSel.appendChild(o);
+        });
+    }
+
+    // Список снарядов
+    const ammoSel = $('pvpsimAmmo');
+    if (ammoSel) {
+        ammoSel.innerHTML = '<option value="">— По умолчанию —</option>';
+        buildItemsCache
+            .filter(x => x.type === 'shell' && x.is_active !== false)
+            .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+            .forEach(x => {
+                const o = document.createElement('option');
+                o.value = x.name;
+                o.textContent = x.name;
+                o.dataset.mult = '1.0';
+                ammoSel.appendChild(o);
+            });
+    }
+
+    // Расходники (чекбоксы)
+    const consWrap = $('pvpsimConsumables');
+    if (consWrap) {
+        consWrap.innerHTML = '';
+        const consumables = buildItemsCache
+            .filter(x => x.type === 'consumable' && x.is_active !== false)
+            .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+        if (!consumables.length) {
+            consWrap.innerHTML = '<span style="font-size:12px;color:var(--muted);padding:6px;">Нет расходников в каталоге</span>';
+        } else {
+            consumables.forEach(c => {
+                const lbl = document.createElement('label');
+                lbl.className = 'pvpsim-cons-item';
+                lbl.innerHTML = `
+                    <input type="checkbox" data-name="${escapeHtml(c.name)}">
+                    <span>🧪 ${escapeHtml(c.name)}</span>
+                    <span class="pvpsim-cons-mult">×1.10</span>`;
+                consWrap.appendChild(lbl);
+            });
+        }
+    }
+
+    // Слайдер вращения корабля
+    on('pvpsimRotation', 'input', e => {
+        const deg = parseInt(e.target.value) || 0;
+        const grp = $('pvpsimShipGroup');
+        if (grp) grp.setAttribute('transform', `rotate(${deg})`);
+        const lbl = $('pvpsimRotationLabel');
+        if (lbl) lbl.textContent = deg + '°';
+    });
+
+    // Кнопка ВЫСТРЕЛ
+    on('pvpsimFire', 'click', () => {
+        if (!pvpsimLastHit) {
+            alert('Сначала кликни по кораблю — выбери точку попадания');
+            return;
+        }
+        firePvpSimulator();
+    });
+
+    // Клик по зоне на корабле
+    svg.addEventListener('click', e => {
+        const zoneEl = e.target.closest('[data-zone]');
+        if (!zoneEl) return;
+        const zone = zoneEl.dataset.zone;
+        if (!PVP_ZONES[zone]) return;
+
+        const shipGroup = $('pvpsimShipGroup');
+        const pt = svg.createSVGPoint();
+        pt.x = e.clientX;
+        pt.y = e.clientY;
+        const ctm = shipGroup.getScreenCTM();
+        if (!ctm) return;
+        const groupPt = pt.matrixTransform(ctm.inverse());
+
+        const mark = $('pvpsimHitMark');
+        if (mark) {
+            mark.hidden = false;
+            mark.setAttribute('transform', `translate(${groupPt.x.toFixed(1)}, ${groupPt.y.toFixed(1)})`);
+        }
+
+        pvpsimLastHit = { zone, x: groupPt.x, y: groupPt.y };
+    });
+}
+
+function firePvpSimulator() {
+    const hit = pvpsimLastHit;
+    if (!hit) return;
+
+    const baseDamage = parseFloat(val('pvpsimBaseDamage')) || 500;
+
+    const ammoSel = $('pvpsimAmmo');
+    const ammoName = ammoSel?.value || '';
+    const ammoMod = 1.0;
+
+    // Расходники
+    const consChecks = document.querySelectorAll('#pvpsimConsumables input[type="checkbox"]:checked');
+    const consCount = consChecks.length;
+    const consMod = Math.pow(1.10, consCount);
+
+    // Угол вращения
+    const rotEl = $('pvpsimRotation');
+    const rotDeg = rotEl ? parseInt(rotEl.value) || 0 : 0;
+    const angleRad = rotDeg * Math.PI / 180;
+    const angleMod = 0.5 + 0.5 * Math.abs(Math.sin(angleRad));
+
+    // Зона попадания
+    const zone = PVP_ZONES[hit.zone];
+    const zoneMult = zone?.mult || 1.0;
+
+    // Броня цели
+    const shipSel = $('pvpsimTargetShip');
+    const shipName = shipSel?.value || '';
+    const shipOpt = shipSel?.selectedOptions[0];
+    const baseArmor = parseFloat(shipOpt?.dataset.armor) || 0;
+
+    // Эффективная броня
+    const effArmor = baseArmor * (2 - angleMod);
+
+    // Сырой урон до брони
+    const rawDamage = baseDamage * zoneMult * angleMod * ammoMod * consMod;
+
+    // Поглощение бронёй
+    const armorAbsorption = effArmor / (effArmor + 100);
+    const finalDamage = Math.max(0, rawDamage * (1 - armorAbsorption));
+
+    // Показать результат
+    const setText = (id, txt) => { const el = $(id); if (el) el.textContent = txt; };
+    setText('pvpsimResZone',        zone ? `${zone.icon} ${zone.label}` : '—');
+    setText('pvpsimResAngle',       rotDeg + '°');
+    setText('pvpsimResZoneMod',     '×' + zoneMult.toFixed(2));
+    setText('pvpsimResAngleMod',    '×' + angleMod.toFixed(2));
+    setText('pvpsimResAmmoMod',     '×' + ammoMod.toFixed(2) + (ammoName ? ` (${ammoName})` : ''));
+    setText('pvpsimResConsMod',     '×' + consMod.toFixed(2) + (consCount ? ` (${consCount})` : ''));
+    setText('pvpsimResRaw',         Math.round(rawDamage).toLocaleString('ru-RU'));
+    setText('pvpsimResArmor',       baseArmor || '—');
+    setText('pvpsimResEffArmor',    Math.round(effArmor).toLocaleString('ru-RU'));
+    setText('pvpsimResArmorAbs',    Math.round(armorAbsorption * 100) + '%');
+    setText('pvpsimResFinal',       Math.round(finalDamage).toLocaleString('ru-RU') + ' 💥');
+
+    const res = $('pvpsimResult');
+    if (res) res.hidden = false;
+
+    // Анимация маркера
+    const mark = $('pvpsimHitMark');
+    if (mark) {
+        mark.classList.remove('pvpsim-flash');
+        void mark.offsetWidth;
+        mark.classList.add('pvpsim-flash');
+    }
+}
+
+/* ============================================================
+   v3.1 — ФИНАЛЬНЫЙ СТАРТ ПРИЛОЖЕНИЯ
 ============================================================ */
 (async () => {
     /* Версия в футере */
@@ -8265,7 +8612,7 @@ document.addEventListener('keydown', e => {
         handleBuildHash();
     }, 800);
 
-    /* Регулярное обновление открытых списков онлайна */
+    /* Регулярное обновление открытых списков онлайна и доски */
     setInterval(() => {
         const onlineSection = document.querySelector('.admin-section[data-apanel="online"]');
         if (onlineSection && onlineSection.classList.contains('active') && isAdmin) renderAdminOnlineList();
@@ -8279,170 +8626,3 @@ document.addEventListener('keydown', e => {
         }
     }, 15000);
 })();
-/* ============================================================
-   v3.1 — ПИКЕР ИЗ КАТАЛОГА (АПГРЕЙДЫ, РАСХОДНИКИ)
-   Открывает модалку со списком из build_items,
-   выбранное вставляет в целевое поле/поля.
-============================================================ */
-let _catalogPickerCtx = null; // { type, target, mode, selected:Set }
-
-function openCatalogPicker(type, target, mode) {
-    const items = buildItemsCache.filter(x =>
-        x.type === type && x.is_active !== false
-    ).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-
-    if (!items.length) {
-        alert(`В каталоге нет элементов типа «${type === 'upgrade' ? 'апгрейды' : type === 'consumable' ? 'расходники' : type}».\n\n` +
-              `Загляните в админку → «⚙️ Каталог» и добавьте их.`);
-        return;
-    }
-
-    _catalogPickerCtx = { type, target, mode, selected: new Set() };
-    const titleEl = $('catalogPickerTitle');
-    const titles = {
-        upgrade:    '📋 Выбрать апгрейды из каталога',
-        consumable: '📋 Выбрать расходники из каталога'
-    };
-    if (titleEl) titleEl.textContent = titles[type] || '📋 Выбрать из каталога';
-
-    const searchEl = $('catalogPickerSearch');
-    if (searchEl) searchEl.value = '';
-
-    renderCatalogPickerList(items);
-    $('catalogPickerModal').hidden = false;
-    setTimeout(() => searchEl?.focus(), 100);
-}
-
-function renderCatalogPickerList(itemsOverride) {
-    if (!_catalogPickerCtx) return;
-    const listEl = $('catalogPickerList');
-    if (!listEl) return;
-
-    const type = _catalogPickerCtx.type;
-    const items = itemsOverride || buildItemsCache.filter(x =>
-        x.type === type && x.is_active !== false
-    ).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-
-    const q = ($('catalogPickerSearch')?.value || '').trim().toLowerCase();
-    const filtered = q
-        ? items.filter(x => (x.name || '').toLowerCase().includes(q))
-        : items;
-
-    if (!filtered.length) {
-        listEl.innerHTML = `<div class="catalog-picker-empty">${q ? 'Ничего не найдено' : 'Каталог пуст'}</div>`;
-        return;
-    }
-
-    // Группируем по subgroup (для апгрейдов — раздел, для расходников — обычно нет subgroup)
-    const groups = {};
-    filtered.forEach(it => {
-        const sg = it.subgroup || '—';
-        (groups[sg] ||= []).push(it);
-    });
-
-    listEl.innerHTML = '';
-    Object.keys(groups).sort().forEach(sg => {
-        if (sg !== '—') {
-            const head = document.createElement('div');
-            head.style.cssText = 'font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:800;padding:6px 4px 2px;';
-            head.textContent = sg;
-            listEl.appendChild(head);
-        }
-        groups[sg].forEach(it => {
-            const label = document.createElement('label');
-            const isSelected = _catalogPickerCtx.selected.has(it.name);
-            label.className = 'catalog-picker-item' + (isSelected ? ' selected' : '');
-            label.innerHTML = `
-                <input type="checkbox" ${isSelected ? 'checked' : ''}>
-                <span class="catalog-picker-item-name">${escapeHtml(it.name)}</span>
-                ${it.price ? `<span class="catalog-picker-item-badge">${Number(it.price).toLocaleString('ru-RU')} 🪙</span>` : ''}`;
-            const inp = label.querySelector('input');
-            inp.addEventListener('change', () => {
-                if (inp.checked) _catalogPickerCtx.selected.add(it.name);
-                else _catalogPickerCtx.selected.delete(it.name);
-                label.classList.toggle('selected', inp.checked);
-            });
-            // Клик по строке = переключить чекбокс
-            label.addEventListener('click', (e) => {
-                if (e.target.tagName === 'INPUT') return;
-                e.preventDefault();
-                inp.checked = !inp.checked;
-                inp.dispatchEvent(new Event('change'));
-            });
-            listEl.appendChild(label);
-        });
-    });
-}
-
-function closeCatalogPicker() {
-    $('catalogPickerModal').hidden = true;
-    _catalogPickerCtx = null;
-}
-
-function applyCatalogPickerSelection() {
-    if (!_catalogPickerCtx) return;
-    const { target, mode, selected } = _catalogPickerCtx;
-    const picked = Array.from(selected);
-    if (!picked.length) {
-        $('catalogPickerError').textContent = 'Ничего не выбрано';
-        $('catalogPickerError').style.color = '#ff7a7a';
-        return;
-    }
-
-    if (mode === 'multi') {
-        // Апгрейды: пишем построчно в textarea, добавляя к существующему
-        const ta = $(target);
-        if (!ta) return;
-        const existing = String(ta.value || '').split('\n').map(s => s.trim()).filter(Boolean);
-        picked.forEach(name => {
-            if (!existing.some(x => x.toLowerCase() === name.toLowerCase())) {
-                existing.push(name);
-            }
-        });
-        ta.value = existing.join('\n');
-    } else if (mode === 'cons') {
-        // Расходники: 3 поля, вставляем в первое свободное, потом следующее...
-        const fields = [target + '1', target + '2', target + '3']
-            .map(id => $(id)).filter(Boolean);
-        // Собираем уже заполненные значения, чтобы дедуплицировать
-        const existing = fields.map(f => (f.value || '').trim()).filter(Boolean);
-        const toAdd = picked.filter(name =>
-            !existing.some(x => x.toLowerCase() === name.toLowerCase())
-        );
-        let idx = 0;
-        // сначала в пустые, потом (если влезет) в конец
-        const emptyIdx = fields.findIndex(f => !String(f.value || '').trim());
-        let startAt = emptyIdx >= 0 ? emptyIdx : 0;
-        for (let i = 0; i < toAdd.length; i++) {
-            const fi = startAt + i;
-            if (fi >= fields.length) break;
-            fields[fi].value = toAdd[i];
-        }
-    }
-
-    closeCatalogPicker();
-}
-
-// Делегируем клики по кнопкам-пикерам
-document.addEventListener('click', (e) => {
-    const btn = e.target.closest('.catalog-pick-btn');
-    if (!btn) return;
-    const type = btn.dataset.pickerType;
-    const target = btn.dataset.pickerTarget;
-    const mode = btn.dataset.pickerMode;
-    if (!type || !target || !mode) return;
-    openCatalogPicker(type, target, mode);
-});
-
-on('catalogPickerCancel', 'click', closeCatalogPicker);
-on('catalogPickerModal', 'click', e => {
-    if (e.target.id === 'catalogPickerModal') closeCatalogPicker();
-});
-on('catalogPickerSave', 'click', applyCatalogPickerSelection);
-on('catalogPickerSearch', 'input', () => renderCatalogPickerList());
-document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') {
-        const m = $('catalogPickerModal');
-        if (m && !m.hidden) closeCatalogPicker();
-    }
-});

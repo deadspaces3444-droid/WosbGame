@@ -2674,3 +2674,134 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
     text-shadow: 0 0 16px rgba(255,212,121,.5);
     font-weight: 900;
 }
+/* ============================================================
+   v3.2 — 3D-симулятор ПВП + ветер
+============================================================ */
+.pvpsim-3d-container {
+    width: 100%;
+    aspect-ratio: 5 / 3;
+    min-height: 320px;
+    background: #050810;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    cursor: grab;
+    position: relative;
+}
+.pvpsim-3d-container:active { cursor: grabbing; }
+.pvpsim-3d-fallback {
+    display: flex; align-items: center; justify-content: center;
+    width: 100%; height: 100%; min-height: 320px;
+    color: var(--muted); font-style: italic; font-size: 13px; text-align: center; padding: 20px;
+}
+
+.pvpsim-hit-hint {
+    margin-left: auto;
+    font-family: ui-monospace, monospace;
+    font-weight: 700;
+    color: var(--gold);
+    font-size: 12px;
+}
+
+.pvpsim-wind-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 14px 16px;
+    background: linear-gradient(180deg, rgba(59,130,246,.06), rgba(59,130,246,.01));
+    border: 1px solid rgba(59,130,246,.28);
+    border-radius: 12px;
+}
+.pvpsim-wind-title {
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    padding-bottom: 6px;
+    border-bottom: 1px dashed rgba(59,130,246,.3);
+    margin-bottom: 4px;
+}
+.pvpsim-wind-row {
+    display: grid;
+    grid-template-columns: 140px 1fr 130px;
+    gap: 10px;
+    align-items: center;
+}
+.pvpsim-wind-row label {
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    white-space: nowrap;
+}
+.pvpsim-wind-row input[type="range"] { accent-color: var(--accent); cursor: pointer; min-width: 0; }
+.pvpsim-wind-row input[type="number"] {
+    padding: 6px 10px;
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: ui-monospace, monospace;
+    font-size: 13px;
+    font-weight: 700;
+    width: 100%;
+}
+.pvpsim-wind-row input[type="number"]:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+.pvpsim-wind-row > span {
+    font-family: ui-monospace, monospace;
+    font-weight: 800;
+    color: var(--gold);
+    font-size: 13px;
+    text-align: right;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.pvpsim-wind-summary {
+    margin-top: 6px;
+    padding: 8px 12px;
+    background: rgba(110,231,167,.08);
+    border: 1px solid rgba(110,231,167,.3);
+    border-radius: 8px;
+    font-size: 12.5px;
+    color: var(--text-dim);
+    text-align: center;
+}
+.pvpsim-wind-summary b { color: var(--green); font-family: ui-monospace, monospace; font-weight: 800; }
+
+/* Каналы урона */
+.pvpsim-result-channels {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    padding: 14px 20px 4px;
+}
+.pvpsim-channel {
+    padding: 14px 16px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: center;
+    text-align: center;
+}
+.pvpsim-channel.hull  { border-color: rgba(255,212,121,.5); background: linear-gradient(180deg, rgba(255,212,121,.08), transparent); }
+.pvpsim-channel.sails { border-color: rgba(125,185,255,.5); background: linear-gradient(180deg, rgba(125,185,255,.08), transparent); }
+.pvpsim-channel.crew  { border-color: rgba(180,138,255,.5); background: linear-gradient(180deg, rgba(180,138,255,.08), transparent); }
+.pvpsim-channel-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; font-weight: 800; }
+.pvpsim-channel-value { font-size: 26px; font-weight: 900; font-family: ui-monospace, monospace; line-height: 1; }
+.pvpsim-channel.hull  .pvpsim-channel-value { color: var(--gold);  text-shadow: 0 0 12px rgba(255,212,121,.4); }
+.pvpsim-channel.sails .pvpsim-channel-value { color: var(--blue);  text-shadow: 0 0 12px rgba(125,185,255,.4); }
+.pvpsim-channel.crew  .pvpsim-channel-value { color: var(--purple); text-shadow: 0 0 12px rgba(180,138,255,.4); }
+
+@media (max-width: 700px) {
+    .pvpsim-wind-row { grid-template-columns: 1fr; gap: 4px; }
+    .pvpsim-wind-row > span { text-align: left; }
+    .pvpsim-result-channels { grid-template-columns: 1fr; }
+    .pvpsim-channel { flex-direction: row; justify-content: space-between; }
+    .pvpsim-channel-value { font-size: 20px; }
+}

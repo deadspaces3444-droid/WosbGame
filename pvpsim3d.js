@@ -22,7 +22,6 @@ const COL = {
     sea:      0x0a1626
 };
 
-/* --- Мульти-CDN загрузка Three.js + OrbitControls --- */
 const CDN_CANDIDATES = [
     {
         name: 'esm.sh',
@@ -351,7 +350,6 @@ export async function initPvpSim3D(container, opts = {}) {
         controls.target.set(0, 0.6, 0);
         controls.enablePan = false;
     } else {
-        /* Резерв: ручное вращение мышью */
         let isDown = false, lx = 0, ly = 0;
         const target = new THREE.Vector3(0, 0.6, 0);
         renderer.domElement.addEventListener('mousedown', e => { isDown = true; lx = e.clientX; ly = e.clientY; });
@@ -442,7 +440,6 @@ export async function initPvpSim3D(container, opts = {}) {
 
     console.log('[pvpsim3d] ✓ Сцена готова, CDN:', cdn);
 
-    /* --- API --- */
     return {
         setRotation(deg) { shipGroup.rotation.y = (deg || 0) * Math.PI / 180; },
         setShip(shipData) {

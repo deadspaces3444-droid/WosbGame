@@ -469,6 +469,7 @@
                         <button class="side-item" data-section="ships"><span class="side-ico">🚢</span><span>Корабли</span></button>
                         <button class="side-item" data-section="builder"><span class="side-ico">🔧</span><span>Сборка корабля</span></button>
                         <button class="side-item" data-section="pvpsim"><span class="side-ico">🎯</span><span>Симулятор ПВП</span></button>
+                        <button class="side-item" data-section="damagecalc"><span class="side-ico">💥</span><span>Расчёт урона</span></button>
                     </div>
                 </div>
 
@@ -499,8 +500,7 @@
                     </div>
                 </div>
             </aside>
-
-            <div class="clan-main">
+                      <div class="clan-main">
                 <div id="section-lists" class="clan-section active">
                     <nav class="tabs">
                         <button class="tab active" data-tab="enemies">🔴 Враги</button>
@@ -748,7 +748,7 @@
                     </div>
                 </div>
 
-                <!-- СИМУЛЯТОР ПВП-ВЫСТРЕЛА (v3.2 — 3D + ветер) -->
+                <!-- СИМУЛЯТОР ПВП-ВЫСТРЕЛА -->
                 <div id="section-pvpsim" class="clan-section">
                     <h2>🎯 Симулятор ПВП-выстрела</h2>
                     <p class="hint">Вращай корабль мышью, кликни по зоне, настрой ветер и курс цели, жми ВЫСТРЕЛ.</p>
@@ -873,7 +873,73 @@
                         </div>
                     </div>
                 </div>
-                               <!-- ДОСКА -->
+
+                <!-- РАСЧЁТ УРОНА БОРТА -->
+                <div id="section-damagecalc" class="clan-section">
+                    <h2>💥 Расчёт урона борта</h2>
+                    <p class="hint">Выбери корабль — посчитаю урон залпа одного борта и урон в минуту по его пушкам.</p>
+
+                    <div class="dmgcalc-topbar">
+                        <div class="admin-field">
+                            <label>Корабль</label>
+                            <select id="dmgcalcShip"><option value="">— Выберите корабль —</option></select>
+                        </div>
+                        <div class="admin-field">
+                            <label>&nbsp;</label>
+                            <label class="dmgcalc-check"><input type="checkbox" id="dmgcalcBortOnly" checked> Только один борт (÷2)</label>
+                        </div>
+                        <div class="admin-field">
+                            <label>&nbsp;</label>
+                            <label class="dmgcalc-check"><input type="checkbox" id="dmgcalcBonus"> Учитывать бонусы</label>
+                        </div>
+                    </div>
+
+                    <div id="dmgcalcEmpty" class="sc-empty">Выберите корабль, чтобы увидеть расчёт.</div>
+
+                    <div id="dmgcalcResult" hidden>
+                        <div class="dmgcalc-totals">
+                            <div class="dmgcalc-tile hull">
+                                <div class="dmgcalc-tile-label">💥 Урон борта (залп)</div>
+                                <div class="dmgcalc-tile-value" id="dmgcalcBortDamage">0</div>
+                            </div>
+                            <div class="dmgcalc-tile rate">
+                                <div class="dmgcalc-tile-label">⏱ Урон в минуту</div>
+                                <div class="dmgcalc-tile-value" id="dmgcalcPerMinute">0</div>
+                            </div>
+                            <div class="dmgcalc-tile count">
+                                <div class="dmgcalc-tile-label">🔫 Орудий</div>
+                                <div class="dmgcalc-tile-value" id="dmgcalcTotalGuns">0</div>
+                            </div>
+                        </div>
+
+                        <div class="dmgcalc-table-wrap">
+                            <table class="dmgcalc-table">
+                                <thead>
+                                    <tr>
+                                        <th>Орудие</th>
+                                        <th>Кол-во</th>
+                                        <th>Урон × 1</th>
+                                        <th>Заряд.</th>
+                                        <th>Урон типа</th>
+                                        <th>Урон/мин</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dmgcalcTbody"></tbody>
+                                <tfoot>
+                                    <tr class="dmgcalc-foot">
+                                        <td colspan="4">Итого</td>
+                                        <td id="dmgcalcFootBort">0</td>
+                                        <td id="dmgcalcFootPerMin">0</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+
+                        <p class="dmgcalc-note" id="dmgcalcNote"></p>
+                    </div>
+                </div>
+
+                <!-- ДОСКА -->
                 <div id="section-board" class="clan-section">
                     <h2>🎖 Доска гильдии</h2>
                     <p class="hint">Все моряки гильдии с их чинами и наградами. Клик по карточке — открыть личное дело.</p>
@@ -944,8 +1010,7 @@
             </div>
         </div>
     </div>
-
-    <!-- ПАНЕЛЬ ГЛАВЫ -->
+       <!-- ПАНЕЛЬ ГЛАВЫ -->
     <div id="screen-leader" class="screen" hidden>
         <div class="top-right">
             <button id="themeToggle4" class="icon-btn" title="Сменить тему">🌓</button>
@@ -1314,7 +1379,6 @@
                 </div>
             </section>
 
-            <!-- КАРТОЧКИ ГИЛЬДИЙ -->
             <section class="admin-section" data-apanel="clanCards">
                 <h2 class="admin-section-title">🎖 Карточки гильдий (чины/должности)</h2>
                 <p class="hint">Карточки создаются отдельно для каждой гильдии. Используются на «Доске» и в личном деле матроса.</p>
@@ -1327,7 +1391,6 @@
                 <div id="clanCardsAdminList" class="partners-admin-list"></div>
             </section>
 
-            <!-- НАГРАДЫ ГИЛЬДИЙ -->
             <section class="admin-section" data-apanel="clanAwards">
                 <h2 class="admin-section-title">🏅 Награды гильдий (кастомные медали)</h2>
                 <p class="hint">Награды создаются отдельно для каждой гильдии. С загруженной картинкой медали.</p>
@@ -1376,6 +1439,7 @@
 
             <section class="admin-section" data-apanel="ships">
                 <h2 class="admin-section-title">🚢 Справочник кораблей</h2>
+                <p class="hint">Пушки редактируются отдельно у каждого корабля кнопкой 🎯. Сами статы пушек — в разделе «Каталог».</p>
                 <div class="modal-actions" style="margin-bottom:14px;"><button id="reloadShipsBtn" class="secondary">🔄 Обновить список</button></div>
                 <div id="adminShipsList" class="partners-admin-list"></div>
             </section>
@@ -1727,7 +1791,8 @@
             </section>
         </main>
     </div>
-        <!-- МОДАЛКИ -->
+
+    <!-- МОДАЛКИ -->
     <div id="clanPassModal" class="modal" hidden>
         <div class="modal-content">
             <h2>🔐 Вход в гильдию</h2>
@@ -2106,6 +2171,29 @@
         </div>
     </div>
 
+    <!-- МОДАЛКА РЕДАКТИРОВАНИЯ ПУШЕК КОРАБЛЯ -->
+    <div id="shipEditModal" class="modal" hidden>
+        <div class="modal-content admin-panel-wide">
+            <h2 id="shipEditTitle">🎯 Пушки корабля</h2>
+            <div class="admin-field">
+                <label>Добавить пушку</label>
+                <div class="ship-edit-gun-add">
+                    <select id="shipEditGunSelect"><option value="">— Выберите пушку —</option></select>
+                    <button type="button" id="shipEditGunAdd" class="big-btn primary">➕ Добавить</button>
+                </div>
+            </div>
+            <div class="admin-field">
+                <label>Пушки на корабле</label>
+                <div id="shipEditGunsList" class="ship-edit-guns-list"></div>
+            </div>
+            <p id="shipEditMsg" class="error"></p>
+            <div class="modal-actions">
+                <button id="shipEditSave">💾 Сохранить</button>
+                <button id="shipEditCancel" class="secondary">Отмена</button>
+            </div>
+        </div>
+    </div>
+
     <div id="portEditModal" class="modal" hidden>
         <div class="modal-content admin-panel-wide">
             <h2 id="portEditTitle">✏️ Редактировать порт</h2>
@@ -2156,7 +2244,6 @@
         </div>
     </div>
 
-    <!-- МОДАЛКА СОЗДАНИЯ ОПРОСА -->
     <div id="createPollModal" class="modal" hidden>
         <div class="modal-content admin-panel-wide">
             <h2>➕ Новый опрос</h2>
@@ -2174,7 +2261,6 @@
         </div>
     </div>
 
-    <!-- МОДАЛКА РЕДАКТИРОВАНИЯ КАРТОЧКИ ГИЛЬДИИ -->
     <div id="clanCardEditModal" class="modal" hidden>
         <div class="modal-content admin-panel-wide">
             <h2 id="clanCardEditTitle">🎖 Новая карточка</h2>
@@ -2202,7 +2288,6 @@
         </div>
     </div>
 
-    <!-- МОДАЛКА РЕДАКТИРОВАНИЯ НАГРАДЫ ГИЛЬДИИ -->
     <div id="clanAwardEditModal" class="modal" hidden>
         <div class="modal-content admin-panel-wide">
             <h2 id="clanAwardEditTitle">🏅 Новая награда</h2>
@@ -2229,7 +2314,6 @@
         </div>
     </div>
 
-    <!-- МОДАЛКА НАЗНАЧЕНИЯ ЧИНА -->
     <div id="memberCardAssignModal" class="modal" hidden>
         <div class="modal-content">
             <h2>🎖 Назначить чин</h2>
@@ -2253,7 +2337,6 @@
         </div>
     </div>
 
-    <!-- МОДАЛКА ВЫДАЧИ НАГРАДЫ -->
     <div id="memberAwardGiveModal" class="modal" hidden>
         <div class="modal-content">
             <h2>🏅 Выдать награду</h2>
@@ -2277,7 +2360,6 @@
         </div>
     </div>
 
-    <!-- МОДАЛКА ВЫБОРА ИЗ КАТАЛОГА -->
     <div id="catalogPickerModal" class="modal" hidden>
         <div class="modal-content admin-panel-wide">
             <h2 id="catalogPickerTitle">📋 Выбрать из каталога</h2>
@@ -2291,7 +2373,6 @@
         </div>
     </div>
 
-    <!-- ПАНЕЛЬ СРАВНЕНИЯ -->
     <div id="comparePanel" class="compare-panel" hidden>
         <div class="compare-panel-head">
             <span>📊 Сравнение</span>
@@ -2301,7 +2382,6 @@
         <button id="comparePanelOpen" class="compare-panel-open">🔍 Сравнить</button>
     </div>
 
-    <!-- МОДАЛКА СРАВНЕНИЯ -->
     <div id="compareModal" class="modal" hidden>
         <div class="modal-content admin-panel-wide" style="max-width:900px;">
             <h2 id="compareModalTitle">🔍 Сравнение</h2>
@@ -2376,4 +2456,4 @@
 
     <script type="module" src="app.js"></script>
 </body>
-</html>
+</html> 

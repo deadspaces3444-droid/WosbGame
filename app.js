@@ -190,6 +190,11 @@ let clanAwardIconData = null;
 let pvpsim3dInstance = null;
 let pvpsim3dReady = false;
 
+/* --- v3.2: расчёт урона --- */
+let _dmgcalcReady = false;
+let editingShipId = null;
+let editingShipGuns = [];
+
 const $ = id => document.getElementById(id);
 function on(id, event, handler, opts) {
     const el = $(id);
@@ -881,6 +886,7 @@ document.querySelectorAll('.side-item').forEach(btn => {
         else if (section === 'ships') loadShips();
         else if (section === 'builder') { if (builderClanCtrl) builderClanCtrl.refresh(); }
         else if (section === 'pvpsim') initPvpSimulator();
+        else if (section === 'damagecalc') initDamageCalc();
         else if (section === 'board') renderBoard();
         else if (section === 'contacts') renderContacts();
         else if (section === 'members') { renderMembers(); renderAdmins(); }
@@ -931,6 +937,7 @@ async function loadShips() {
     renderShipsGrid();
     fillShipSelects();
     renderAdminShips();
+    fillDmgCalcShipSelect();
 }
 function renderShipsGrid() {
     const grid = $('shipsGrid'); if (!grid) return;
@@ -975,10 +982,33 @@ function renderShipsGrid() {
                 <div class="ship-stat"><span class="ship-stat__label">📦 Трюм</span><span class="ship-stat__value">${ship.cargo_hold || '—'}</span></div>
                 <div class="ship-stat"><span class="ship-stat__label">👥 Экипаж</span><span class="ship-stat__value">${ship.crew || '—'}</span></div>
                 <div class="ship-stat"><span class="ship-stat__label">🔫 Орудия</span><span class="ship-stat__value">${ship.guns || '—'}</span></div>
-            </div>`;
+            </div>
+            ${renderShipGunsBlock(ship)}`;
         grid.appendChild(card);
     });
     attachShipCompareChecks();
+}
+function renderShipGunsBlock(ship) {
+    const guns = Array.isArray(ship.guns_config) ? ship.guns_config : [];
+    if (!guns.length) return '';
+    const rows = guns.map(g => {
+        const card = findGunData(g.name);
+        const pen = card?.penetration != null ? card.penetration : '—';
+        const reload = card?.reload_sec != null ? card.reload_sec + 'с' : '—';
+        const range = card?.range_max != null ? card.range_max : '—';
+        return `<div class="ship-gun-row">
+            <span class="ship-gun-count">${g.count}×</span>
+            <span class="ship-gun-name">${escapeHtml(g.name)}</span>
+            <span class="ship-gun-stat" title="Пробитие">🎯 ${pen}</span>
+            <span class="ship-gun-stat" title="Заряжание">⏱ ${reload}</span>
+            <span class="ship-gun-stat" title="Дальность">📏 ${range}</span>
+        </div>`;
+    }).join('');
+    const totalCount = guns.reduce((s, g) => s + (Number(g.count) || 0), 0);
+    return `<details class="ship-guns-block">
+        <summary>🔫 Пушки (${guns.length} типов · ${totalCount} шт.)</summary>
+        <div class="ship-guns-list">${rows}</div>
+    </details>`;
 }
 on('ships-search', 'input', renderShipsGrid);
 on('ships-level-filters', 'click', e => {
@@ -1027,7 +1057,34 @@ function fillShipSelects() {
     if (builderHomeCtrl) builderHomeCtrl.fillTargetShip();
     if (builderClanCtrl) builderClanCtrl.fillTargetShip();
     fillScShipSelect();
+    fillGunSelects();
 }
+
+function fillGunSelects() {
+    const sel = $('shipEditGunSelect');
+    if (!sel) return;
+    const guns = buildItemsCache
+        .filter(x => ['weapon_small','weapon_medium','weapon_large','weapon_mortar'].includes(x.type) && x.is_active !== false)
+        .sort((a, b) => (b.caliber || 0) - (a.caliber || 0) || (a.name || '').localeCompare(b.name || ''));
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">— Выберите пушку —</option>';
+    guns.forEach(g => {
+        const o = document.createElement('option');
+        o.value = g.name;
+        o.textContent = `${g.caliber ? g.caliber + '-фн · ' : ''}${g.name}`;
+        sel.appendChild(o);
+    });
+    if (cur) sel.value = cur;
+}
+
+function findGunData(name) {
+    if (!name) return null;
+    return buildItemsCache.find(x =>
+        ['weapon_small','weapon_medium','weapon_large','weapon_mortar'].includes(x.type) &&
+        (x.name || '').trim().toLowerCase() === name.trim().toLowerCase()
+    ) || null;
+}
+
 on('pvpShip', 'change', e => {
     const opt = e.target.selectedOptions[0]; const img = $('pvpShipPreview');
     if (opt && opt.dataset.image) { img.src = opt.dataset.image; img.hidden = false; } else img.hidden = true;
@@ -1041,6 +1098,11 @@ function renderAdminShips() {
     container.innerHTML = '';
     if (!shipsCache.length) { container.innerHTML = '<div class="empty">Корабли не загружены.</div>'; return; }
     shipsCache.forEach(s => {
+        const guns = Array.isArray(s.guns_config) ? s.guns_config : [];
+        const totalGuns = guns.reduce((sum, g) => sum + (Number(g.count) || 0), 0);
+        const gunsLabel = guns.length
+            ? `${guns.length} типов · всего ${totalGuns}`
+            : '— не заданы —';
         const el = document.createElement('div');
         el.className = 'ship-admin-item';
         el.innerHTML = `
@@ -1048,10 +1110,95 @@ function renderAdminShips() {
             <div class="txt">
                 <b>${ROMAN[s.level] || s.level} · ${escapeHtml(s.name)}</b>
                 <span style="color:var(--muted);font-size:11px;">${escapeHtml(s.type || '')} · 💪 ${s.durability || '—'} · ⚡ ${s.speed || '—'} · 🔫 ${s.guns || '—'}</span>
+                <span style="color:var(--gold);font-size:11px;">🎯 Пушки: ${escapeHtml(gunsLabel)}</span>
+            </div>
+            <div class="actions">
+                <button class="edit" title="Редактировать пушки">🎯</button>
             </div>`;
+        el.querySelector('.edit').addEventListener('click', () => openShipEditModal(s));
         container.appendChild(el);
     });
 }
+
+function openShipEditModal(ship) {
+    if (!ship) return;
+    editingShipId = ship.id;
+    editingShipGuns = Array.isArray(ship.guns_config)
+        ? ship.guns_config.map(g => ({ name: String(g.name || ''), count: Number(g.count) || 0 }))
+        : [];
+    const title = $('shipEditTitle');
+    if (title) title.textContent = `🎯 Пушки корабля — ${ship.name}`;
+    fillGunSelects();
+    renderShipEditGuns();
+    const msg = $('shipEditMsg'); if (msg) { msg.textContent = ''; msg.style.color = ''; }
+    $('shipEditModal').hidden = false;
+}
+
+function renderShipEditGuns() {
+    const wrap = $('shipEditGunsList'); if (!wrap) return;
+    wrap.innerHTML = '';
+    if (!editingShipGuns.length) {
+        wrap.innerHTML = '<div class="empty" style="padding:10px;">Пушки не заданы. Добавь первую через селект выше.</div>';
+        return;
+    }
+    editingShipGuns.forEach((g, idx) => {
+        const card = findGunData(g.name);
+        const stats = card
+            ? `пробитие ${card.penetration ?? '—'} · зар. ${card.reload_sec ?? '—'}с · дальн. ${card.range_max ?? '—'}`
+            : 'нет данных в каталоге';
+        const el = document.createElement('div');
+        el.className = 'ship-edit-gun-row';
+        el.innerHTML = `
+            <span class="ship-edit-gun-idx">${idx + 1}</span>
+            <div class="ship-edit-gun-info">
+                <div class="ship-edit-gun-name">${escapeHtml(g.name)}</div>
+                <div class="ship-edit-gun-stats">${escapeHtml(stats)}</div>
+            </div>
+            <input type="number" class="ship-edit-gun-count" data-idx="${idx}" min="0" step="1" value="${g.count}">
+            <button class="ship-edit-gun-del" data-idx="${idx}" title="Убрать">✕</button>`;
+        el.querySelector('.ship-edit-gun-count').addEventListener('input', e => {
+            editingShipGuns[idx].count = Math.max(0, parseInt(e.target.value) || 0);
+        });
+        el.querySelector('.ship-edit-gun-del').addEventListener('click', () => {
+            editingShipGuns.splice(idx, 1);
+            renderShipEditGuns();
+        });
+        wrap.appendChild(el);
+    });
+}
+
+on('shipEditGunAdd', 'click', () => {
+    const sel = $('shipEditGunSelect');
+    const name = sel?.value;
+    if (!name) return;
+    if (editingShipGuns.some(g => g.name.trim().toLowerCase() === name.trim().toLowerCase())) {
+        alert(`«${name}» уже в списке — измени количество в строке.`);
+        return;
+    }
+    editingShipGuns.push({ name, count: 1 });
+    sel.value = '';
+    renderShipEditGuns();
+});
+
+on('shipEditCancel', 'click', () => { $('shipEditModal').hidden = true; editingShipId = null; editingShipGuns = []; });
+on('shipEditModal', 'click', e => { if (e.target.id === 'shipEditModal') { $('shipEditModal').hidden = true; editingShipId = null; editingShipGuns = []; } });
+
+on('shipEditSave', 'click', async () => {
+    if (!editingShipId) return;
+    const msg = $('shipEditMsg'); msg.textContent = '';
+    const payload = editingShipGuns.filter(g => g.name && g.count > 0);
+    const { error } = await supabase.from('ships')
+        .update({ guns_config: payload })
+        .eq('id', editingShipId);
+    if (error) { msg.textContent = 'Ошибка: ' + error.message; msg.style.color = '#ff7a7a'; return; }
+    const ship = shipsCache.find(s => s.id === editingShipId);
+    if (ship) ship.guns_config = payload;
+    msg.textContent = '✔ Сохранено'; msg.style.color = '#6ee7a7';
+    await logAdminAction('Обновил пушки корабля', ship?.name || editingShipId, `${payload.length} типов`);
+    setTimeout(() => { $('shipEditModal').hidden = true; editingShipId = null; editingShipGuns = []; }, 700);
+    renderAdminShips();
+    renderShipsGrid();
+});
 on('reloadShipsBtn', 'click', loadShips);
 
 /* ============ КАЛЬКУЛЯТОР СБОРКИ ============ */
@@ -3780,6 +3927,7 @@ async function loadBuildItems() {
         });
     }
     fillBuildDatalists();
+    fillGunSelects();
 }
 function subgroupLabel(type, sg) {
     if (type === 'specialist') {
@@ -3993,10 +4141,37 @@ function renderCatalogAdmin() {
 }
 function buildCatalogItem(item) {
     const isSpec = item.type === 'specialist';
+    const isWeapon = ['weapon_small','weapon_medium','weapon_large','weapon_mortar'].includes(item.type);
+    const isShell = item.type === 'shell';
     const skills = specialistSkillsCache[item.id] || [];
     const skillsHtml = skills.map(sk => skillRowHtml(sk)).join('');
     const d = document.createElement('details');
     d.className = 'catalog-node item';
+
+    let extraFields = '';
+    if (isWeapon) {
+        extraFields = `
+            <div class="catalog-row" style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));">
+                <div><label>Калибр (фн)</label><input type="number" data-f="caliber" min="0" step="1" value="${item.caliber ?? ''}"></div>
+                <div><label>Пробитие</label><input type="number" data-f="penetration" min="0" step="0.1" value="${item.penetration ?? ''}"></div>
+                <div><label>Заряжание (с)</label><input type="number" data-f="reload_sec" min="0" step="0.1" value="${item.reload_sec ?? ''}"></div>
+                <div><label>Дальность</label><input type="number" data-f="range_max" min="0" step="1" value="${item.range_max ?? ''}"></div>
+                <div><label>Макс. угол</label><input type="number" data-f="max_angle" min="0" step="0.1" value="${item.max_angle ?? ''}"></div>
+                <div><label>Разброс кучности</label><input type="number" data-f="spread" min="0" step="0.1" value="${item.spread ?? ''}"></div>
+                <div><label>Урон × 1</label><input type="number" data-f="damage" min="0" step="0.1" value="${item.damage ?? ''}"></div>
+            </div>`;
+    } else if (isShell) {
+        extraFields = `
+            <div class="catalog-row" style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));">
+                <div><label>Урон корпусу (%)</label><input type="number" data-f="dmg_hull" min="0" step="1" value="${item.dmg_hull ?? ''}"></div>
+                <div><label>Урон парусам (0-3)</label><input type="number" data-f="dmg_sails" min="0" max="3" step="1" value="${item.dmg_sails ?? ''}"></div>
+                <div><label>Урон экипажу (0-3)</label><input type="number" data-f="dmg_crew" min="0" max="3" step="1" value="${item.dmg_crew ?? ''}"></div>
+                <div><label>Модификатор дальности (%)</label><input type="number" data-f="range_mod" step="1" value="${item.range_mod ?? 0}"></div>
+                <div><label>Вес</label><input type="number" data-f="weight" min="0" step="1" value="${item.weight ?? 1}"></div>
+            </div>
+            <div><label>Описание</label><textarea data-f="description" rows="2">${escapeHtml(item.description || '')}</textarea></div>`;
+    }
+
     d.innerHTML = `
         <summary class="catalog-summary">
             ${escapeHtml(item.name)}
@@ -4015,6 +4190,7 @@ function buildCatalogItem(item) {
                     </select>
                 </div>
             </div>
+            ${extraFields}
             ${!isSpec ? `
                 <div><label>Бонусы (текст)</label>
                     <textarea data-f="bonuses" rows="2">${escapeHtml(item.bonuses || '')}</textarea>
@@ -4040,7 +4216,11 @@ function buildCatalogItem(item) {
         body.querySelectorAll('[data-f]').forEach(el => {
             const k = el.dataset.f;
             if (k === 'is_active') { payload[k] = el.value === 'true'; return; }
-            if (el.type === 'number') { payload[k] = el.value === '' ? 0 : Number(el.value); return; }
+            if (el.type === 'number') {
+                if (el.value === '') { payload[k] = null; }
+                else { payload[k] = Number(el.value); }
+                return;
+            }
             payload[k] = el.value.trim() || null;
         });
         const { error } = await supabase.from('build_items').update(payload).eq('id', item.id);
@@ -4058,6 +4238,7 @@ function buildCatalogItem(item) {
         msg.textContent = '✔ Сохранено'; msg.style.color = '#6ee7a7';
         setTimeout(() => { msg.textContent = ''; }, 1500);
         fillBuildDatalists();
+        fillGunSelects();
     };
     d.querySelector('[data-act="del"]').onclick = async (e) => {
         e.preventDefault();
@@ -4069,6 +4250,7 @@ function buildCatalogItem(item) {
         delete specialistSkillsCache[item.id];
         d.remove();
         fillBuildDatalists();
+        fillGunSelects();
     };
     if (isSpec) {
         const addBtn = d.querySelector('[data-act="add-skill"]');
@@ -4133,6 +4315,7 @@ on('biAddBtn', 'click', async () => {
     $('biPrice').value = 0;
     renderCatalogAdmin();
     fillBuildDatalists();
+    fillGunSelects();
 });
 
 /* ============ ИМПОРТ ФАЙЛОВ ============ */
@@ -7107,14 +7290,9 @@ function getClanCardById(clanId, cardId) {
     if (!cardId) return null;
     return getClanCards(clanId).find(c => String(c.id) === String(cardId)) || null;
 }
-function renderCardIconHtml(card, size = 'md') {
-    if (!card) return '';
-    if (card.icon_url) return `<img src="${escapeHtml(card.icon_url)}" alt="" onerror="this.style.display='none'">`;
-    return `<span>${escapeHtml(card.icon || '🎖')}</span>`;
-}
 
 /* ============================================================
-   v3.0 — НАГРАДЫ ГИЛЬДИЙ (КАСТОМНЫЕ МЕДАЛИ)
+   v3.0 — НАГРАДЫ ГИЛЬДИЙ
 ============================================================ */
 async function loadClanAwards(clanId) {
     if (!clanId) return [];
@@ -7130,11 +7308,6 @@ function getClanAwards(clanId) { return clanAwardsCache[clanId] || []; }
 function getClanAwardById(clanId, awardId) {
     if (!awardId) return null;
     return getClanAwards(clanId).find(a => String(a.id) === String(awardId)) || null;
-}
-function renderAwardIconHtml(award) {
-    if (!award) return '';
-    if (award.icon_url) return `<img src="${escapeHtml(award.icon_url)}" alt="" onerror="this.style.display='none'">`;
-    return `<span>${escapeHtml(award.icon || '🏅')}</span>`;
 }
 
 /* ============================================================
@@ -7190,13 +7363,6 @@ async function assignMemberCard(clanId, nickname, cardId, note = null) {
         `Гильдия назначила вам «${getClanCardById(clanId, cardId)?.name || '—'}»`, null).catch(() => {});
     return true;
 }
-async function removeMemberCard(clanId, nickname) {
-    if (!canEditClan(clanId)) return false;
-    const { error } = await supabase.from('member_cards').delete().eq('clan_id', clanId).eq('nickname', nickname);
-    if (error) { alert('Ошибка: ' + error.message); return false; }
-    await loadMemberCards(clanId);
-    return true;
-}
 async function giveMemberAward(clanId, nickname, awardId, reason = null) {
     if (!canEditClan(clanId)) { alert('Нет прав'); return false; }
     const { error } = await supabase.from('member_awards').insert({
@@ -7212,11 +7378,6 @@ async function giveMemberAward(clanId, nickname, awardId, reason = null) {
     await loadMemberAwards(clanId);
     await createNotification(nickname, 'system', '🏅 Вам выдана награда',
         `«${award?.name || '—'}»${reason ? ' — ' + reason : ''}`, null).catch(() => {});
-    return true;
-}
-async function revokeMemberAward(awardRowId) {
-    const { error } = await supabase.from('member_awards').delete().eq('id', awardRowId);
-    if (error) { alert('Ошибка: ' + error.message); return false; }
     return true;
 }
 
@@ -7244,8 +7405,7 @@ async function renderBoard() {
     const onlineSet = new Set();
     try {
         const threshold = new Date(Date.now() - ONLINE_WINDOW_MS).toISOString();
-        const { data: online } = await supabase.from('online_users')
-            .select('nickname').gte('last_seen', threshold);
+        const { data: online } = await supabase.from('online_users').select('nickname').gte('last_seen', threshold);
         (online || []).forEach(u => { if (u.nickname) onlineSet.add(u.nickname.toLowerCase()); });
     } catch {}
 
@@ -7253,18 +7413,11 @@ async function renderBoard() {
         const cm = getMemberCard(currentClan, nick);
         const aw = getMemberAwards(currentClan, nick);
         const isOnline = onlineSet.has(nick.toLowerCase());
-        return {
-            nick,
-            card: cm?.card || null,
-            cardRow: cm?.row || null,
-            awards: aw,
-            isOnline
-        };
+        return { nick, card: cm?.card || null, cardRow: cm?.row || null, awards: aw, isOnline };
     });
 
     const q = ($('board-search')?.value || '').trim().toLowerCase();
     if (q) list = list.filter(x => x.nick.toLowerCase().includes(q));
-
     if (boardFilter === 'online') list = list.filter(x => x.isOnline);
     else if (boardFilter === 'awards') list = list.filter(x => x.awards.length > 0);
     else if (boardFilter === 'noCard') list = list.filter(x => !x.card);
@@ -7290,9 +7443,7 @@ async function renderBoard() {
         card.className = 'board-card' + (item.isOnline ? ' online' : '');
 
         const cardIcon = item.card
-            ? (item.card.icon_url
-                ? `<img src="${escapeHtml(item.card.icon_url)}" alt="">`
-                : `<span>${escapeHtml(item.card.icon || '🎖')}</span>`)
+            ? (item.card.icon_url ? `<img src="${escapeHtml(item.card.icon_url)}" alt="">` : `<span>${escapeHtml(item.card.icon || '🎖')}</span>`)
             : `<span>🏴</span>`;
 
         const cardName = item.card ? escapeHtml(item.card.name) : 'Без чина';
@@ -7348,7 +7499,6 @@ on('board-filters', 'click', e => {
     boardFilter = chip.dataset.filter;
     if (currentClan) renderBoard();
 });
-
 on('boardCreateCardBtn', 'click', () => openClanCardEdit(null, currentClan));
 on('boardCreateAwardBtn', 'click', () => openClanAwardEdit(null, currentClan));
 on('boardAssignCardBtn', 'click', () => openMemberCardAssignModal());
@@ -7517,8 +7667,16 @@ on('clanAwardSave', 'click', async () => {
 });
 
 /* ============================================================
-   v3.0 — МОДАЛКА НАЗНАЧЕНИЯ ЧИНА
+   v3.0 — МОДАЛКИ НАЗНАЧЕНИЯ / ВЫДАЧИ
 ============================================================ */
+function collectClanNicks(clanId) {
+    const members = parseMembersList(clansCache[clanId]?.members_list || '');
+    const admins = parseMembersList(clansCache[clanId]?.admin_nicks || '');
+    const set = new Map();
+    members.forEach(m => { set.set(m.name.toLowerCase(), m.name); });
+    admins.forEach(m => { set.set(m.name.toLowerCase(), m.name); });
+    return Array.from(set.values()).sort((a, b) => a.localeCompare(b));
+}
 function openMemberCardAssignModal(prefillNick = null) {
     if (!canEditClan(currentClan)) { alert('Нет прав'); return; }
     const memberSel = $('memberCardAssignMember');
@@ -7547,10 +7705,6 @@ on('memberCardAssignSave', 'click', async () => {
     $('memberCardAssignModal').hidden = true;
     if (currentClan) renderBoard();
 });
-
-/* ============================================================
-   v3.0 — МОДАЛКА ВЫДАЧИ НАГРАДЫ
-============================================================ */
 function openMemberAwardGiveModal(prefillNick = null) {
     if (!canEditClan(currentClan)) { alert('Нет прав'); return; }
     const memberSel = $('memberAwardGiveMember');
@@ -7580,17 +7734,8 @@ on('memberAwardGiveSave', 'click', async () => {
     if (currentClan) renderBoard();
 });
 
-function collectClanNicks(clanId) {
-    const members = parseMembersList(clansCache[clanId]?.members_list || '');
-    const admins = parseMembersList(clansCache[clanId]?.admin_nicks || '');
-    const set = new Map();
-    members.forEach(m => { set.set(m.name.toLowerCase(), m.name); });
-    admins.forEach(m => { set.set(m.name.toLowerCase(), m.name); });
-    return Array.from(set.values()).sort((a, b) => a.localeCompare(b));
-}
-
 /* ============================================================
-   v3.0 — АДМИН-ПАНЕЛИ: КАРТОЧКИ И НАГРАДЫ ГИЛЬДИЙ
+   v3.0 — АДМИН-ПАНЕЛИ: КАРТОЧКИ И НАГРАДЫ
 ============================================================ */
 function renderAdminClanCardsPanel() {
     const sel = $('adminCardsClanSelect'); if (!sel) return;
@@ -7612,7 +7757,6 @@ on('clanCardAddBtn', 'click', () => {
     if (!clanId) { alert('Выберите гильдию'); return; }
     openClanCardEdit(null, clanId);
 });
-
 async function renderClanCardsAdminList(clanId) {
     const container = $('clanCardsAdminList'); if (!container) return;
     if (!clanId) { container.innerHTML = '<div class="empty">Выберите гильдию</div>'; return; }
@@ -7651,7 +7795,6 @@ async function renderClanCardsAdminList(clanId) {
         container.appendChild(el);
     });
 }
-
 function renderAdminClanAwardsPanel() {
     const sel = $('adminAwardsClanSelect'); if (!sel) return;
     const cur = sel.value;
@@ -7672,7 +7815,6 @@ on('clanAwardAddBtn', 'click', () => {
     if (!clanId) { alert('Выберите гильдию'); return; }
     openClanAwardEdit(null, clanId);
 });
-
 async function renderClanAwardsAdminList(clanId) {
     const container = $('clanAwardsAdminList'); if (!container) return;
     if (!clanId) { container.innerHTML = '<div class="empty">Выберите гильдию</div>'; return; }
@@ -7745,7 +7887,6 @@ on('personalBackBtn', 'click', closePersonalCabinet);
         openPersonalCabinet(nick);
     });
 });
-
 async function loadUserPrivacy(nickname) {
     if (!nickname) return { ...PRIVACY_DEFAULT };
     const key = nickname.toLowerCase();
@@ -7769,7 +7910,6 @@ async function saveUserPrivacy(nickname, sections) {
         updated_at: new Date().toISOString()
     }, { onConflict: 'nickname' });
 }
-
 function setPersonalEditButtonState() {
     const btn = $('personalEditModeBtn'); if (!btn) return;
     if (personalEditMode) {
@@ -7799,7 +7939,6 @@ on('personalEditModeBtn', 'click', async () => {
         const hiddenNote = $('personalHiddenNote'); if (hiddenNote) hiddenNote.hidden = true;
     }
 });
-
 async function loadPersonalData() {
     const nick = personalCurrentNick;
     if (!nick) return;
@@ -7872,7 +8011,6 @@ async function loadPersonalData() {
         }
     }
 }
-
 document.querySelectorAll('.privacy-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
         if (!personalEditMode || !personalIsMine) return;
@@ -7890,13 +8028,11 @@ document.querySelectorAll('.privacy-btn').forEach(btn => {
         if (el) el.classList.toggle('psection-hidden', isHidden);
     });
 });
-
 function renderPersonalHero(nick, clanObj, onlineRow, privacy) {
     const hero = $('personalHero'); if (!hero) return;
     const avatarHtml = clanObj
         ? `<img src="${escapeHtml(getClanImage(clanObj))}" alt="" onerror="this.style.display='none'">`
         : `<span>🌊</span>`;
-
     let onlineLabel = '⚫ Офлайн', onlineCls = 'muted';
     if (onlineRow?.last_seen) {
         const diff = Date.now() - new Date(onlineRow.last_seen).getTime();
@@ -7904,7 +8040,6 @@ function renderPersonalHero(nick, clanObj, onlineRow, privacy) {
         else if (diff < 3600000) { onlineLabel = `🔵 Был ${Math.floor(diff/60000)} мин назад`; onlineCls = 'blue'; }
         else if (diff < 86400000) { onlineLabel = `🔵 Был ${Math.floor(diff/3600000)} ч назад`; onlineCls = 'blue'; }
     }
-
     const clanName = clanObj?.name || 'Вольный капитан';
     const leader = clanObj?.leader_nick && clanObj.leader_nick.toLowerCase() === nick.toLowerCase();
     const isAdmiral = clanObj && normalizeNickList(clanObj.admin_nicks || '').includes(nick.toLowerCase());
@@ -7912,7 +8047,6 @@ function renderPersonalHero(nick, clanObj, onlineRow, privacy) {
     if (leader) { rankLabel = '👑 Глава гильдии'; rankCls = 'gold'; }
     else if (isAdmiral) { rankLabel = '⚓ Адмирал'; rankCls = 'gold'; }
     else if (clanObj) { rankLabel = '⚓ Матрос'; rankCls = 'blue'; }
-
     hero.innerHTML = `
         <div class="personal-hero-top">
             <div class="personal-hero-logo">${avatarHtml}</div>
@@ -7927,7 +8061,6 @@ function renderPersonalHero(nick, clanObj, onlineRow, privacy) {
             </div>
         </div>`;
 }
-
 function renderPersonalClanCard(nick, clanId) {
     const wrap = $('personalClanCard'); if (!wrap) return;
     if (!clanId) { wrap.innerHTML = '<div class="personal-empty">Игрок не состоит в гильдии</div>'; return; }
@@ -7949,7 +8082,6 @@ function renderPersonalClanCard(nick, clanId) {
             </div>
         </div>`;
 }
-
 function renderPersonalClanAwards(nick, clanId) {
     const wrap = $('personalClanAwards'); if (!wrap) return;
     if (!clanId) { wrap.innerHTML = '<div class="personal-empty">Наград нет</div>'; return; }
@@ -7971,7 +8103,6 @@ function renderPersonalClanAwards(nick, clanId) {
             </div>`;
     }).join('');
 }
-
 function renderPersonalSiteAchievements(nick, achData) {
     const wrap = $('personalSiteAchievements'); if (!wrap) return;
     const earned = new Map((achData || []).map(x => [x.achievement_key, x.earned_at]));
@@ -7986,7 +8117,6 @@ function renderPersonalSiteAchievements(nick, achData) {
             </div>`;
     }).join('');
 }
-
 async function renderPersonalStats(nick, clanId) {
     const wrap = $('personalStats'); if (!wrap) return;
     wrap.innerHTML = '<div class="empty">Загрузка…</div>';
@@ -8000,7 +8130,6 @@ async function renderPersonalStats(nick, clanId) {
         supabase.from('friends').select('id', { count: 'exact', head: true }).eq('nickname', nick)
     ]);
     const treasurySum = (trRes.data || []).reduce((s, r) => s + (Number(r.amount) || 0), 0);
-
     const tiles = [
         { label: '⚔️ Билдов создано', value: bRes.count || 0, cls: 'blue' },
         { label: '🤝 Сделок завершено', value: tRes.count || 0, cls: 'green' },
@@ -8016,7 +8145,6 @@ async function renderPersonalStats(nick, clanId) {
             <div class="personal-stat-tile-value ${t.cls}">${t.value}</div>
         </div>`).join('');
 }
-
 async function renderPersonalTreasury(nick, clanId) {
     const wrap = $('personalTreasury'); if (!wrap) return;
     if (!clanId) { wrap.innerHTML = '<div class="personal-empty">Игрок не в гильдии</div>'; return; }
@@ -8025,15 +8153,12 @@ async function renderPersonalTreasury(nick, clanId) {
     const allIn = data || [];
     const myIn = allIn.filter(r => (r.description || '').trim().toLowerCase() === nick.toLowerCase());
     const mySum = myIn.reduce((s, r) => s + (Number(r.amount) || 0), 0);
-
     const byNick = {};
     allIn.forEach(r => {
         const who = (r.description || '—').trim();
         byNick[who] = (byNick[who] || 0) + (Number(r.amount) || 0);
     });
-    const top5 = Object.entries(byNick)
-        .sort((a, b) => b[1] - a[1]).slice(0, 5);
-
+    const top5 = Object.entries(byNick).sort((a, b) => b[1] - a[1]).slice(0, 5);
     let html = '';
     if (top5.length) {
         html += '<div class="personal-top5"><div class="personal-top5-title">🏆 Топ-5 вкладчиков</div>';
@@ -8048,7 +8173,6 @@ async function renderPersonalTreasury(nick, clanId) {
         });
         html += '</div>';
     }
-
     html += `<div class="personal-row-list">`;
     html += `<div class="personal-row"><span class="personal-row-icon">💰</span>
         <span class="personal-row-main">Всего внесено <b>${nick}</b>:</span>
@@ -8067,13 +8191,11 @@ async function renderPersonalTreasury(nick, clanId) {
         html += '<div class="personal-empty">Пока нет операций по вкладам</div>';
     }
     html += '</div>';
-
     wrap.innerHTML = html;
     wrap.querySelectorAll('.personal-top5-nick').forEach(el => {
         el.addEventListener('click', () => { const n = el.dataset.nick; if (n && n !== '—') openPersonalCabinet(n); });
     });
 }
-
 async function renderPersonalTrades(nick) {
     const wrap = $('personalTrades'); if (!wrap) return;
     wrap.innerHTML = '<div class="empty">Загрузка…</div>';
@@ -8111,7 +8233,6 @@ async function renderPersonalTrades(nick) {
         wrap.innerHTML += html.join('');
     }
 }
-
 async function renderPersonalEvents(nick) {
     const wrap = $('personalEvents'); if (!wrap) return;
     wrap.innerHTML = '<div class="empty">Загрузка…</div>';
@@ -8134,7 +8255,6 @@ async function renderPersonalEvents(nick) {
         </div>`;
     }).join('') + '</div>';
 }
-
 async function renderPersonalBuilds(nick) {
     const wrap = $('personalBuilds'); if (!wrap) return;
     wrap.innerHTML = '<div class="empty">Загрузка…</div>';
@@ -8157,10 +8277,6 @@ async function renderPersonalBuilds(nick) {
         });
     });
 }
-
-/* ============================================================
-   v3.0/v3.1 — ОБРАБОТЧИК ESC ДЛЯ ЛИЧНОГО ДЕЛА
-============================================================ */
 document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
         const p = $('screen-personal');
@@ -8172,60 +8288,39 @@ document.addEventListener('keydown', e => {
    v3.1 — ПИКЕР ИЗ КАТАЛОГА (АПГРЕЙДЫ, РАСХОДНИКИ)
 ============================================================ */
 let _catalogPickerCtx = null;
-
 function openCatalogPicker(type, target, mode) {
-    const items = buildItemsCache.filter(x =>
-        x.type === type && x.is_active !== false
-    ).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-
+    const items = buildItemsCache.filter(x => x.type === type && x.is_active !== false)
+        .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
     if (!items.length) {
         const typeLabel = type === 'upgrade' ? 'апгрейды' : type === 'consumable' ? 'расходники' : type;
         alert(`В каталоге нет элементов типа «${typeLabel}».\n\nЗагляните в админку → «⚙️ Каталог» и добавьте их.`);
         return;
     }
-
     _catalogPickerCtx = { type, target, mode, selected: new Set() };
     const titleEl = $('catalogPickerTitle');
-    const titles = {
-        upgrade:    '📋 Выбрать апгрейды из каталога',
-        consumable: '📋 Выбрать расходники из каталога'
-    };
+    const titles = { upgrade: '📋 Выбрать апгрейды из каталога', consumable: '📋 Выбрать расходники из каталога' };
     if (titleEl) titleEl.textContent = titles[type] || '📋 Выбрать из каталога';
-
     const searchEl = $('catalogPickerSearch');
     if (searchEl) searchEl.value = '';
-
     renderCatalogPickerList(items);
     $('catalogPickerModal').hidden = false;
     setTimeout(() => searchEl?.focus(), 100);
 }
-
 function renderCatalogPickerList(itemsOverride) {
     if (!_catalogPickerCtx) return;
     const listEl = $('catalogPickerList');
     if (!listEl) return;
-
     const type = _catalogPickerCtx.type;
-    const items = itemsOverride || buildItemsCache.filter(x =>
-        x.type === type && x.is_active !== false
-    ).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-
+    const items = itemsOverride || buildItemsCache.filter(x => x.type === type && x.is_active !== false)
+        .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
     const q = ($('catalogPickerSearch')?.value || '').trim().toLowerCase();
-    const filtered = q
-        ? items.filter(x => (x.name || '').toLowerCase().includes(q))
-        : items;
-
+    const filtered = q ? items.filter(x => (x.name || '').toLowerCase().includes(q)) : items;
     if (!filtered.length) {
         listEl.innerHTML = `<div class="catalog-picker-empty">${q ? 'Ничего не найдено' : 'Каталог пуст'}</div>`;
         return;
     }
-
     const groups = {};
-    filtered.forEach(it => {
-        const sg = it.subgroup || '—';
-        (groups[sg] ||= []).push(it);
-    });
-
+    filtered.forEach(it => { const sg = it.subgroup || '—'; (groups[sg] ||= []).push(it); });
     listEl.innerHTML = '';
     Object.keys(groups).sort().forEach(sg => {
         if (sg !== '—') {
@@ -8258,12 +8353,10 @@ function renderCatalogPickerList(itemsOverride) {
         });
     });
 }
-
 function closeCatalogPicker() {
     $('catalogPickerModal').hidden = true;
     _catalogPickerCtx = null;
 }
-
 function applyCatalogPickerSelection() {
     if (!_catalogPickerCtx) return;
     const { target, mode, selected } = _catalogPickerCtx;
@@ -8273,24 +8366,17 @@ function applyCatalogPickerSelection() {
         $('catalogPickerError').style.color = '#ff7a7a';
         return;
     }
-
     if (mode === 'multi') {
-        const ta = $(target);
-        if (!ta) return;
+        const ta = $(target); if (!ta) return;
         const existing = String(ta.value || '').split('\n').map(s => s.trim()).filter(Boolean);
         picked.forEach(name => {
-            if (!existing.some(x => x.toLowerCase() === name.toLowerCase())) {
-                existing.push(name);
-            }
+            if (!existing.some(x => x.toLowerCase() === name.toLowerCase())) existing.push(name);
         });
         ta.value = existing.join('\n');
     } else if (mode === 'cons') {
-        const fields = [target + '1', target + '2', target + '3']
-            .map(id => $(id)).filter(Boolean);
+        const fields = [target + '1', target + '2', target + '3'].map(id => $(id)).filter(Boolean);
         const existing = fields.map(f => (f.value || '').trim()).filter(Boolean);
-        const toAdd = picked.filter(name =>
-            !existing.some(x => x.toLowerCase() === name.toLowerCase())
-        );
+        const toAdd = picked.filter(name => !existing.some(x => x.toLowerCase() === name.toLowerCase()));
         const emptyIdx = fields.findIndex(f => !String(f.value || '').trim());
         let startAt = emptyIdx >= 0 ? emptyIdx : 0;
         for (let i = 0; i < toAdd.length; i++) {
@@ -8299,10 +8385,8 @@ function applyCatalogPickerSelection() {
             fields[fi].value = toAdd[i];
         }
     }
-
     closeCatalogPicker();
 }
-
 document.addEventListener('click', (e) => {
     const btn = e.target.closest('.catalog-pick-btn');
     if (!btn) return;
@@ -8312,11 +8396,8 @@ document.addEventListener('click', (e) => {
     if (!type || !target || !mode) return;
     openCatalogPicker(type, target, mode);
 });
-
 on('catalogPickerCancel', 'click', closeCatalogPicker);
-on('catalogPickerModal', 'click', e => {
-    if (e.target.id === 'catalogPickerModal') closeCatalogPicker();
-});
+on('catalogPickerModal', 'click', e => { if (e.target.id === 'catalogPickerModal') closeCatalogPicker(); });
 on('catalogPickerSave', 'click', applyCatalogPickerSelection);
 on('catalogPickerSearch', 'input', () => renderCatalogPickerList());
 document.addEventListener('keydown', e => {
@@ -8339,8 +8420,6 @@ const PVP_ZONES = {
 };
 let pvpsimLastHit = null;
 
-/* Кривая зависимости хода от курсового угла к ветру.
-   0° = в лоб, 180° = фордевинд. */
 function windSpeedFactor(angleDeg) {
     const anchors = [[0, 0.35], [45, 0.70], [90, 1.00], [135, 1.05], [180, 0.85]];
     if (angleDeg <= 0)   return anchors[0][1];
@@ -8373,7 +8452,6 @@ function windRumb(deg) {
     const r = ['С','СВ','В','ЮВ','Ю','ЮЗ','З','СЗ'];
     return r[Math.round((((deg % 360) + 360) % 360) / 45) % 8];
 }
-
 async function initPvpSimulator() {
     if (pvpsim3dReady) {
         updateWindLabels();
@@ -8381,8 +8459,6 @@ async function initPvpSimulator() {
         return;
     }
     pvpsim3dReady = true;
-
-    /* --- Селект кораблей-целей --- */
     const shipSel = $('pvpsimTargetShip');
     if (shipSel) {
         shipSel.innerHTML = '<option value="">— Без корабля —</option>';
@@ -8396,13 +8472,10 @@ async function initPvpSimulator() {
             shipSel.appendChild(o);
         });
     }
-
-    /* --- Селект снарядов --- */
     const ammoSel = $('pvpsimAmmo');
     if (ammoSel) {
         ammoSel.innerHTML = '<option value="">— По умолчанию (Чугунные) —</option>';
-        buildItemsCache
-            .filter(x => x.type === 'shell' && x.is_active !== false)
+        buildItemsCache.filter(x => x.type === 'shell' && x.is_active !== false)
             .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
             .forEach(x => {
                 const o = document.createElement('option');
@@ -8411,15 +8484,12 @@ async function initPvpSimulator() {
                 ammoSel.appendChild(o);
             });
     }
-
     fillPvpSimConsumables();
-
-    /* --- Загружаем 3D-модуль --- */
     const container = $('pvpsim3dContainer');
     if (container) {
         try {
             const mod = await import('./pvpsim3d.js');
-            pvpsim3dInstance = mod.initPvpSim3D(container, {
+            pvpsim3dInstance = await mod.initPvpSim3D(container, {
                 onHit: (zone, point) => {
                     pvpsimLastHit = { zone, point };
                     const hint = $('pvpsimHitHint');
@@ -8429,30 +8499,25 @@ async function initPvpSimulator() {
                 }
             });
         } catch (e) {
-    console.error('pvpsim3d load error:', e);
-    const msg = (e && (e.message || e.toString())) || 'неизвестная ошибка';
-    container.innerHTML = `<div class="pvpsim-3d-fallback">
-        ⚠️ Не удалось загрузить 3D.<br>
-        <span style="font-size:11px;opacity:.75;">${escapeHtml(msg)}</span>
-    </div>`;
-}
+            console.error('pvpsim3d load error:', e);
+            const msg = (e && (e.message || e.toString())) || 'неизвестная ошибка';
+            container.innerHTML = `<div class="pvpsim-3d-fallback">
+                ⚠️ Не удалось загрузить 3D.<br>
+                <span style="font-size:11px;opacity:.75;">${escapeHtml(msg)}</span><br>
+                <span style="font-size:11px;opacity:.6;">Открой Console (F12) — точная причина там.</span>
+            </div>`;
+        }
     }
-
-    /* --- Вращение корабля --- */
     on('pvpsimRotation', 'input', e => {
         const deg = parseInt(e.target.value) || 0;
         const lbl = $('pvpsimRotationLabel');
         if (lbl) lbl.textContent = deg + '°';
         if (pvpsim3dInstance) pvpsim3dInstance.setRotation(deg);
     });
-
-    /* --- Ветер и курс --- */
     ['pvpsimWindDir','pvpsimWindForce','pvpsimTargetCourse','pvpsimTargetSpeed','pvpsimDistance'].forEach(id => {
         on(id, 'input', updateWindLabels);
         on(id, 'change', updateWindLabels);
     });
-
-    /* --- Смена цели: автозаполняем скорость --- */
     on('pvpsimTargetShip', 'change', e => {
         const opt = e.target.selectedOptions[0];
         if (opt && opt.dataset.speed) {
@@ -8464,19 +8529,14 @@ async function initPvpSimulator() {
         }
         updateWindLabels();
     });
-
-    /* --- Огонь --- */
     on('pvpsimFire', 'click', firePvpSimulator);
-
     updateWindLabels();
 }
-
 function fillPvpSimConsumables() {
     const wrap = $('pvpsimConsumables');
     if (!wrap) return;
     wrap.innerHTML = '';
-    const consumables = buildItemsCache
-        .filter(x => x.type === 'consumable' && x.is_active !== false)
+    const consumables = buildItemsCache.filter(x => x.type === 'consumable' && x.is_active !== false)
         .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
     if (!consumables.length) {
         wrap.innerHTML = '<span style="font-size:12px;color:var(--muted);padding:6px;">Нет расходников в каталоге</span>';
@@ -8492,21 +8552,18 @@ function fillPvpSimConsumables() {
         wrap.appendChild(lbl);
     });
 }
-
 function updateWindLabels() {
     const windDir   = parseInt(val('pvpsimWindDir'))    || 0;
     const windF     = parseInt(val('pvpsimWindForce'))  || 0;
     const course    = parseInt(val('pvpsimTargetCourse')) || 0;
     const speed     = parseFloat(val('pvpsimTargetSpeed')) || 0;
     const dist      = parseInt(val('pvpsimDistance'))   || 0;
-
     const setText = (id, v) => { const el = $(id); if (el) el.textContent = v; };
     setText('pvpsimWindDirLabel',      windDir + '° ' + windRumb(windDir));
     setText('pvpsimWindForceLabel',    windF + ' · ' + beaufortName(windF));
     setText('pvpsimTargetCourseLabel', course + '° ' + windRumb(course));
     setText('pvpsimTargetSpeedLabel',  speed.toFixed(1) + ' уз');
     setText('pvpsimDistanceLabel',     dist + ' м');
-
     const angleToWind = Math.abs(((course - windDir + 540) % 360) - 180);
     const wc = windSpeedFactor(angleToWind);
     const bf = beaufortFactor(windF);
@@ -8514,27 +8571,18 @@ function updateWindLabels() {
     const effEl = $('pvpsimEffSpeedLabel');
     if (effEl) effEl.textContent = effSpeed.toFixed(1) + ' уз (×' + (wc * bf).toFixed(2) + ')';
 }
-
 function firePvpSimulator() {
-    if (!pvpsimLastHit) {
-        alert('Сначала кликни по кораблю в 3D — выбери точку попадания');
-        return;
-    }
+    if (!pvpsimLastHit) { alert('Сначала кликни по кораблю в 3D — выбери точку попадания'); return; }
     const zone = pvpsimLastHit.zone;
     const zoneInfo = PVP_ZONES[zone];
     if (!zoneInfo) return;
-
-    /* --- Параметры залпа --- */
     const baseDamage = parseFloat(val('pvpsimBaseDamage')) || 500;
     const consChecks = document.querySelectorAll('#pvpsimConsumables input[type=checkbox]:checked');
     const consCount  = consChecks.length;
     const consMod    = Math.pow(1.10, consCount);
-
     const rotDeg   = parseInt(val('pvpsimRotation')) || 0;
     const angleRad = rotDeg * Math.PI / 180;
     const angleMod = 0.5 + 0.5 * Math.abs(Math.sin(angleRad));
-
-    /* --- Снаряд --- */
     const ammoName = val('pvpsimAmmo');
     const ammo = ammoName
         ? buildItemsCache.find(x => x.type === 'shell' && x.name === ammoName)
@@ -8543,47 +8591,33 @@ function firePvpSimulator() {
     const sailsScore = ammo?.dmg_sails ?? 2;
     const crewScore  = ammo?.dmg_crew  ?? 2;
     const rangePct   = (ammo?.range_mod ?? 0) / 100;
-
-    /* --- Ветер + цель --- */
     const windDir   = parseInt(val('pvpsimWindDir'))     || 0;
     const windForce = parseInt(val('pvpsimWindForce'))   || 3;
     const tgtCourse = parseInt(val('pvpsimTargetCourse'))|| 0;
     const tgtSpeed  = parseFloat(val('pvpsimTargetSpeed')) || 0;
     const distance  = parseInt(val('pvpsimDistance'))    || 300;
-
     const angleToWind = Math.abs(((tgtCourse - windDir + 540) % 360) - 180);
     const windCurve   = windSpeedFactor(angleToWind);
     const beaufort    = beaufortFactor(windForce);
     const effSpeed    = tgtSpeed * windCurve * beaufort;
     const leadError   = Math.min(1, effSpeed * distance / 15000);
     const leadMod     = 1 - 0.5 * leadError;
-
-    /* --- Броня --- */
     const shipSel = $('pvpsimTargetShip');
     const shipOpt = shipSel?.selectedOptions[0];
     const baseArmor = parseFloat(shipOpt?.dataset.armor) || 0;
     const effArmor  = baseArmor * (2 - angleMod);
     const armorAbs  = effArmor / (effArmor + 100);
-
-    /* --- Урон: корпус --- */
     const rangeMult = 1 + rangePct * (distance / 1000);
     const rawHull   = baseDamage * zoneInfo.mult * angleMod * hullPct * consMod * leadMod * rangeMult;
     const hullDamage = Math.max(0, rawHull * (1 - armorAbs));
-
-    /* --- Урон: паруса --- */
     const zoneSailsMult = ['bow','stern'].includes(zone) ? 1.00 : 0.35;
     const sailsDamage = baseDamage * (sailsScore / 3) * consMod * leadMod * zoneSailsMult * 0.7;
-
-    /* --- Урон: экипаж --- */
     const zoneCrewMult = ['superstructure','core'].includes(zone) ? 1.6 : 1.0;
     const crewDamage = baseDamage * (crewScore / 3) * consMod * zoneCrewMult * 0.5;
-
-    /* --- Вывод --- */
     const setText = (id, txt) => { const el = $(id); if (el) el.textContent = txt; };
     setText('pvpsimResHull',  Math.round(hullDamage).toLocaleString('ru-RU'));
     setText('pvpsimResSails', Math.round(sailsDamage).toLocaleString('ru-RU'));
     setText('pvpsimResCrew',  Math.round(crewDamage).toLocaleString('ru-RU'));
-
     setText('pvpsimResZone',      zoneInfo.icon + ' ' + zoneInfo.label);
     setText('pvpsimResAngle',     rotDeg + '°');
     setText('pvpsimResZoneMod',   '×' + zoneInfo.mult.toFixed(2));
@@ -8598,47 +8632,176 @@ function firePvpSimulator() {
     setText('pvpsimResEffSpeed',  effSpeed.toFixed(1) + ' уз');
     setText('pvpsimResLead',      '×' + leadMod.toFixed(2) + ' (−' + Math.round(leadError * 100) + '%)');
     setText('pvpsimResFinal',     Math.round(hullDamage).toLocaleString('ru-RU') + ' 💥');
-
     const res = $('pvpsimResult');
     if (res) res.hidden = false;
-
     if (pvpsim3dInstance) pvpsim3dInstance.fireFlash();
+}
+
+/* ============================================================
+   v3.2 — РАСЧЁТ УРОНА БОРТА
+============================================================ */
+function fillDmgCalcShipSelect() {
+    const sel = $('dmgcalcShip'); if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">— Выберите корабль —</option>';
+    shipsCache.slice().sort((a, b) => (b.level || 0) - (a.level || 0) || a.name.localeCompare(b.name)).forEach(s => {
+        const o = document.createElement('option');
+        o.value = s.name;
+        o.textContent = `${ROMAN[s.level] || s.level} · ${s.name}`;
+        sel.appendChild(o);
+    });
+    if (cur && shipsCache.some(s => s.name === cur)) sel.value = cur;
+}
+function initDamageCalc() {
+    if (_dmgcalcReady) {
+        fillDmgCalcShipSelect();
+        renderDamageCalc();
+        return;
+    }
+    _dmgcalcReady = true;
+    fillDmgCalcShipSelect();
+    on('dmgcalcShip',     'change', renderDamageCalc);
+    on('dmgcalcBortOnly', 'change', renderDamageCalc);
+    on('dmgcalcBonus',    'change', renderDamageCalc);
+}
+function renderDamageCalc() {
+    const shipName = val('dmgcalcShip');
+    const emptyEl  = $('dmgcalcEmpty');
+    const resEl    = $('dmgcalcResult');
+    if (!shipName) {
+        if (emptyEl) { emptyEl.hidden = false; emptyEl.textContent = 'Выберите корабль, чтобы увидеть расчёт.'; }
+        if (resEl) resEl.hidden = true;
+        return;
+    }
+    const ship = shipsCache.find(s => s.name === shipName);
+    if (!ship) {
+        if (emptyEl) { emptyEl.hidden = false; emptyEl.textContent = 'Корабль не найден.'; }
+        if (resEl) resEl.hidden = true;
+        return;
+    }
+    const guns = Array.isArray(ship.guns_config) ? ship.guns_config : [];
+    if (!guns.length) {
+        if (emptyEl) { emptyEl.hidden = false; emptyEl.textContent = 'У этого корабля пушки не заданы. Настрой их в админке → «🚢 Справочник кораблей» → 🎯.'; }
+        if (resEl) resEl.hidden = true;
+        return;
+    }
+    const bortOnly = $('dmgcalcBortOnly')?.checked ?? true;
+    const useBonus = $('dmgcalcBonus')?.checked ?? false;
+    const bortDiv  = bortOnly ? 2 : 1;
+    const bonusMult = useBonus ? computeDamageBonusMult(shipName) : { dmg: 1, reload: 1, notes: [] };
+
+    let totalBort = 0, totalPerMin = 0, totalGuns = 0;
+    const tbody = $('dmgcalcTbody');
+    if (tbody) tbody.innerHTML = '';
+    guns.forEach(g => {
+        const card = findGunData(g.name);
+        const count = Number(g.count) || 0;
+        if (!count) return;
+        const baseDamage = card?.damage != null ? Number(card.damage) : 0;
+        const reloadSec  = card?.reload_sec != null && Number(card.reload_sec) > 0 ? Number(card.reload_sec) : 30;
+        const effectiveCount = count / bortDiv;
+        const dmgPerGun = baseDamage * bonusMult.dmg;
+        const reload    = reloadSec / bonusMult.reload;
+        const typeBort   = dmgPerGun * effectiveCount;
+        const typePerMin = dmgPerGun * effectiveCount * 60 / reload;
+        totalBort   += typeBort;
+        totalPerMin += typePerMin;
+        totalGuns   += count;
+        if (tbody) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><span class="dmgcalc-gun-name">${escapeHtml(g.name)}</span></td>
+                <td class="num">${count}</td>
+                <td class="num">${baseDamage ? baseDamage.toFixed(1) : '—'}</td>
+                <td class="num">${card?.reload_sec != null ? card.reload_sec + ' с' : '—'}</td>
+                <td class="num gold">${Math.round(typeBort).toLocaleString('ru-RU')}</td>
+                <td class="num green">${Math.round(typePerMin).toLocaleString('ru-RU')}</td>`;
+            tbody.appendChild(tr);
+        }
+    });
+    const fmt = n => Math.round(n).toLocaleString('ru-RU');
+    const setText = (id, v) => { const el = $(id); if (el) el.textContent = v; };
+    setText('dmgcalcBortDamage',  fmt(totalBort));
+    setText('dmgcalcPerMinute',   fmt(totalPerMin));
+    setText('dmgcalcTotalGuns',   totalGuns);
+    setText('dmgcalcFootBort',    fmt(totalBort));
+    setText('dmgcalcFootPerMin',  fmt(totalPerMin));
+    const noteEl = $('dmgcalcNote');
+    if (noteEl) {
+        const parts = [];
+        parts.push(bortOnly ? 'Учтён только один борт (÷2)' : 'Учтены оба борта (полный залп)');
+        if (useBonus) {
+            const noteStr = bonusMult.notes.length
+                ? `Бонусы: ${bonusMult.notes.join(', ')}`
+                : 'Бонусы: не найдены — расчёт без них';
+            parts.push(noteStr);
+        }
+        noteEl.textContent = parts.join(' · ');
+    }
+    if (emptyEl) emptyEl.hidden = true;
+    if (resEl)   resEl.hidden = false;
+}
+function computeDamageBonusMult(shipName) {
+    const notes = [];
+    let dmg = 1, reload = 1;
+    if (!currentClan) return { dmg, reload, notes };
+    const allBuilds = [...(_lastBuildsByType.pvp || []), ...(_lastBuildsByType.pb || [])];
+    const build = allBuilds.find(b => (b.ship_name || '').toLowerCase() === shipName.toLowerCase());
+    if (!build) return { dmg, reload, notes };
+    const acc = (text, kind) => {
+        const lines = String(text || '').split('\n').map(s => s.trim()).filter(Boolean);
+        lines.forEach(line => {
+            const m = line.match(/([+-]?\s*\d+(?:[.,]\d+)?)\s*%?\s*$/);
+            if (!m) return;
+            const val = parseFloat(m[1].replace(/\s/g, '').replace(',', '.'));
+            if (!isFinite(val)) return;
+            const low = line.toLowerCase();
+            if (kind === 'dmg' && /(урон|дамаг|пробитие|пробой|борт)/.test(low)) {
+                dmg += val / 100;
+                notes.push(`${line} → ×${(1 + val / 100).toFixed(2)} урон`);
+            }
+            if (kind === 'reload' && /(перезар|заряж|скорострел)/.test(low)) {
+                reload += val / 100;
+                notes.push(`${line} → ×${(1 + val / 100).toFixed(2)} скор.`);
+            }
+        });
+    };
+    acc(build.upgrades, 'dmg');
+    acc(build.weapons_small, 'dmg');
+    acc(build.weapons_medium, 'dmg');
+    acc(build.weapons_large, 'dmg');
+    acc(build.consumable1, 'reload');
+    acc(build.consumable2, 'reload');
+    acc(build.consumable3, 'reload');
+    acc(build.specialists, 'dmg');
+    acc(build.specialists, 'reload');
+    dmg = Math.max(0.1, dmg);
+    reload = Math.max(0.1, reload);
+    return { dmg, reload, notes };
 }
 
 /* ============================================================
    v3.2 — ФИНАЛЬНЫЙ СТАРТ ПРИЛОЖЕНИЯ
 ============================================================ */
 (async () => {
-    /* Версия в футере */
     const verEl = document.querySelector('.footer-right');
     if (verEl) verEl.textContent = 'v' + APP_VERSION;
 
-    /* Тема до всего остального */
     initTheme();
 
-    /* Сессия Supabase */
     const { data: { session } } = await supabase.auth.getSession();
     currentSession = session;
 
-    /* Пользователи / админы */
     await loadSiteAdmins();
-
-    /* Игры + союзы — база для всего остального */
     await loadGames();
     await loadAlliances();
-
-    /* Гильдии: внутри loadClans() уже подтягиваются v3.0-модули
-       (карточки, награды, member_cards, member_awards) для текущей гильдии */
     await loadClans();
-
-    /* Глобальные настройки и контент */
     await loadSettings();
     await loadPartners();
     renderApplyClanSelect();
     await loadFaq();
     await loadTactics();
 
-    /* Мир игры */
     await loadShips();
     await loadResourcePrices();
     await loadFactions();
@@ -8648,21 +8811,16 @@ function firePvpSimulator() {
     await loadDiscounts();
     await loadMapSettings();
 
-    /* Каталог билдов — после ships, чтобы datalist'ы были готовы */
     await loadBuildItems();
 
-    /* Селекты для стоимости постройки */
     fillScShipSelect();
     fillScFactionSelect();
     fillScCities();
 
-    /* Вид карты по умолчанию */
     currentMapView = (mapSettings?.default_view) || 'detailed';
 
-    /* Публичная статистика на главной */
     await loadStats();
 
-    /* Торговля — до рендера активных билдов */
     initTradeCategorySelect();
     initTradeCategoryFilters();
     updateTradeFormTotal();
@@ -8670,33 +8828,25 @@ function firePvpSimulator() {
     renderTradeClanFilters();
     await renderTrades();
 
-    /* Уведомления текущего игрока */
     await loadNotifications();
 
-    /* Калькуляторы сборки (home + clan) */
     initShipBuilders();
 
-    /* Применяем права/видимость ко всему UI */
     applyAdminUI();
 
-    /* Превью флагов */
     updateFlagPreview('newClanFlag', 'newClanFlagPreview');
     updateFlagPreview('adminClanFlag', 'adminClanFlagPreview');
 
-    /* Условные поля формы скидок */
     onDiscountTypeChange();
 
-    /* Сворачивание секций и групп */
     initCollapsibleSections();
     initCollapsibleAdminCards();
     initNavGroups();
 
-    /* Пикеры специалистов в формах билдов */
     wireSpecPicker('pvpSpecsSelect', 'pvpSpecsAdd', 'pvpSpecsChips', 'pvpSpecs');
     wireSpecPicker('pbSpecsSelect',  'pbSpecsAdd',  'pbSpecsChips',  'pbSpecs');
     wireSpecPicker('buildEditSpecsSelect', 'buildEditSpecsAdd', 'buildEditSpecsChips', 'buildEditSpecs');
 
-    /* Открываем последнюю гильдию, если уже была сессия входа */
     const lastClan = localStorage.getItem(LAST_CLAN_KEY);
     if (lastClan && isUnlocked() && clansCache[lastClan]) {
         openClan(lastClan, localStorage.getItem(CLAN_ADMIN_PASS_KEY) === '1');
@@ -8704,17 +8854,14 @@ function firePvpSimulator() {
         showScreen('home');
     }
 
-    /* Онлайн: heartbeat + подписка на уведомления (глобально) */
     startHeartbeat();
     initGlobalNotifications();
 
-    /* Хэш-роутинг и обработка #build=ID — с задержкой, чтобы всё отрисовалось */
     setTimeout(() => {
         applyHashRoute();
         handleBuildHash();
     }, 800);
 
-    /* Регулярное обновление открытых списков онлайна и доски */
     setInterval(() => {
         const onlineSection = document.querySelector('.admin-section[data-apanel="online"]');
         if (onlineSection && onlineSection.classList.contains('active') && isAdmin) renderAdminOnlineList();

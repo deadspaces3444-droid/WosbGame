@@ -1,10 +1,7 @@
 /* ============================================================
    pvpsim3d.js — 3D-визуализация попадания
-   Three.js, процедурная модель, 6 зон с Raycaster.
+   Мульти-CDN загрузка Three.js + процедурная модель корабля.
 ============================================================ */
-
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
-import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js';
 
 const ZONE_COLORS = {
     bow:            0x0ea5e9,
@@ -25,8 +22,59 @@ const COL = {
     sea:      0x0a1626
 };
 
-export function initPvpSim3D(container, opts = {}) {
+/* --- Мульти-CDN загрузка Three.js + OrbitControls --- */
+const CDN_CANDIDATES = [
+    {
+        name: 'esm.sh',
+        three: 'https://esm.sh/three@0.160.0',
+        orbit: 'https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js'
+    },
+    {
+        name: 'unpkg',
+        three: 'https://unpkg.com/three@0.160.0/build/three.module.js',
+        orbit: 'https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js'
+    },
+    {
+        name: 'jsdelivr',
+        three: 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js',
+        orbit: 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js'
+    },
+    {
+        name: 'cdnjs',
+        three: 'https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.module.min.js',
+        orbit: null
+    }
+];
+
+async function loadThree() {
+    let lastErr = null;
+    for (const cdn of CDN_CANDIDATES) {
+        try {
+            console.log('[pvpsim3d] пробую CDN:', cdn.name);
+            const THREE = await import(/* @vite-ignore */ cdn.three);
+            let OrbitControls = null;
+            if (cdn.orbit) {
+                try {
+                    const mod = await import(/* @vite-ignore */ cdn.orbit);
+                    OrbitControls = mod.OrbitControls || null;
+                } catch (e) {
+                    console.warn('[pvpsim3d] OrbitControls не загрузились с', cdn.name, e.message);
+                }
+            }
+            console.log('[pvpsim3d] ✓ Three.js загружен с', cdn.name);
+            return { THREE, OrbitControls, cdn: cdn.name };
+        } catch (e) {
+            console.warn('[pvpsim3d] CDN', cdn.name, 'не сработал:', e.message);
+            lastErr = e;
+        }
+    }
+    throw new Error('Все CDN недоступны. Последняя ошибка: ' + (lastErr?.message || '—'));
+}
+
+export async function initPvpSim3D(container, opts = {}) {
     if (!container) throw new Error('initPvpSim3D: нет контейнера');
+
+    const { THREE, OrbitControls, cdn } = await loadThree();
 
     /* --- СЦЕНА --- */
     const scene = new THREE.Scene();
@@ -44,9 +92,11 @@ export function initPvpSim3D(container, opts = {}) {
     renderer.setSize(W, H);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.05;
+    if (THREE.PCFSoftShadowMap) renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    if (THREE.ACESFilmicToneMapping) {
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.05;
+    }
     container.innerHTML = '';
     container.appendChild(renderer.domElement);
     renderer.domElement.style.display = 'block';
@@ -60,9 +110,11 @@ export function initPvpSim3D(container, opts = {}) {
     const key = new THREE.DirectionalLight(0xffe0b0, 1.6);
     key.position.set(6, 9, 6);
     key.castShadow = true;
-    key.shadow.mapSize.set(1024, 1024);
-    key.shadow.camera.left = -8; key.shadow.camera.right = 8;
-    key.shadow.camera.top  =  8; key.shadow.camera.bottom = -8;
+    if (key.shadow) {
+        key.shadow.mapSize.set(1024, 1024);
+        key.shadow.camera.left = -8; key.shadow.camera.right = 8;
+        key.shadow.camera.top  =  8; key.shadow.camera.bottom = -8;
+    }
     scene.add(key);
 
     const rim = new THREE.DirectionalLight(0x4a7ec8, 0.6);
@@ -79,11 +131,12 @@ export function initPvpSim3D(container, opts = {}) {
     sea.receiveShadow = true;
     scene.add(sea);
 
-    const grid = new THREE.GridHelper(30, 30, 0x1a3050, 0x0e1e34);
-    grid.position.y = -1.34;
-    grid.material.transparent = true;
-    grid.material.opacity = 0.35;
-    scene.add(grid);
+    if (THREE.GridHelper) {
+        const grid = new THREE.GridHelper(30, 30, 0x1a3050, 0x0e1e34);
+        grid.position.y = -1.34;
+        if (grid.material) { grid.material.transparent = true; grid.material.opacity = 0.35; }
+        scene.add(grid);
+    }
 
     /* --- КОРПУС --- */
     const shipGroup = new THREE.Group();
@@ -140,11 +193,12 @@ export function initPvpSim3D(container, opts = {}) {
     const zoneMeshes = {};
     function addZone(name, mesh) {
         mesh.userData.zone = name;
-        mesh.material.transparent = true;
-        mesh.material.opacity = 0.32;
-        mesh.material.depthWrite = false;
-        mesh.material.emissive = new THREE.Color(ZONE_COLORS[name]);
-        mesh.material.emissiveIntensity = 0.35;
+        const m = mesh.material;
+        m.transparent = true;
+        m.opacity = 0.32;
+        m.depthWrite = false;
+        m.emissive = new THREE.Color(ZONE_COLORS[name]);
+        m.emissiveIntensity = 0.35;
         shipGroup.add(mesh);
         zoneMeshes[name] = mesh;
     }
@@ -284,16 +338,49 @@ export function initPvpSim3D(container, opts = {}) {
     hitMark.visible = false;
     scene.add(hitMark);
 
-    /* --- ORBIT --- */
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.08;
-    controls.minDistance = 6;
-    controls.maxDistance = 22;
-    controls.maxPolarAngle = Math.PI / 2 - 0.05;
-    controls.minPolarAngle = 0.15;
-    controls.target.set(0, 0.6, 0);
-    controls.enablePan = false;
+    /* --- ORBIT (если есть) --- */
+    let controls = null;
+    if (OrbitControls) {
+        controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.08;
+        controls.minDistance = 6;
+        controls.maxDistance = 22;
+        controls.maxPolarAngle = Math.PI / 2 - 0.05;
+        controls.minPolarAngle = 0.15;
+        controls.target.set(0, 0.6, 0);
+        controls.enablePan = false;
+    } else {
+        /* Резерв: ручное вращение мышью */
+        let isDown = false, lx = 0, ly = 0;
+        const target = new THREE.Vector3(0, 0.6, 0);
+        renderer.domElement.addEventListener('mousedown', e => { isDown = true; lx = e.clientX; ly = e.clientY; });
+        window.addEventListener('mouseup', () => { isDown = false; });
+        window.addEventListener('mousemove', e => {
+            if (!isDown) return;
+            const dx = (e.clientX - lx) / 200;
+            const dy = (e.clientY - ly) / 200;
+            lx = e.clientX; ly = e.clientY;
+            const r = camera.position.length();
+            let theta = Math.atan2(camera.position.x - target.x, camera.position.z - target.z);
+            let phi = Math.acos((camera.position.y - target.y) / r);
+            theta -= dx;
+            phi = Math.max(0.15, Math.min(Math.PI / 2 - 0.05, phi + dy));
+            camera.position.set(
+                target.x + r * Math.sin(phi) * Math.sin(theta),
+                target.y + r * Math.cos(phi),
+                target.z + r * Math.sin(phi) * Math.cos(theta)
+            );
+            camera.lookAt(target);
+        });
+        renderer.domElement.addEventListener('wheel', e => {
+            e.preventDefault();
+            const dir = camera.position.clone().sub(target).normalize();
+            const nd = Math.max(6, Math.min(22, camera.position.distanceTo(target) + (e.deltaY > 0 ? 0.6 : -0.6)));
+            camera.position.copy(target).add(dir.multiplyScalar(nd));
+            camera.lookAt(target);
+        }, { passive: false });
+    }
 
     /* --- RAYCASTER --- */
     const raycaster = new THREE.Raycaster();
@@ -339,7 +426,7 @@ export function initPvpSim3D(container, opts = {}) {
         const t = clock.getElapsedTime();
         shipGroup.rotation.z = Math.sin(t * 0.7) * 0.018;
         shipGroup.position.y = Math.sin(t * 1.1) * 0.025;
-        controls.update();
+        if (controls) controls.update();
         renderer.render(scene, camera);
         requestAnimationFrame(loop);
     })();
@@ -352,6 +439,8 @@ export function initPvpSim3D(container, opts = {}) {
         renderer.setSize(w, h);
     }
     window.addEventListener('resize', onResize);
+
+    console.log('[pvpsim3d] ✓ Сцена готова, CDN:', cdn);
 
     /* --- API --- */
     return {
@@ -375,7 +464,7 @@ export function initPvpSim3D(container, opts = {}) {
             running = false;
             window.removeEventListener('resize', onResize);
             renderer.domElement.removeEventListener('pointerdown', onPointerDown);
-            controls.dispose();
+            if (controls) controls.dispose();
             renderer.dispose();
             container.innerHTML = '';
         }

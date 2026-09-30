@@ -2805,3 +2805,141 @@ h2 { margin-bottom: 14px; font-size: 20px; color: var(--text); }
     .pvpsim-channel { flex-direction: row; justify-content: space-between; }
     .pvpsim-channel-value { font-size: 20px; }
 }
+/* ============================================================
+   v3.2 — РАСЧЁТ УРОНА
+============================================================ */
+.dmgcalc-topbar {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    gap: 14px;
+    align-items: end;
+    margin-bottom: 18px;
+    padding: 16px 18px;
+    background: linear-gradient(180deg, var(--panel-3), var(--panel));
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: 0 4px 0 rgba(0,0,0,.2);
+}
+@media (max-width: 700px) {
+    .dmgcalc-topbar { grid-template-columns: 1fr; }
+}
+
+.dmgcalc-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-dim);
+    cursor: pointer;
+}
+.dmgcalc-check input { accent-color: var(--accent); cursor: pointer; }
+
+.dmgcalc-totals {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    margin-bottom: 18px;
+}
+@media (max-width: 700px) {
+    .dmgcalc-totals { grid-template-columns: 1fr; }
+}
+
+.dmgcalc-tile {
+    padding: 18px 20px;
+    background: linear-gradient(180deg, var(--panel-3), var(--panel));
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    box-shadow: 0 4px 0 rgba(0,0,0,.2);
+}
+.dmgcalc-tile.hull  { border-left: 4px solid var(--gold); }
+.dmgcalc-tile.rate  { border-left: 4px solid var(--green); }
+.dmgcalc-tile.count { border-left: 4px solid var(--blue); }
+
+.dmgcalc-tile-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: var(--muted);
+    font-weight: 700;
+}
+.dmgcalc-tile-value {
+    font-size: 26px;
+    font-weight: 900;
+    font-family: ui-monospace, monospace;
+    color: var(--text);
+    line-height: 1;
+}
+.dmgcalc-tile.hull  .dmgcalc-tile-value { color: var(--gold);  text-shadow: 0 0 12px rgba(255,212,121,.35); }
+.dmgcalc-tile.rate  .dmgcalc-tile-value { color: var(--green); text-shadow: 0 0 12px rgba(110,231,167,.35); }
+.dmgcalc-tile.count .dmgcalc-tile-value { color: var(--blue); }
+
+.dmgcalc-table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: 0 4px 0 rgba(0,0,0,.2);
+}
+.dmgcalc-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+}
+.dmgcalc-table thead th {
+    background: var(--panel-2);
+    color: var(--muted);
+    text-align: left;
+    padding: 11px 14px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    font-weight: 700;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+}
+.dmgcalc-table tbody td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+}
+.dmgcalc-table tbody tr:hover { background: rgba(59,130,246,.05); }
+.dmgcalc-table tbody td.num,
+.dmgcalc-table tfoot td {
+    font-family: ui-monospace, monospace;
+    text-align: right;
+    white-space: nowrap;
+}
+.dmgcalc-table td.gold  { color: var(--gold);  font-weight: 800; }
+.dmgcalc-table td.green { color: var(--green); font-weight: 800; }
+.dmgcalc-gun-name { font-weight: 700; color: var(--text); word-break: break-word; }
+.dmgcalc-table tfoot .dmgcalc-foot td {
+    padding: 12px 14px;
+    background: linear-gradient(90deg, rgba(255,212,121,.08), rgba(110,231,167,.05));
+    font-weight: 800;
+    color: var(--text);
+    border-top: 2px solid var(--border);
+}
+.dmgcalc-table tfoot .dmgcalc-foot td:first-child {
+    text-transform: uppercase;
+    font-size: 12px;
+    letter-spacing: .5px;
+    color: var(--gold);
+    text-align: left;
+}
+.dmgcalc-note {
+    margin-top: 12px;
+    padding: 10px 14px;
+    font-size: 12.5px;
+    color: var(--muted);
+    font-style: italic;
+    background: var(--panel-2);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+}

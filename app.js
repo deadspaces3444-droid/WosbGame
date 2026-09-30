@@ -1,9 +1,9 @@
 import { supabase } from './supabase.js';
 
-console.log('🚀 app.js v3.1.0 (part 1)');
+console.log('🚀 app.js v3.2.0 (part 1)');
 
 const ADMIN_EMAILS_FALLBACK = ['dead_antihrist@mail.ru'];
-const APP_VERSION = '3.1.0';
+const APP_VERSION = '3.2.0';
 const BINDING_OWNERS = ['kolibri@wosb.ru', 'dead_antihrist@mail.ru'];
 
 const CLAN_FLAGS = {
@@ -185,6 +185,10 @@ let editingClanCardId = null;
 let editingClanAwardId = null;
 let clanCardIconData = null;
 let clanAwardIconData = null;
+
+/* --- v3.2: симулятор ПВП --- */
+let pvpsim3dInstance = null;
+let pvpsim3dReady = false;
 
 const $ = id => document.getElementById(id);
 function on(id, event, handler, opts) {
@@ -1647,7 +1651,6 @@ function openAdminPage() {
 on('adminPanelBtn', 'click', openAdminPage);
 on('adminPanelBtn2', 'click', openAdminPage);
 on('adminPanelBtn3', 'click', openAdminPage);
-
 /* ============ АДМИН: ОНЛАЙН ============ */
 async function renderAdminOnlineList() {
     const container = $('adminOnlineList'); if (!container) return;
@@ -2300,6 +2303,7 @@ async function deleteBuild(id, type) {
     await logAdminAction(`Удалил билд ${type.toUpperCase()}`, null, `id: ${id}`);
     renderBuilds(type);
 }
+
 /* ============ СОБЫТИЯ ============ */
 async function renderEvents() {
     if (!currentClan) return;
@@ -3585,7 +3589,6 @@ on('tacAddBtn', 'click', async () => {
     flashStatusEl(statusEl, '✔ Добавлено', '#6ee7a7');
     await loadTactics();
 });
-
 /* ============================================================
    КАТАЛОГ БИЛДОВ + ИМПОРТ
    ============================================================ */
@@ -5668,7 +5671,6 @@ document.querySelectorAll('#moveModal [data-target]').forEach(btn => {
         loadList(fromTab); loadList(toTab);
     });
 });
-
 /* ============ #build / ПРОФИЛЬ / УВЕДОМЛЕНИЯ ============ */
 async function handleBuildHash() {
     const m = location.hash.match(/^#build=([a-f0-9-]+)$/i); if (!m) return;
@@ -6762,6 +6764,7 @@ async function renderBuildCompareTable() {
     html += '</tbody></table>';
     return html;
 }
+
 /* ============================================================
    ХЭШ-РОУТИНГ
 ============================================================ */
@@ -7086,7 +7089,6 @@ function attachBuildCompareChecks() {
 function findBuildInCacheByShipAndType(shipName, type) {
     return (_lastBuildsByType[type] || []).find(b => b.ship_name === shipName);
 }
-
 /* ============================================================
    v3.0 — КАРТОЧКИ ГИЛЬДИЙ (ЧИНЫ / ДОЛЖНОСТИ)
 ============================================================ */
@@ -8323,8 +8325,9 @@ document.addEventListener('keydown', e => {
         if (m && !m.hidden) closeCatalogPicker();
     }
 });
+
 /* ============================================================
-   v3.1 — СИМУЛЯТОР ПВП-ВЫСТРЕЛА
+   v3.2 — СИМУЛЯТОР ПВП-ВЫСТРЕЛА (3D + ВЕТЕР)
 ============================================================ */
 const PVP_ZONES = {
     bow:            { label: 'Нос',         icon: '⬆️', color: '#0ea5e9', mult: 0.60, hint: 'снаряд часто рикошетит' },
@@ -8336,12 +8339,50 @@ const PVP_ZONES = {
 };
 let pvpsimLastHit = null;
 
-function initPvpSimulator() {
-    const svg = $('pvpsimSvg');
-    if (!svg || svg.dataset.ready === '1') return;
-    svg.dataset.ready = '1';
+/* Кривая зависимости хода от курсового угла к ветру.
+   0° = в лоб, 180° = фордевинд. */
+function windSpeedFactor(angleDeg) {
+    const anchors = [[0, 0.35], [45, 0.70], [90, 1.00], [135, 1.05], [180, 0.85]];
+    if (angleDeg <= 0)   return anchors[0][1];
+    if (angleDeg >= 180) return anchors[4][1];
+    for (let i = 0; i < anchors.length - 1; i++) {
+        const [a1, v1] = anchors[i];
+        const [a2, v2] = anchors[i + 1];
+        if (angleDeg >= a1 && angleDeg <= a2) {
+            const t = (angleDeg - a1) / (a2 - a1);
+            return v1 + (v2 - v1) * t;
+        }
+    }
+    return 1.0;
+}
+function beaufortFactor(b) {
+    if (b <= 1) return 0.55;
+    if (b <= 3) return 0.85;
+    if (b <= 5) return 1.00;
+    if (b <= 7) return 1.12;
+    return 1.05;
+}
+function beaufortName(b) {
+    if (b <= 1) return 'штиль';
+    if (b <= 3) return 'лёгкий';
+    if (b <= 5) return 'умеренный';
+    if (b <= 7) return 'свежий';
+    return 'шторм';
+}
+function windRumb(deg) {
+    const r = ['С','СВ','В','ЮВ','Ю','ЮЗ','З','СЗ'];
+    return r[Math.round((((deg % 360) + 360) % 360) / 45) % 8];
+}
 
-    // Список кораблей-целей
+async function initPvpSimulator() {
+    if (pvpsim3dReady) {
+        updateWindLabels();
+        fillPvpSimConsumables();
+        return;
+    }
+    pvpsim3dReady = true;
+
+    /* --- Селект кораблей-целей --- */
     const shipSel = $('pvpsimTargetShip');
     if (shipSel) {
         shipSel.innerHTML = '<option value="">— Без корабля —</option>';
@@ -8351,14 +8392,15 @@ function initPvpSimulator() {
             o.textContent = `${ROMAN[s.level] || s.level} · ${s.name}`;
             o.dataset.armor = s.armor || 0;
             o.dataset.durability = s.durability || 0;
+            o.dataset.speed = s.speed || 0;
             shipSel.appendChild(o);
         });
     }
 
-    // Список снарядов
+    /* --- Селект снарядов --- */
     const ammoSel = $('pvpsimAmmo');
     if (ammoSel) {
-        ammoSel.innerHTML = '<option value="">— По умолчанию —</option>';
+        ammoSel.innerHTML = '<option value="">— По умолчанию (Чугунные) —</option>';
         buildItemsCache
             .filter(x => x.type === 'shell' && x.is_active !== false)
             .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
@@ -8366,145 +8408,201 @@ function initPvpSimulator() {
                 const o = document.createElement('option');
                 o.value = x.name;
                 o.textContent = x.name;
-                o.dataset.mult = '1.0';
                 ammoSel.appendChild(o);
             });
     }
 
-    // Расходники (чекбоксы)
-    const consWrap = $('pvpsimConsumables');
-    if (consWrap) {
-        consWrap.innerHTML = '';
-        const consumables = buildItemsCache
-            .filter(x => x.type === 'consumable' && x.is_active !== false)
-            .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-        if (!consumables.length) {
-            consWrap.innerHTML = '<span style="font-size:12px;color:var(--muted);padding:6px;">Нет расходников в каталоге</span>';
-        } else {
-            consumables.forEach(c => {
-                const lbl = document.createElement('label');
-                lbl.className = 'pvpsim-cons-item';
-                lbl.innerHTML = `
-                    <input type="checkbox" data-name="${escapeHtml(c.name)}">
-                    <span>🧪 ${escapeHtml(c.name)}</span>
-                    <span class="pvpsim-cons-mult">×1.10</span>`;
-                consWrap.appendChild(lbl);
+    fillPvpSimConsumables();
+
+    /* --- Загружаем 3D-модуль --- */
+    const container = $('pvpsim3dContainer');
+    if (container) {
+        try {
+            const mod = await import('./pvpsim3d.js');
+            pvpsim3dInstance = mod.initPvpSim3D(container, {
+                onHit: (zone, point) => {
+                    pvpsimLastHit = { zone, point };
+                    const hint = $('pvpsimHitHint');
+                    if (hint && PVP_ZONES[zone]) {
+                        hint.textContent = '🎯 ' + PVP_ZONES[zone].icon + ' ' + PVP_ZONES[zone].label;
+                    }
+                }
             });
+        } catch (e) {
+            console.error('pvpsim3d load error:', e);
+            container.innerHTML = '<div class="pvpsim-3d-fallback">⚠️ Не удалось загрузить 3D (нет интернета или WebGL).</div>';
         }
     }
 
-    // Слайдер вращения корабля
+    /* --- Вращение корабля --- */
     on('pvpsimRotation', 'input', e => {
         const deg = parseInt(e.target.value) || 0;
-        const grp = $('pvpsimShipGroup');
-        if (grp) grp.setAttribute('transform', `rotate(${deg})`);
         const lbl = $('pvpsimRotationLabel');
         if (lbl) lbl.textContent = deg + '°';
+        if (pvpsim3dInstance) pvpsim3dInstance.setRotation(deg);
     });
 
-    // Кнопка ВЫСТРЕЛ
-    on('pvpsimFire', 'click', () => {
-        if (!pvpsimLastHit) {
-            alert('Сначала кликни по кораблю — выбери точку попадания');
-            return;
-        }
-        firePvpSimulator();
+    /* --- Ветер и курс --- */
+    ['pvpsimWindDir','pvpsimWindForce','pvpsimTargetCourse','pvpsimTargetSpeed','pvpsimDistance'].forEach(id => {
+        on(id, 'input', updateWindLabels);
+        on(id, 'change', updateWindLabels);
     });
 
-    // Клик по зоне на корабле
-    svg.addEventListener('click', e => {
-        const zoneEl = e.target.closest('[data-zone]');
-        if (!zoneEl) return;
-        const zone = zoneEl.dataset.zone;
-        if (!PVP_ZONES[zone]) return;
-
-        const shipGroup = $('pvpsimShipGroup');
-        const pt = svg.createSVGPoint();
-        pt.x = e.clientX;
-        pt.y = e.clientY;
-        const ctm = shipGroup.getScreenCTM();
-        if (!ctm) return;
-        const groupPt = pt.matrixTransform(ctm.inverse());
-
-        const mark = $('pvpsimHitMark');
-        if (mark) {
-            mark.hidden = false;
-            mark.setAttribute('transform', `translate(${groupPt.x.toFixed(1)}, ${groupPt.y.toFixed(1)})`);
+    /* --- Смена цели: автозаполняем скорость --- */
+    on('pvpsimTargetShip', 'change', e => {
+        const opt = e.target.selectedOptions[0];
+        if (opt && opt.dataset.speed) {
+            const s = $('pvpsimTargetSpeed');
+            if (s) s.value = opt.dataset.speed;
         }
+        if (pvpsim3dInstance && opt && opt.value) {
+            pvpsim3dInstance.setShip({ name: opt.value });
+        }
+        updateWindLabels();
+    });
 
-        pvpsimLastHit = { zone, x: groupPt.x, y: groupPt.y };
+    /* --- Огонь --- */
+    on('pvpsimFire', 'click', firePvpSimulator);
+
+    updateWindLabels();
+}
+
+function fillPvpSimConsumables() {
+    const wrap = $('pvpsimConsumables');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    const consumables = buildItemsCache
+        .filter(x => x.type === 'consumable' && x.is_active !== false)
+        .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    if (!consumables.length) {
+        wrap.innerHTML = '<span style="font-size:12px;color:var(--muted);padding:6px;">Нет расходников в каталоге</span>';
+        return;
+    }
+    consumables.forEach(c => {
+        const lbl = document.createElement('label');
+        lbl.className = 'pvpsim-cons-item';
+        lbl.innerHTML = `
+            <input type="checkbox" data-name="${escapeHtml(c.name)}">
+            <span>🧪 ${escapeHtml(c.name)}</span>
+            <span class="pvpsim-cons-mult">×1.10</span>`;
+        wrap.appendChild(lbl);
     });
 }
 
+function updateWindLabels() {
+    const windDir   = parseInt(val('pvpsimWindDir'))    || 0;
+    const windF     = parseInt(val('pvpsimWindForce'))  || 0;
+    const course    = parseInt(val('pvpsimTargetCourse')) || 0;
+    const speed     = parseFloat(val('pvpsimTargetSpeed')) || 0;
+    const dist      = parseInt(val('pvpsimDistance'))   || 0;
+
+    const setText = (id, v) => { const el = $(id); if (el) el.textContent = v; };
+    setText('pvpsimWindDirLabel',      windDir + '° ' + windRumb(windDir));
+    setText('pvpsimWindForceLabel',    windF + ' · ' + beaufortName(windF));
+    setText('pvpsimTargetCourseLabel', course + '° ' + windRumb(course));
+    setText('pvpsimTargetSpeedLabel',  speed.toFixed(1) + ' уз');
+    setText('pvpsimDistanceLabel',     dist + ' м');
+
+    const angleToWind = Math.abs(((course - windDir + 540) % 360) - 180);
+    const wc = windSpeedFactor(angleToWind);
+    const bf = beaufortFactor(windF);
+    const effSpeed = speed * wc * bf;
+    const effEl = $('pvpsimEffSpeedLabel');
+    if (effEl) effEl.textContent = effSpeed.toFixed(1) + ' уз (×' + (wc * bf).toFixed(2) + ')';
+}
+
 function firePvpSimulator() {
-    const hit = pvpsimLastHit;
-    if (!hit) return;
+    if (!pvpsimLastHit) {
+        alert('Сначала кликни по кораблю в 3D — выбери точку попадания');
+        return;
+    }
+    const zone = pvpsimLastHit.zone;
+    const zoneInfo = PVP_ZONES[zone];
+    if (!zoneInfo) return;
 
+    /* --- Параметры залпа --- */
     const baseDamage = parseFloat(val('pvpsimBaseDamage')) || 500;
+    const consChecks = document.querySelectorAll('#pvpsimConsumables input[type=checkbox]:checked');
+    const consCount  = consChecks.length;
+    const consMod    = Math.pow(1.10, consCount);
 
-    const ammoSel = $('pvpsimAmmo');
-    const ammoName = ammoSel?.value || '';
-    const ammoMod = 1.0;
-
-    // Расходники
-    const consChecks = document.querySelectorAll('#pvpsimConsumables input[type="checkbox"]:checked');
-    const consCount = consChecks.length;
-    const consMod = Math.pow(1.10, consCount);
-
-    // Угол вращения
-    const rotEl = $('pvpsimRotation');
-    const rotDeg = rotEl ? parseInt(rotEl.value) || 0 : 0;
+    const rotDeg   = parseInt(val('pvpsimRotation')) || 0;
     const angleRad = rotDeg * Math.PI / 180;
     const angleMod = 0.5 + 0.5 * Math.abs(Math.sin(angleRad));
 
-    // Зона попадания
-    const zone = PVP_ZONES[hit.zone];
-    const zoneMult = zone?.mult || 1.0;
+    /* --- Снаряд --- */
+    const ammoName = val('pvpsimAmmo');
+    const ammo = ammoName
+        ? buildItemsCache.find(x => x.type === 'shell' && x.name === ammoName)
+        : buildItemsCache.find(x => x.type === 'shell' && (x.subgroup === 'iron' || x.name === 'Чугунные'));
+    const hullPct    = (ammo?.dmg_hull  ?? 100) / 100;
+    const sailsScore = ammo?.dmg_sails ?? 2;
+    const crewScore  = ammo?.dmg_crew  ?? 2;
+    const rangePct   = (ammo?.range_mod ?? 0) / 100;
 
-    // Броня цели
+    /* --- Ветер + цель --- */
+    const windDir   = parseInt(val('pvpsimWindDir'))     || 0;
+    const windForce = parseInt(val('pvpsimWindForce'))   || 3;
+    const tgtCourse = parseInt(val('pvpsimTargetCourse'))|| 0;
+    const tgtSpeed  = parseFloat(val('pvpsimTargetSpeed')) || 0;
+    const distance  = parseInt(val('pvpsimDistance'))    || 300;
+
+    const angleToWind = Math.abs(((tgtCourse - windDir + 540) % 360) - 180);
+    const windCurve   = windSpeedFactor(angleToWind);
+    const beaufort    = beaufortFactor(windForce);
+    const effSpeed    = tgtSpeed * windCurve * beaufort;
+    const leadError   = Math.min(1, effSpeed * distance / 15000);
+    const leadMod     = 1 - 0.5 * leadError;
+
+    /* --- Броня --- */
     const shipSel = $('pvpsimTargetShip');
-    const shipName = shipSel?.value || '';
     const shipOpt = shipSel?.selectedOptions[0];
     const baseArmor = parseFloat(shipOpt?.dataset.armor) || 0;
+    const effArmor  = baseArmor * (2 - angleMod);
+    const armorAbs  = effArmor / (effArmor + 100);
 
-    // Эффективная броня
-    const effArmor = baseArmor * (2 - angleMod);
+    /* --- Урон: корпус --- */
+    const rangeMult = 1 + rangePct * (distance / 1000);
+    const rawHull   = baseDamage * zoneInfo.mult * angleMod * hullPct * consMod * leadMod * rangeMult;
+    const hullDamage = Math.max(0, rawHull * (1 - armorAbs));
 
-    // Сырой урон до брони
-    const rawDamage = baseDamage * zoneMult * angleMod * ammoMod * consMod;
+    /* --- Урон: паруса --- */
+    const zoneSailsMult = ['bow','stern'].includes(zone) ? 1.00 : 0.35;
+    const sailsDamage = baseDamage * (sailsScore / 3) * consMod * leadMod * zoneSailsMult * 0.7;
 
-    // Поглощение бронёй
-    const armorAbsorption = effArmor / (effArmor + 100);
-    const finalDamage = Math.max(0, rawDamage * (1 - armorAbsorption));
+    /* --- Урон: экипаж --- */
+    const zoneCrewMult = ['superstructure','core'].includes(zone) ? 1.6 : 1.0;
+    const crewDamage = baseDamage * (crewScore / 3) * consMod * zoneCrewMult * 0.5;
 
-    // Показать результат
+    /* --- Вывод --- */
     const setText = (id, txt) => { const el = $(id); if (el) el.textContent = txt; };
-    setText('pvpsimResZone',        zone ? `${zone.icon} ${zone.label}` : '—');
-    setText('pvpsimResAngle',       rotDeg + '°');
-    setText('pvpsimResZoneMod',     '×' + zoneMult.toFixed(2));
-    setText('pvpsimResAngleMod',    '×' + angleMod.toFixed(2));
-    setText('pvpsimResAmmoMod',     '×' + ammoMod.toFixed(2) + (ammoName ? ` (${ammoName})` : ''));
-    setText('pvpsimResConsMod',     '×' + consMod.toFixed(2) + (consCount ? ` (${consCount})` : ''));
-    setText('pvpsimResRaw',         Math.round(rawDamage).toLocaleString('ru-RU'));
-    setText('pvpsimResArmor',       baseArmor || '—');
-    setText('pvpsimResEffArmor',    Math.round(effArmor).toLocaleString('ru-RU'));
-    setText('pvpsimResArmorAbs',    Math.round(armorAbsorption * 100) + '%');
-    setText('pvpsimResFinal',       Math.round(finalDamage).toLocaleString('ru-RU') + ' 💥');
+    setText('pvpsimResHull',  Math.round(hullDamage).toLocaleString('ru-RU'));
+    setText('pvpsimResSails', Math.round(sailsDamage).toLocaleString('ru-RU'));
+    setText('pvpsimResCrew',  Math.round(crewDamage).toLocaleString('ru-RU'));
+
+    setText('pvpsimResZone',      zoneInfo.icon + ' ' + zoneInfo.label);
+    setText('pvpsimResAngle',     rotDeg + '°');
+    setText('pvpsimResZoneMod',   '×' + zoneInfo.mult.toFixed(2));
+    setText('pvpsimResAngleMod',  '×' + angleMod.toFixed(2));
+    setText('pvpsimResAmmoMod',   '×' + hullPct.toFixed(2) + (ammo ? ' (' + ammo.name + ')' : ''));
+    setText('pvpsimResRangeMod',  (rangePct >= 0 ? '+' : '') + Math.round(rangePct * 100) + '%');
+    setText('pvpsimResConsMod',   '×' + consMod.toFixed(2) + (consCount ? ' (' + consCount + ')' : ''));
+    setText('pvpsimResRaw',       Math.round(rawHull).toLocaleString('ru-RU'));
+    setText('pvpsimResArmor',     baseArmor || '—');
+    setText('pvpsimResEffArmor',  Math.round(effArmor).toLocaleString('ru-RU'));
+    setText('pvpsimResArmorAbs',  Math.round(armorAbs * 100) + '%');
+    setText('pvpsimResEffSpeed',  effSpeed.toFixed(1) + ' уз');
+    setText('pvpsimResLead',      '×' + leadMod.toFixed(2) + ' (−' + Math.round(leadError * 100) + '%)');
+    setText('pvpsimResFinal',     Math.round(hullDamage).toLocaleString('ru-RU') + ' 💥');
 
     const res = $('pvpsimResult');
     if (res) res.hidden = false;
 
-    // Анимация маркера
-    const mark = $('pvpsimHitMark');
-    if (mark) {
-        mark.classList.remove('pvpsim-flash');
-        void mark.offsetWidth;
-        mark.classList.add('pvpsim-flash');
-    }
+    if (pvpsim3dInstance) pvpsim3dInstance.fireFlash();
 }
 
 /* ============================================================
-   v3.1 — ФИНАЛЬНЫЙ СТАРТ ПРИЛОЖЕНИЯ
+   v3.2 — ФИНАЛЬНЫЙ СТАРТ ПРИЛОЖЕНИЯ
 ============================================================ */
 (async () => {
     /* Версия в футере */

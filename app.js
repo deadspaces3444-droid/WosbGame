@@ -8429,9 +8429,13 @@ async function initPvpSimulator() {
                 }
             });
         } catch (e) {
-            console.error('pvpsim3d load error:', e);
-            container.innerHTML = '<div class="pvpsim-3d-fallback">⚠️ Не удалось загрузить 3D (нет интернета или WebGL).</div>';
-        }
+    console.error('pvpsim3d load error:', e);
+    const msg = (e && (e.message || e.toString())) || 'неизвестная ошибка';
+    container.innerHTML = `<div class="pvpsim-3d-fallback">
+        ⚠️ Не удалось загрузить 3D.<br>
+        <span style="font-size:11px;opacity:.75;">${escapeHtml(msg)}</span>
+    </div>`;
+}
     }
 
     /* --- Вращение корабля --- */
